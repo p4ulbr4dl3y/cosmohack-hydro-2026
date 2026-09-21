@@ -113,7 +113,7 @@ export const Methodology: React.FC = () => {
               API
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
               target="_blank"
               rel="noreferrer"
               className="text-text-secondary hover:text-text-primary transition-colors py-5"
@@ -263,7 +263,7 @@ export const Methodology: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <a
-              href="https://github.com"
+              href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
               target="_blank"
               rel="noreferrer"
               className="bg-white border border-[#EAECF0] hover:border-[#CBD5E1] rounded-xl p-4 shadow-card flex items-center justify-between text-xs font-medium text-text-primary group transition-all"

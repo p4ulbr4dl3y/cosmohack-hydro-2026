@@ -41,6 +41,14 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
     ? `${report.date_pre_opt} → ${report.date_peak_opt}`
     : 'нет перекрывающей сцены';
 
+  // API returns bare sensor codes ("sentinel1"); render them as readable names.
+  const sensorSar = React.useMemo(() => {
+    const code = (report.sensor_sar || '').toLowerCase().replace(/[-_\s]/g, '');
+    if (code === 'sentinel1') return 'Sentinel-1';
+    if (code === 'sentinel2') return 'Sentinel-2';
+    return report.sensor_sar || 'Sentinel-1';
+  }, [report.sensor_sar]);
+
   return (
     <div
       id="report-printable-area"
@@ -101,7 +109,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
               </span>
               <span className="text-text-secondary">Сенсор</span>
               <span className="font-mono text-text-primary text-right uppercase">
-                {report.sensor_sar || 'Sentinel-1'}
+                {sensorSar}
               </span>
               <span className="text-text-secondary">Поляризации</span>
               <span className="font-mono text-text-primary text-right">VV / VH</span>
@@ -152,8 +160,8 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
               <span className="text-text-secondary">Центр (lat, lon)</span>
               <span className="font-mono text-text-primary text-right">
                 {report.center_4326
-                  ? `${report.center_4326[1].toFixed(4)}° N, ${report.center_4326[0].toFixed(4)}° E`
-                  : '52.0345° N, 127.5432° E'}
+                  ? `${report.center_4326[0].toFixed(4)}° N, ${report.center_4326[1].toFixed(4)}° E`
+                  : '—'}
               </span>
             </div>
           </div>
@@ -511,7 +519,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
             <div>
               <span className="font-semibold text-text-primary">Оптика:</span>{' '}
-              MNDWI &gt; 0,1, NDWI &gt; 0,15, NDVI ≤ 0,2, AWEIsh &gt; 0.
+              MNDWI &gt; 0,1 или AWEIsh &gt; 0 при NDVI ≤ 0,3.
             </div>
             <div>
               <span className="font-semibold text-text-primary">Фильтры:</span>{' '}

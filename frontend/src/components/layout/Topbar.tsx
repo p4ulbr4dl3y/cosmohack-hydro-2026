@@ -12,7 +12,7 @@ interface TopbarProps {
 
 export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false }) => {
   const [recomputing, setRecomputing] = useState(false);
-  const [recomputeSuccess, setRecomputeSuccess] = useState(false);
+  const [recomputeSeconds, setRecomputeSeconds] = useState<number | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { activePairId } = useUiStore();
   const location = useLocation();
@@ -22,10 +22,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
   const handleRecompute = async () => {
     setRecomputing(true);
     try {
-      await apiClient.recompute();
-      setRecomputeSuccess(true);
+      const result = await apiClient.recompute();
+      setRecomputeSeconds(result.processing_time_sec ?? null);
       if (onRefresh) onRefresh();
-      setTimeout(() => setRecomputeSuccess(false), 3000);
+      setTimeout(() => setRecomputeSeconds(null), 3000);
     } catch (e) {
       console.error(e);
     } finally {
@@ -71,10 +71,10 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
 
       {/* Actions */}
       <div className="flex items-center gap-2 sm:gap-3">
-        {recomputeSuccess && (
+        {recomputeSeconds !== null && (
           <div className="hidden sm:flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 animate-in fade-in duration-200">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Пересчитано (12,4 с)</span>
+            <span className="hidden md:inline">Пересчитано ({recomputeSeconds} с)</span>
           </div>
         )}
 

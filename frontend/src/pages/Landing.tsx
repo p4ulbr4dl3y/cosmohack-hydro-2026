@@ -58,7 +58,7 @@ export const Landing: React.FC = () => {
               API
             </Link>
             <a
-              href="https://github.com"
+              href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
               target="_blank"
               rel="noreferrer"
               className="text-text-secondary hover:text-text-primary transition-colors py-5"
@@ -113,7 +113,7 @@ export const Landing: React.FC = () => {
                 <span>REST API Документация</span>
               </Link>
               <a
-                href="https://github.com"
+                href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs font-medium text-text-secondary hover:bg-slate-50 hover:text-text-primary transition-colors"
@@ -336,7 +336,7 @@ export const Landing: React.FC = () => {
 
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com"
+              href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
               target="_blank"
               rel="noreferrer"
               className="text-text-secondary hover:text-text-primary transition-colors"

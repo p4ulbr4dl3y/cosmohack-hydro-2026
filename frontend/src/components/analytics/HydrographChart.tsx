@@ -12,31 +12,67 @@ import {
 interface HydrographChartProps {
   datePre?: string;
   datePeak?: string;
+  waterPreHa?: number;
+  waterPeakHa?: number;
 }
 
-export const HydrographChart: React.FC<HydrographChartProps> = () => {
-  const data = [
-    { date: '12.07', pre: 3200, peak: 4500 },
-    { date: '13.07', pre: 7800, peak: 11200 },
-    { date: '14.07', pre: 9600, peak: 14800 },
-    { date: '15.07', pre: 8500, peak: 10400 },
-  ];
+function shortDate(iso?: string): string | null {
+  if (!iso) return null;
+  const [, month, day] = iso.split('-');
+  if (!month || !day) return null;
+  return `${day}.${month}`;
+}
+
+function daysBetween(pre?: string, peak?: string): number | null {
+  if (!pre || !peak) return null;
+  const start = new Date(pre).getTime();
+  const end = new Date(peak).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return Math.round((end - start) / 86_400_000);
+}
+
+export const HydrographChart: React.FC<HydrographChartProps> = ({
+  datePre,
+  datePeak,
+  waterPreHa,
+  waterPeakHa,
+}) => {
+  const preLabel = shortDate(datePre) ?? 'до';
+  const peakLabel = shortDate(datePeak) ?? 'пик';
+  const delta = daysBetween(datePre, datePeak);
+
+  // Only real SAR water extents are plotted; no synthetic interpolation.
+  const data = React.useMemo(() => {
+    const points: Array<{ date: string; water: number }> = [];
+    if (typeof waterPreHa === 'number') points.push({ date: preLabel, water: waterPreHa });
+    if (typeof waterPeakHa === 'number') points.push({ date: peakLabel, water: waterPeakHa });
+    return points;
+  }, [preLabel, peakLabel, waterPreHa, waterPeakHa]);
+
+  if (data.length < 2) {
+    return (
+      <div className="bg-white border border-[#EAECF0] rounded-xl p-4 shadow-card">
+        <div className="text-xs font-semibold text-text-primary mb-2">Гидрограф</div>
+        <div className="h-28 w-full flex items-center justify-center text-[11px] text-text-muted">
+          Недостаточно данных для построения гидрографа
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white border border-[#EAECF0] rounded-xl p-4 shadow-card">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-text-primary">Гидрограф</span>
-        <span className="text-[11px] text-text-muted font-mono">Δt S1↔S2 = 2 суток</span>
+        {delta !== null && (
+          <span className="text-[11px] text-text-muted font-mono">SAR: {delta} суток</span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-[11px] text-text-secondary mb-3">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-[#60A5FA]" />
-          <span>pre</span>
-        </div>
-        <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
-          <span>peak</span>
+          <span>водное зеркало, га</span>
         </div>
       </div>
 
@@ -54,9 +90,11 @@ export const HydrographChart: React.FC<HydrographChartProps> = () => {
               tick={{ fontSize: 10, fill: '#94A3B8' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => (v === 0 ? '0' : `${v / 1000}k`)}
+              domain={['auto', 'auto']}
+              tickFormatter={(v) => (v === 0 ? '0' : `${Math.round(v / 1000)}k`)}
             />
             <Tooltip
+              formatter={(v: number) => [`${v.toLocaleString('ru-RU')} га`, 'зеркало']}
               contentStyle={{
                 backgroundColor: '#0F172A',
                 borderRadius: '6px',
@@ -67,14 +105,7 @@ export const HydrographChart: React.FC<HydrographChartProps> = () => {
             />
             <Line
               type="monotone"
-              dataKey="pre"
-              stroke="#60A5FA"
-              strokeWidth={2}
-              dot={{ r: 3, fill: '#60A5FA' }}
-            />
-            <Line
-              type="monotone"
-              dataKey="peak"
+              dataKey="water"
               stroke="#06B6D4"
               strokeWidth={2}
               dot={{ r: 3, fill: '#06B6D4' }}

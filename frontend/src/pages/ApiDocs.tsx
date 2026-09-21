@@ -281,10 +281,15 @@ export const ENDPOINTS: EndpointDef[] = [
         event_name: 'Паводок в Приамурье, июль 2019',
         event_kind: 'rain_flood',
         year: 2019,
+        sensor_sar: 'sentinel1',
+        sensor_optical: '',
         date_pre_sar: '2019-06-13',
         date_peak_sar: '2019-07-25',
+        date_pre_opt: '',
+        date_peak_opt: '',
         aoi_km2: 1649.168,
         aoi_ha: 164916.8,
+        generated_at: '2026-09-21T20:21:00+00:00',
         flood_ha: 996.37,
         flood_km2: 9.964,
         water_pre_ha: 8913.3,
@@ -778,7 +783,7 @@ export const ApiDocs: React.FC = () => {
           </Link>
           <span className="text-[#0EA5E9] font-semibold">Документация API</span>
           <a
-            href="https://github.com"
+            href="https://github.com/p4ulbr4dl3y/cosmohack-hydro-2026"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 hover:text-text-primary transition-colors"

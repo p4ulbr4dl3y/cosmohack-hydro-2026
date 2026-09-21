@@ -31,7 +31,7 @@ const mockReport: ReportData = {
   water_pre_share_pct: 3.8,
   metrics_source: 'consensus',
   bounds_4326: [127.2, 50.1, 127.8, 50.5],
-  center_4326: [127.5, 50.3],
+  center_4326: [50.3, 127.5],
 };
 
 const mockLandcover: LandcoverBreakdown = {

@@ -294,6 +294,8 @@ export const Dashboard: React.FC = () => {
           <HydrographChart
             datePre={currentPair?.date_pre_sar}
             datePeak={currentPair?.date_peak_sar}
+            waterPreHa={currentReport?.water_pre_ha}
+            waterPeakHa={currentReport?.water_peak_ha}
           />
 
           {/* Action Buttons */}
@@ -395,7 +397,7 @@ export const Dashboard: React.FC = () => {
       <footer className="hidden lg:flex h-7 bg-white border-t border-border px-4 items-center justify-between text-[11px] text-text-muted shrink-0 select-none z-30">
         <div>Последнее обновление: {currentReport?.generated_at ? new Date(currentReport.generated_at).toLocaleString('ru-RU') : '—'}</div>
         <div className="hidden sm:block">
-          Обработка: 12,4 с · Память: 1,8 ГБ
+          Событие: {currentPair?.event_name || '—'}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
