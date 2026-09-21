@@ -106,6 +106,23 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                 f"  Natural flood: {lc.get('natural_vegetation_ha', 0.0):.2f} ha ({lc.get('natural_vegetation_pct', 0.0):.1f}%)"
             )
             print(f"  Mean HAND: {lc.get('mean_hand_m', 0.0):.2f} m")
+            depth = r.get("depth_statistics", {})
+            if (
+                depth
+                and depth.get("low_risk_ha", 0.0) + depth.get("medium_risk_ha", 0.0) + depth.get("high_risk_ha", 0.0)
+                > 0
+            ):
+                print(
+                    f"  MCHS Traversability Risk: Low (<0.5m): {depth.get('low_risk_ha', 0.0):.1f} ha ({depth.get('low_risk_pct', 0.0):.1f}%) | "
+                    f"Med (0.5-1.5m): {depth.get('medium_risk_ha', 0.0):.1f} ha ({depth.get('medium_risk_pct', 0.0):.1f}%) | "
+                    f"High (>1.5m): {depth.get('high_risk_ha', 0.0):.1f} ha ({depth.get('high_risk_pct', 0.0):.1f}%)"
+                )
+            gauge = r.get("gauge_status")
+            if gauge:
+                print(
+                    f"  Gauge ({gauge.get('station_name', '')} / {gauge.get('river', '')}): "
+                    f"{gauge.get('observed_level_cm')} cm (NPU: {gauge.get('npu_cm')} cm, OYA: {gauge.get('oya_cm')} cm) -> Stage: {gauge.get('stage_risk')}"
+                )
         print("=" * 60)
 
 

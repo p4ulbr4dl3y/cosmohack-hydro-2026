@@ -33,6 +33,47 @@ class LandcoverDistribution(BaseModel):
     )
 
 
+class DepthStatistics(BaseModel):
+    """Water depth and MCHS vehicle traversability risk breakdown."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    low_risk_ha: float = Field(
+        default=0.0, description="Flood area with depth < 0.5 m (regular trucks / KamAZ accessible)"
+    )
+    low_risk_pct: float = Field(default=0.0, description="Percentage of flood area in low risk class")
+    medium_risk_ha: float = Field(
+        default=0.0, description="Flood area with depth 0.5 - 1.5 m (PTS-M tracked amphibious transporters only)"
+    )
+    medium_risk_pct: float = Field(default=0.0, description="Percentage of flood area in medium risk class")
+    high_risk_ha: float = Field(
+        default=0.0, description="Flood area with depth > 1.5 m (boats, water rescue crafts only)"
+    )
+    high_risk_pct: float = Field(default=0.0, description="Percentage of flood area in high risk class")
+    mean_depth_m: float = Field(default=0.0, description="Mean water depth across flooded area (meters)")
+    max_depth_m: float = Field(default=0.0, description="Maximum estimated water depth in flooded area (meters)")
+    mchs_traversability: dict[str, str] = Field(
+        default_factory=dict, description="Human-readable MCHS vehicle classification descriptions"
+    )
+
+
+class GaugeStatus(BaseModel):
+    """Hydrological station gauge status and water levels relative to critical marks."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    station_id: str = Field(description="Rosgidromet observation station code")
+    station_name: str = Field(description="Station name / settlement")
+    river: str = Field(description="Monitored river name")
+    observed_level_cm: float = Field(description="Observed / peak water level in cm")
+    npu_cm: float = Field(description="Normal Pool Level / Floodplain benchmark (НПУ) in cm")
+    nya_cm: float = Field(description="Adverse phenomenon level (НЯ) in cm")
+    oya_cm: float = Field(description="Hazardous phenomenon level (ОЯ) in cm")
+    exceeds_npu: bool = Field(description="True if water level reached or exceeded NPU")
+    exceeds_oya: bool = Field(description="True if water level reached or exceeded hazardous OYA level")
+    stage_risk: str = Field(description="Risk stage: normal, floodplain_npu, warning_nya, danger_oya")
+
+
 class PairInfo(BaseModel):
     """Metadata passport for an AOI monitoring pair."""
 
@@ -99,6 +140,12 @@ class ReportResponse(BaseModel):
     flood_share_pct: float = Field(description="Flood area percentage of entire AOI")
     generated_at: str = Field(default="", description="UTC timestamp when the report was generated")
     landcover: LandcoverDistribution = Field(description="Vulnerability and landcover breakdown")
+    depth_statistics: DepthStatistics = Field(
+        default_factory=DepthStatistics, description="Water depth and MCHS vehicle traversability risk statistics"
+    )
+    gauge_status: GaugeStatus | None = Field(
+        default=None, description="Hydrological station water level benchmark and danger stage"
+    )
 
 
 class PredictSummary(BaseModel):
@@ -116,6 +163,12 @@ class PredictSummary(BaseModel):
     share_of_aoi: float = Field(default=0.0, description="Inundated fraction of AOI")
     landcover: LandcoverDistribution | dict[str, Any] = Field(
         default_factory=dict, description="Landcover breakdown in flood zone"
+    )
+    depth_statistics: DepthStatistics | dict[str, Any] = Field(
+        default_factory=dict, description="Water depth and MCHS vehicle traversability risk statistics"
+    )
+    gauge_status: GaugeStatus | dict[str, Any] | None = Field(
+        default=None, description="Hydrological station gauge status"
     )
 
 
@@ -181,3 +234,69 @@ class PredictRequest(BaseModel):
     date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
     date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
     task_id: str | None = Field(default=None, description="Optional asynchronous tracking task identifier")
+
+
+class DepthRiskZone(BaseModel):
+    """Statistical breakdown of flood risk zone by depth and terrain HAND."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    depth_range: str = Field(description="Depth and terrain HAND criteria")
+    area_ha: float = Field(description="Flooded area in hectares in this depth category")
+    share_pct: float = Field(description="Percentage share of total flood area")
+    description: str = Field(description="Operational impact and vehicle access description")
+
+
+class DepthRiskBreakdown(BaseModel):
+    """Risk breakdown across high, moderate, and low depth tiers."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    high_risk: DepthRiskZone = Field(description="High risk zone (> 1.5 m water depth)")
+    moderate_risk: DepthRiskZone = Field(description="Moderate risk zone (0.5 - 1.5 m water depth)")
+    low_risk: DepthRiskZone = Field(description="Low risk zone (< 0.5 m water depth)")
+
+
+class TransportInfrastructureRisk(BaseModel):
+    """Estimated transport network cut-off and isolation risk."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cutoff_segments_count: int = Field(description="Estimated number of cut-off / submerged road segments")
+    estimated_cutoff_km: float = Field(description="Estimated linear length of submerged road segments in km")
+    risk_level: str = Field(description="Risk level classification: критический, высокий, умеренный, штатный")
+    description: str = Field(description="Operational assessment and traffic impact summary")
+
+
+class MchsDispatchResponse(BaseModel):
+    """Official MCHS operational emergency field dispatch conforming to EMERCOM standards."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    document_header: str = Field(description="Formal official document header")
+    form_code: str = Field(description="Russian EMERCOM report form code (e.g. 1/ЧС)")
+    department: str = Field(description="Supervising EMERCOM department and crisis management center")
+    dispatch_id: str = Field(description="Unique dispatch identifier")
+    pair_id: str = Field(description="Monitored pair identifier")
+    timestamp_utc: str = Field(description="Report generation timestamp in UTC")
+    status: str = Field(description="Operational emergency status")
+    event_type: str = Field(description="Emergency event type and classification")
+    event_id: str = Field(description="Event identifier code")
+    event_name: str = Field(description="Descriptive event name")
+    aoi_id: str = Field(description="Area of interest code")
+    aoi_name: str = Field(description="Area of interest name")
+    date_peak: str = Field(description="Peak observation date (YYYY-MM-DD)")
+    date_pre: str = Field(description="Pre-event baseline observation date (YYYY-MM-DD)")
+    affected_municipalities: list[str] = Field(description="List of affected municipal districts / urban okrugs")
+    flooded_total_ha: float = Field(description="Total flooded area in hectares")
+    flooded_total_km2: float = Field(description="Total flooded area in square kilometers")
+    flooded_builtup_area_ha: float = Field(description="Flooded built-up / residential area in hectares")
+    flooded_builtup_ha: float = Field(description="Alias for flooded built-up area in hectares")
+    flooded_cropland_area_ha: float = Field(description="Flooded agricultural / cropland area in hectares")
+    flooded_cropland_ha: float = Field(description="Alias for flooded cropland area in hectares")
+    flooded_natural_ha: float = Field(description="Flooded natural / floodplain land in hectares")
+    estimated_cutoff_transport_segments: int = Field(description="Estimated number of cut-off transport segments")
+    transport_infrastructure: TransportInfrastructureRisk = Field(description="Transport infrastructure risk detail")
+    depth_risk_breakdown: DepthRiskBreakdown = Field(description="Water depth risk breakdown")
+    operational_summary: str = Field(description="Executive operational summary")
+    recommended_actions: list[str] = Field(description="List of prioritized emergency response actions")

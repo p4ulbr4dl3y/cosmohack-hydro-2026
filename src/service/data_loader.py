@@ -20,7 +20,10 @@ from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
 from shapely.geometry import box, mapping, shape
 
+from hydrowatch_amur.tables.hydro_gauges import get_gauge_status
 from src.config import HydroConfig
+from src.depth import classify_depth_risk, estimate_water_depth
+from src.service.mchs_report import build_mchs_dispatch
 from src.temporal import compute_receded_ha
 
 logger = logging.getLogger(__name__)
@@ -174,6 +177,10 @@ class DataLoader:
         if pair_meta:
             data.setdefault("sensor_sar", pair_meta.get("sensor_sar", ""))
             data.setdefault("sensor_optical", pair_meta.get("sensor_optical", ""))
+            if "gauge_status" not in data:
+                data["gauge_status"] = get_gauge_status(pair_meta["aoi_id"], pair_meta["event_id"])
+        if "depth_statistics" not in data:
+            data["depth_statistics"] = classify_depth_risk(np.array([], dtype=np.float32))
         if not data.get("generated_at"):
             mtime = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=UTC)
             data["generated_at"] = mtime.isoformat(timespec="seconds")
@@ -299,6 +306,7 @@ class DataLoader:
         hist_pct = 0.0
         new_pct = 100.0
         permanent_ha = 0.0
+        depth_stats = classify_depth_risk(np.array([], dtype=np.float32))
 
         if target_flood_tif and target_flood_tif.exists() and aux_tif.exists():
             with rasterio.open(target_flood_tif) as ref:
@@ -404,6 +412,10 @@ class DataLoader:
                 valid_hand = valid_hand[np.isfinite(valid_hand) & (valid_hand >= 0)]
                 mean_hand = round(float(np.mean(valid_hand)), 2) if len(valid_hand) > 0 else 0.0
 
+                # Water depth estimation and MCHS risk classification
+                water_depth = estimate_water_depth(flood_mask=flood_pts, elevation=hand)
+                depth_stats = classify_depth_risk(depth=water_depth, flood_mask=flood_pts, px_ha=px_ha)
+
             # Permanent water from GSW occurrence >= 80% (standard hydrological baseline)
             perm_pts = (occurrence >= 80.0) & np.isfinite(occurrence)
             if inside is not None:
@@ -495,6 +507,8 @@ class DataLoader:
                 "mean_hand_m": mean_hand,
                 "source": "ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4",
             },
+            "depth_statistics": depth_stats,
+            "gauge_status": get_gauge_status(pair_meta["aoi_id"], pair_meta["event_id"]),
         }
 
         if cache_file is not None:
@@ -655,7 +669,11 @@ class DataLoader:
         }, round(total_ha, 2)
 
     def get_shapefile_zip(self, pair_id: str, layer: str = "flood") -> bytes | None:
-        """Export layer polygons as a zipped ESRI Shapefile archive."""
+        """Export layer polygons as a zipped ESRI Shapefile archive.
+
+        Guarantees standard ESRI Shapefile components (.shp, .shx, .dbf, .prj)
+        with required attributes: feature_id, class, area_ha, date_peak, crs.
+        """
         import io
         import tempfile
         import zipfile
@@ -664,11 +682,44 @@ class DataLoader:
         if geojson is None:
             return None
 
+        pair_meta = self.get_pair_meta(pair_id) or {}
+        date_peak = str(pair_meta.get("date_peak_sar", ""))
+
         features = geojson.get("features", [])
         if not features:
-            gdf = gpd.GeoDataFrame(columns=["area_ha", "pair_id", "layer", "geometry"], crs="EPSG:4326")
+            gdf = gpd.GeoDataFrame(
+                {
+                    "feature_id": pd.Series(dtype="str"),
+                    "class": pd.Series(dtype="str"),
+                    "area_ha": pd.Series(dtype="float"),
+                    "date_peak": pd.Series(dtype="str"),
+                    "crs": pd.Series(dtype="str"),
+                    "geometry": pd.Series(dtype="geometry"),
+                },
+                crs="EPSG:4326",
+            )
         else:
             gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+            if "contour_id" in gdf.columns:
+                gdf["feature_id"] = gdf["contour_id"].astype(str)
+            elif "feature_id" not in gdf.columns:
+                gdf["feature_id"] = [f"{layer}_{i + 1:04d}" for i in range(len(gdf))]
+
+            gdf["class"] = layer
+            if "area_ha" not in gdf.columns:
+                gdf["area_ha"] = 0.0
+            else:
+                gdf["area_ha"] = gdf["area_ha"].astype(float).round(2)
+
+            if "date_peak" not in gdf.columns or gdf["date_peak"].isnull().all():
+                gdf["date_peak"] = date_peak
+            else:
+                gdf["date_peak"] = gdf["date_peak"].fillna(date_peak).astype(str)
+
+            gdf["crs"] = "EPSG:4326"
+
+            export_cols = ["feature_id", "class", "area_ha", "date_peak", "crs", "geometry"]
+            gdf = gdf[export_cols]
 
         buf = io.BytesIO()
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -676,10 +727,17 @@ class DataLoader:
             shp_path = Path(tmpdir) / f"{shp_base}.shp"
             gdf.to_file(shp_path, driver="ESRI Shapefile", encoding="utf-8")
             with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-                for file_path in Path(tmpdir).iterdir():
+                for file_path in sorted(Path(tmpdir).iterdir()):
                     zf.write(file_path, arcname=file_path.name)
 
         return buf.getvalue()
+
+    def get_mchs_dispatch(self, pair_id: str) -> dict[str, Any] | None:
+        """Official operational field report conforming to EMERCOM / MCHS RF standards."""
+        report = self.get_report(pair_id)
+        if not report:
+            return None
+        return build_mchs_dispatch(report)
 
     def predict_spatial_temporal(
         self,
@@ -765,6 +823,8 @@ class DataLoader:
                 "receded_ha": report["receded_ha"],
                 "share_of_aoi": report["share_of_aoi"],
                 "landcover": report["landcover"],
+                "depth_statistics": report.get("depth_statistics", {}),
+                "gauge_status": report.get("gauge_status"),
             },
             "metadata": {
                 "aoi_id": report["aoi_id"],

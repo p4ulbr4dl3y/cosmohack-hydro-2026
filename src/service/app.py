@@ -23,7 +23,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.service.data_loader import data_loader
+from src.service.mchs_report import render_mchs_html
 from src.service.schemas import (
+    MchsDispatchResponse,
     PairsListResponse,
     PredictionTaskResponse,
     PredictRequest,
@@ -159,6 +161,27 @@ async def get_report_csv(pair_id: str) -> Response:
     )
 
 
+@app.get(
+    "/api/v1/report/{pair_id}/mchs-dispatch",
+    response_model=MchsDispatchResponse,
+    summary="Get official EMERCOM / MCHS operational field report",
+)
+async def get_mchs_dispatch_endpoint(
+    pair_id: str,
+    format: str = Query(default="json", description="Output format: 'json' or 'html'"),
+) -> Any:
+    """Official operational field report conforming to Russian EMERCOM (МЧС России) standards."""
+    dispatch = data_loader.get_mchs_dispatch(pair_id)
+    if not dispatch:
+        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+
+    if format.strip().lower() == "html":
+        html_content = render_mchs_html(dispatch)
+        return Response(content=html_content, media_type="text/html; charset=utf-8")
+
+    return dispatch
+
+
 @app.get("/api/v1/geojson/{pair_id}")
 async def get_geojson(
     pair_id: str,
@@ -177,7 +200,14 @@ async def get_geojson(
     return geojson
 
 
-@app.get("/api/v1/shapefile/{pair_id}")
+@app.get(
+    "/api/v1/export/{pair_id}/shapefile",
+    summary="Download vector polygons as an ESRI Shapefile zip archive",
+)
+@app.get(
+    "/api/v1/shapefile/{pair_id}",
+    summary="Alias: export vector polygons as an ESRI Shapefile (.zip)",
+)
 async def get_shapefile(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
@@ -195,7 +225,7 @@ async def get_shapefile(
     return Response(
         content=shp_bytes,
         media_type="application/zip",
-        headers={"Content-Disposition": f"attachment; filename={pair_id}_{layer}_shp.zip"},
+        headers={"Content-Disposition": f"attachment; filename={pair_id}_{norm_layer}_shp.zip"},
     )
 
 

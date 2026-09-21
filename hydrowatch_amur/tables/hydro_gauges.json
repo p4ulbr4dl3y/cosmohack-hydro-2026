@@ -1,0 +1,132 @@
+{
+  "blagoveshchensk": {
+    "station_id": "08001",
+    "station_name": "Благовещенск",
+    "river": "Амур / Зея",
+    "basin": "Амурский",
+    "coordinates": {
+      "lat": 50.27,
+      "lon": 127.53
+    },
+    "zero_altitude_bs77_m": 120.4,
+    "critical_levels_cm": {
+      "npu": 600,
+      "nya": 700,
+      "oya": 800,
+      "historic_max": 895
+    },
+    "event_levels_cm": {
+      "baseline_2018_09_low": 240,
+      "flood_2019_07_amur": 745,
+      "flood_2021_06_amur": 839,
+      "flood_2021_08_zeya": 718,
+      "flood_2022_08_amur": 620,
+      "flood_2026_08_amur": 790
+    },
+    "description": "Гидропост на слиянии Амура и Зеи. Контроль наводнений г. Благовещенск."
+  },
+  "svobodny": {
+    "station_id": "08015",
+    "station_name": "Свободный",
+    "river": "Зея",
+    "basin": "Зейский",
+    "coordinates": {
+      "lat": 51.38,
+      "lon": 128.14
+    },
+    "zero_altitude_bs77_m": 146.5,
+    "critical_levels_cm": {
+      "npu": 550,
+      "nya": 650,
+      "oya": 750,
+      "historic_max": 870
+    },
+    "event_levels_cm": {
+      "baseline_2018_09_low": 280,
+      "flood_2019_07_amur": 680,
+      "flood_2021_06_amur": 690,
+      "flood_2021_08_zeya": 810,
+      "flood_2022_08_amur": 610,
+      "flood_2026_08_amur": 720
+    },
+    "description": "Гидропост в среднем течении р. Зея ниже Зейского водохранилища."
+  },
+  "belogorsk": {
+    "station_id": "08032",
+    "station_name": "Белогорск",
+    "river": "Томь",
+    "basin": "Зейский",
+    "coordinates": {
+      "lat": 50.92,
+      "lon": 128.47
+    },
+    "zero_altitude_bs77_m": 152.1,
+    "critical_levels_cm": {
+      "npu": 300,
+      "nya": 350,
+      "oya": 400,
+      "historic_max": 515
+    },
+    "event_levels_cm": {
+      "baseline_2018_09_low": 120,
+      "flood_2019_07_amur": 515,
+      "flood_2021_06_amur": 330,
+      "flood_2021_08_zeya": 380,
+      "flood_2022_08_amur": 290,
+      "flood_2026_08_amur": 370
+    },
+    "description": "Гидропост на р. Томь (левый приток Зеи). Подвержен быстрым дождевым паводкам."
+  },
+  "poyarkovo": {
+    "station_id": "08044",
+    "station_name": "Поярково",
+    "river": "Амур",
+    "basin": "Амурский",
+    "coordinates": {
+      "lat": 49.63,
+      "lon": 128.65
+    },
+    "zero_altitude_bs77_m": 105.8,
+    "critical_levels_cm": {
+      "npu": 650,
+      "nya": 750,
+      "oya": 850,
+      "historic_max": 935
+    },
+    "event_levels_cm": {
+      "baseline_2018_09_low": 310,
+      "flood_2019_07_amur": 710,
+      "flood_2021_06_amur": 875,
+      "flood_2021_08_zeya": 760,
+      "flood_2022_08_amur": 640,
+      "flood_2026_08_amur": 820
+    },
+    "description": "Гидропост в нижнем течении среднего Амура (Михайловский район)."
+  },
+  "konstantinovka": {
+    "station_id": "08038",
+    "station_name": "Константиновка",
+    "river": "Амур",
+    "basin": "Амурский",
+    "coordinates": {
+      "lat": 49.62,
+      "lon": 127.99
+    },
+    "zero_altitude_bs77_m": 112.3,
+    "critical_levels_cm": {
+      "npu": 630,
+      "nya": 730,
+      "oya": 830,
+      "historic_max": 912
+    },
+    "event_levels_cm": {
+      "baseline_2018_09_low": 290,
+      "flood_2019_07_amur": 725,
+      "flood_2021_06_amur": 860,
+      "flood_2021_08_zeya": 740,
+      "flood_2022_08_amur": 630,
+      "flood_2026_08_amur": 805
+    },
+    "description": "Гидропост в пойменной части Амура (Константиновский район)."
+  }
+}

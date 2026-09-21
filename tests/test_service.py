@@ -76,6 +76,29 @@ def test_report_endpoint():
     assert "natural_vegetation_pct" in lc
     assert "mean_hand_m" in lc
 
+    # Verify depth_statistics structure
+    assert "depth_statistics" in data
+    ds = data["depth_statistics"]
+    assert "low_risk_ha" in ds
+    assert "medium_risk_ha" in ds
+    assert "high_risk_ha" in ds
+    assert "low_risk_pct" in ds
+    assert "medium_risk_pct" in ds
+    assert "high_risk_pct" in ds
+    assert "mchs_traversability" in ds
+
+    # Verify gauge_status structure
+    assert "gauge_status" in data
+    assert data["gauge_status"] is not None
+    gs = data["gauge_status"]
+    assert gs["station_name"] == "Благовещенск"
+    assert gs["npu_cm"] == 600
+    assert gs["oya_cm"] == 800
+    assert gs["observed_level_cm"] == 745
+    assert gs["exceeds_npu"] is True
+    assert gs["exceeds_oya"] is False
+    assert gs["stage_risk"] == "warning_nya"
+
 
 def test_report_csv_endpoint():
     pair_id = "flood_2019_07_amur__blagoveshchensk"

@@ -19,6 +19,7 @@ import {
   BarChart3,
   ArrowLeft,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 import { downloadReportPdf } from '../lib/pdfExport';
 
@@ -155,9 +156,15 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleExportShp = () => {
-    // Server-side Shapefile package (zipped .geojson + .prj), see /api/v1/export/{pair}/vectors
-    window.open(`/api/v1/export/${encodeURIComponent(activePairId)}/vectors?format=shp`, '_blank');
-    showNotice('SHP архив запрошен');
+    // Official ESRI Shapefile export endpoint (.shp, .shx, .dbf, .prj)
+    window.open(`/api/v1/export/${encodeURIComponent(activePairId)}/shapefile?layer=flood`, '_blank');
+    showNotice('SHP архив скачивается');
+  };
+
+  const handleMchsDispatch = () => {
+    // Official MCHS Emergency Field Dispatch
+    window.open(`/api/v1/report/${encodeURIComponent(activePairId)}/mchs-dispatch?format=html`, '_blank');
+    showNotice('Донесение МЧС сформировано');
   };
 
   const handleExportPdf = async () => {
@@ -318,6 +325,30 @@ export const Dashboard: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="space-y-2 pt-1">
+            {/* MCHS Emergency Field Report Card */}
+            <div className="p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-red-900">
+                  <ShieldAlert className="w-4 h-4 text-red-600" />
+                  <span>Оперативное донесение МЧС</span>
+                </div>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-100 text-red-700">
+                  1/ЧС
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 leading-snug">
+                Официальная сводка ЦУКС: затронутая застройка, сельхозугодья, отрезанные дороги и зонирование глубин.
+              </p>
+              <button
+                onClick={handleMchsDispatch}
+                className="w-full bg-red-600 hover:bg-red-700 text-white text-xs font-semibold py-2 rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Сформировать и скачать официальное донесение МЧС России"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Скачать донесение МЧС</span>
+              </button>
+            </div>
+
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf}

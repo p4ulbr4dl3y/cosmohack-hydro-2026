@@ -174,6 +174,19 @@ export const apiClient = {
     return null;
   },
 
+  async fetchMchsDispatch(pairId: string, format: 'json' | 'html' = 'json'): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/report/${pairId}/mchs-dispatch?format=${format}`);
+      if (res.ok) {
+        return format === 'html' ? await res.text() : await res.json();
+      }
+      console.error(`fetchMchsDispatch(${pairId}) failed with status ${res.status}`);
+    } catch (e) {
+      console.error(`fetchMchsDispatch(${pairId}) failed`, e);
+    }
+    return null;
+  },
+
   async fetchComparison(pairId: string): Promise<ComparisonData | null> {
     try {
       const res = await fetch(`${API_BASE}/api/v1/comparison/${pairId}`);

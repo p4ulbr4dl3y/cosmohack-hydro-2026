@@ -11,6 +11,7 @@ import {
   Download,
   CheckCircle,
   Loader2,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const Report: React.FC = () => {
@@ -128,6 +129,16 @@ export const Report: React.FC = () => {
     }
   };
 
+  const handleExportShp = () => {
+    window.open(`/api/v1/export/${encodeURIComponent(pairId)}/shapefile?layer=flood`, '_blank');
+    showNotice('SHP архив скачивается');
+  };
+
+  const handleMchsDispatch = () => {
+    window.open(`/api/v1/report/${encodeURIComponent(pairId)}/mchs-dispatch?format=html`, '_blank');
+    showNotice('Донесение МЧС сформировано');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center p-8">
@@ -180,6 +191,15 @@ export const Report: React.FC = () => {
           )}
 
           <button
+            onClick={handleMchsDispatch}
+            className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            title="Сформировать официальное донесение МЧС России"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            <span>Донесение МЧС</span>
+          </button>
+
+          <button
             onClick={handlePrintPdf}
             disabled={isExportingPdf}
             className="px-3.5 py-2 bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-60 cursor-pointer"
@@ -224,6 +244,15 @@ export const Report: React.FC = () => {
           >
             <Download className="w-3.5 h-3.5" />
             <span>GeoJSON</span>
+          </button>
+
+          <button
+            onClick={handleExportShp}
+            className="px-3 py-2 border border-[#EAECF0] bg-white hover:bg-slate-50 text-text-primary text-xs font-medium rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+            title="Скачать ESRI Shapefile (.zip)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>SHP</span>
           </button>
         </div>
       </div>
