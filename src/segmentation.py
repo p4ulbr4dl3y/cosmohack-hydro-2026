@@ -19,9 +19,9 @@ from src.config import HydroConfig
 from src.filters import apply_hydrological_connectivity as _filters_apply_hydrological_connectivity
 from src.filters import apply_mmu as _filters_apply_mmu
 from src.filters import apply_morphological_closing as _filters_apply_morphological_closing
+from src.filters import apply_planar_hand_filter as _filters_apply_planar_hand_filter
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
-from src.filters import apply_planar_hand_filter as _filters_apply_planar_hand_filter
 from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
 from src.indices import segment_optical as _indices_segment_optical
 
