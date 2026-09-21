@@ -50,7 +50,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
 
   return (
     <div className="bg-white border border-emerald-200 rounded-xl p-4 shadow-2xs text-xs space-y-3">
-      {/* Header */}
+      {/* Заголовок */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-semibold text-emerald-950">
           <Leaf className="w-4 h-4 text-emerald-600" />
@@ -61,7 +61,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
         </span>
       </div>
 
-      {/* Primary Metrics Grid */}
+      {/* Сетка основных метрик */}
       <div className="grid grid-cols-2 gap-2">
         <div className="bg-emerald-50/50 border border-emerald-100 rounded-lg p-2.5">
           <div className="text-[10px] text-emerald-800 uppercase tracking-wider font-semibold">
@@ -89,7 +89,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
         </div>
       </div>
 
-      {/* Sector Breakdown */}
+      {/* Разбивка по секторам */}
       <div className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200/60 rounded-lg px-2.5 py-2">
         <div className="flex items-center gap-1.5 text-text-secondary">
           <Trees className="w-3.5 h-3.5 text-emerald-600" />
@@ -100,7 +100,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
         </div>
       </div>
 
-      {/* Carbon Credits Potential */}
+      {/* Потенциал углеродных единиц */}
       {credit_potential && credit_potential.is_available && (
         <div className="border-t border-slate-100 pt-2 space-y-1.5">
           <div className="flex items-center justify-between text-[11px]">
@@ -118,7 +118,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
             <span>15% ({credit_potential.buffer_reserve_B_tCO2e.toFixed(1)} т CO₂e)</span>
           </div>
 
-          {/* Pricing Scenarios */}
+          {/* Сценарии цен */}
           {credit_potential.valuations_rub && (
             <div className="grid grid-cols-3 gap-1 pt-1 text-center">
               <div className="bg-slate-50 border border-slate-200/80 rounded py-1 px-0.5">
@@ -144,7 +144,7 @@ export const CarbonMetricsCard: React.FC<CarbonMetricsCardProps> = ({ pairId, is
         </div>
       )}
 
-      {/* Note */}
+      {/* Примечание */}
       <div className="flex items-start gap-1.5 text-[10px] text-text-muted pt-1">
         <Info className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
         <span className="leading-tight">

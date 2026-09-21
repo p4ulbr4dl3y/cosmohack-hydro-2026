@@ -591,24 +591,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
-      {/* Map Root */}
+      {/* Корень карты */}
       <div ref={mapRef} className="w-full h-full z-0" />
 
-      {/* Floating LayerControl (Top Right) */}
+      {/* Плавающий LayerControl (верхний правый угол) */}
       {showControls && (
         <div className="absolute top-4 right-4 z-[1000]">
           <LayerControl />
         </div>
       )}
 
-      {/* Floating Legend (Bottom Right) */}
+      {/* Плавающая легенда (нижний правый угол) */}
       {showControls && (
         <div className="absolute bottom-4 right-4 z-[1000]">
           <Legend aoiKm2={currentPair?.aoi_km2 || 1245} />
         </div>
       )}
 
-      {/* Floating Swipe Pill (Center) */}
+      {/* Плавающая плашка свайпа (по центру) */}
       {showControls && currentPair && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[990] bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-full px-3 py-1 shadow-floating flex items-center gap-2 text-xs select-none max-w-fit pointer-events-none">
           <span className="text-text-secondary whitespace-nowrap">
@@ -623,7 +623,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
       )}
 
-      {/* Floating Gradient Legend Card with Opacity Slider */}
+      {/* Плавающая карточка градиентной легенды с ползунком прозрачности */}
       {showControls && activeGradientConfig && (
         <div className="absolute bottom-11 left-4 z-[1000] select-none">
           {showGradientBar ? (
@@ -660,7 +660,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 <span>{activeGradientConfig.max}</span>
               </div>
 
-              {/* Inline opacity slider right inside the map card */}
+              {/* Встроенный ползунок прозрачности прямо в карточке карты */}
               <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-[10px] text-text-secondary">
                 <span className="shrink-0 text-text-muted text-[10px]">Прозрачность:</span>
                 <input
@@ -695,7 +695,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
       )}
 
-      {/* Map Status Bar (Bottom Left) */}
+      {/* Строка состояния карты (нижний левый угол) */}
       {showControls && (
         <div className="absolute bottom-2 left-4 z-[1000] bg-white/90 backdrop-blur-xs border border-border/80 rounded-md px-3 py-1 text-[11px] font-mono text-text-secondary flex items-center gap-3 shadow-xs">
           <span>

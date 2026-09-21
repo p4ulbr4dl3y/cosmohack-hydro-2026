@@ -45,7 +45,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
 
   return (
     <div className="space-y-2 pt-2">
-      {/* Primary Action Button */}
+      {/* Основная кнопка действия */}
       <button
         onClick={handleDownloadPdf}
         disabled={downloadingPdf}
@@ -55,7 +55,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
         <span>{downloadingPdf ? 'Генерация PDF...' : 'Скачать отчёт (PDF)'}</span>
       </button>
 
-      {/* Row of Secondary Export Buttons */}
+      {/* Ряд дополнительных кнопок экспорта */}
       <div className="grid grid-cols-3 gap-2">
         <button
           onClick={downloadGeoJson}

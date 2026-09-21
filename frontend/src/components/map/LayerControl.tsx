@@ -26,7 +26,7 @@ export const LayerControl: React.FC = () => {
 
   return (
     <div className="bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-xl shadow-floating w-44 text-xs select-none overflow-hidden">
-      {/* Header */}
+      {/* Заголовок */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-2.5 py-1.5 flex items-center justify-between border-b border-[#F1F5F9] hover:bg-[#F8FAFC] transition-colors cursor-pointer"
@@ -44,13 +44,13 @@ export const LayerControl: React.FC = () => {
 
       {isOpen && (
         <div className="p-2 space-y-2.5 max-h-[min(280px,calc(100vh-340px))] overflow-y-auto">
-          {/* Section: Маски */}
+          {/* Раздел: Маски */}
           <div>
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
               Маски затопления
             </div>
             <div className="space-y-1.5">
-              {/* Flood */}
+              {/* Затопление */}
               <label className="flex items-center justify-between cursor-pointer py-0.5 group">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -69,7 +69,7 @@ export const LayerControl: React.FC = () => {
                 />
               </label>
 
-              {/* Water Peak */}
+              {/* Вода на пик */}
               <label className="flex items-center justify-between cursor-pointer py-0.5 group">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -88,7 +88,7 @@ export const LayerControl: React.FC = () => {
                 />
               </label>
 
-              {/* Water Pre */}
+              {/* Вода на до */}
               <label className="flex items-center justify-between cursor-pointer py-0.5 group">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -107,7 +107,7 @@ export const LayerControl: React.FC = () => {
                 />
               </label>
 
-              {/* Permanent */}
+              {/* Постоянная вода */}
               <label className="flex items-center justify-between cursor-pointer py-0.5 group">
                 <div className="flex items-center gap-1.5">
                   <span
@@ -128,7 +128,7 @@ export const LayerControl: React.FC = () => {
             </div>
           </div>
 
-          {/* Section: Подложки */}
+          {/* Раздел: Подложки */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
               Подложка
@@ -159,7 +159,7 @@ export const LayerControl: React.FC = () => {
             </div>
           </div>
 
-          {/* Section: Векторы */}
+          {/* Раздел: Векторы */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
               Векторы
@@ -215,7 +215,7 @@ export const LayerControl: React.FC = () => {
             </div>
           </div>
 
-          {/* Section: Растровый градиент */}
+          {/* Раздел: Растровый градиент */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
@@ -269,7 +269,7 @@ export const LayerControl: React.FC = () => {
             )}
           </div>
 
-          {/* Section: Прозрачность векторов */}
+          {/* Раздел: Прозрачность векторов */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">

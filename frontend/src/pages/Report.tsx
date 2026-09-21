@@ -172,7 +172,7 @@ export const Report: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] text-text-primary font-sans p-3 sm:p-6 md:p-10 print:p-0 print:bg-white">
-      {/* Top Action Bar (hidden when printing) */}
+      {/* Верхняя панель действий (скрыта при печати) */}
       <div className="max-w-5xl mx-auto mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <button
           onClick={() => navigate(`/dashboard/${pairId}`)}
@@ -257,7 +257,7 @@ export const Report: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Report Visual Component */}
+      {/* Основной визуальный компонент отчёта */}
       <ReportDocument report={report} comparison={comparison} />
     </div>
   );

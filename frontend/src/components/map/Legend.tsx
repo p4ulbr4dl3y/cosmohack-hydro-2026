@@ -72,7 +72,7 @@ export const Legend: React.FC<LegendProps> = ({ aoiKm2 = 1245 }) => {
         </button>
       </div>
 
-      {/* Active Raster Gradient Scale if enabled */}
+      {/* Шкала активного растрового градиента, если включена */}
       {activeGradient && (
         <div className="p-2 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1">
           <div className="flex items-center justify-between text-[11px] font-semibold text-text-primary">
@@ -93,7 +93,7 @@ export const Legend: React.FC<LegendProps> = ({ aoiKm2 = 1245 }) => {
         </div>
       )}
 
-      {/* Vector Masks */}
+      {/* Векторные маски */}
       <div className="space-y-1.5">
         <div className="flex items-center gap-2">
           <span

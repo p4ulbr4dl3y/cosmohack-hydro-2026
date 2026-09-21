@@ -39,10 +39,10 @@ export const UncertaintyCard: React.FC<UncertaintyCardProps> = ({ uncertainty, i
           </span>
         </div>
 
-        {/* Stylish Gradient Visual Bar showing Interval */}
+        {/* Градиентная полоса визуализации интервала */}
         <div className="relative pt-1.5 pb-1">
           <div className="relative h-2.5 bg-slate-100 rounded-full overflow-hidden p-[1px] shadow-inner">
-            {/* Continuous gradient distribution bar */}
+            {/* Непрерывная полоса градиентного распределения */}
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{
@@ -52,14 +52,14 @@ export const UncertaintyCard: React.FC<UncertaintyCardProps> = ({ uncertainty, i
                 boxShadow: '0 0 8px rgba(14, 165, 233, 0.25)',
               }}
             />
-            {/* Center estimate indicator marker */}
+            {/* Маркер центральной оценки */}
             <div
               className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-1.5 bg-white border border-sky-600 rounded-xs shadow-xs"
               title={`Центральная оценка: ${uncertainty.area_ha.toFixed(1)} га`}
             />
           </div>
 
-          {/* Sub-bar interval range values */}
+          {/* Значения границ интервала под полосой */}
           <div className="flex justify-between items-center text-[9px] text-slate-400 font-mono mt-1">
             <span>-{(uncertainty.margin_ha).toFixed(1)} га</span>
             <span className="text-sky-700 font-semibold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100">

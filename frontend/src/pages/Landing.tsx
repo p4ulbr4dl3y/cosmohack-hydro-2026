@@ -19,10 +19,10 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] text-text-primary flex flex-col font-sans">
-      {/* Topbar */}
+      {/* Верхняя панель */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#EAECF0] px-4 sm:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4 sm:gap-8">
-          {/* Mobile Hamburger Toggle */}
+          {/* Мобильная кнопка-гамбургер */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-slate-50 md:hidden transition-colors"
@@ -84,7 +84,7 @@ export const Landing: React.FC = () => {
           </Link>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Мобильное навигационное меню */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-16 left-0 right-0 bg-white/98 backdrop-blur-md border-b border-[#EAECF0] shadow-xl p-4 z-50 animate-in slide-in-from-top-2 duration-150">
             <div className="space-y-1">
@@ -125,11 +125,11 @@ export const Landing: React.FC = () => {
         )}
       </header>
 
-      {/* Main Container */}
+      {/* Основной контейнер */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full space-y-12 sm:space-y-16">
-        {/* Hero Section */}
+        {/* Главная секция */}
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-          {/* Hero Left Column */}
+          {/* Левая колонка главной секции */}
           <div className="lg:col-span-6 space-y-5 sm:space-y-6">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E0F2FE] text-[#0284C7] text-xs font-semibold">
               <span>КосмоХакатон 2026</span>
@@ -172,10 +172,10 @@ export const Landing: React.FC = () => {
             </div>
           </div>
 
-          {/* Hero Right Column: Inactive Real Map Card */}
+          {/* Правая колонка главной секции: неактивная карточка реальной карты */}
           <div className="lg:col-span-6">
             <div className="bg-white border border-[#EAECF0] rounded-2xl shadow-floating overflow-hidden h-[320px] sm:h-[440px] relative select-none">
-              {/* Real Leaflet Map with all real layers, completely non-interactive */}
+              {/* Реальная карта Leaflet со всеми реальными слоями, полностью неинтерактивная */}
               <div className="w-full h-full pointer-events-none select-none">
                 <MapContainer
                   currentPair={previewPair}
@@ -185,7 +185,7 @@ export const Landing: React.FC = () => {
                 />
               </div>
 
-              {/* Floating Real KPI Badge */}
+              {/* Плавающий бейдж реальных KPI */}
               <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-white/95 backdrop-blur-sm rounded-xl p-2.5 sm:p-3 shadow-floating border border-[#EAECF0] text-left pointer-events-none">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#F97316]" />
@@ -201,7 +201,7 @@ export const Landing: React.FC = () => {
                 </div>
               </div>
 
-              {/* Water Classes Legend Strip at Bottom Left */}
+              {/* Полоса легенды классов воды в левом нижнем углу */}
               <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 bg-white/90 backdrop-blur-xs border border-[#EAECF0] rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm text-[10px] sm:text-[11px] flex items-center gap-2 sm:gap-3 pointer-events-none">
                 <div className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-[#F97316]" />
@@ -221,7 +221,7 @@ export const Landing: React.FC = () => {
                 </div>
               </div>
 
-              {/* Sensor indicator pill (Top Left) */}
+              {/* Плашка индикатора сенсора (верхний левый угол) */}
               <div className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-full px-2.5 py-0.5 sm:py-1 shadow-sm text-[10px] sm:text-[11px] font-mono font-medium text-text-secondary pointer-events-none flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Sentinel-1 GIS</span>
@@ -230,9 +230,9 @@ export const Landing: React.FC = () => {
           </div>
         </section>
 
-        {/* 3 Cards Section: Проблема / Подход / Результат */}
+        {/* Раздел из 3 карточек: Проблема / Подход / Результат */}
         <section className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-          {/* Card 1: Проблема */}
+          {/* Карточка 1: Проблема */}
           <div className="bg-white border border-[#EAECF0] rounded-2xl p-5 sm:p-6 shadow-card hover:shadow-floating transition-shadow space-y-3 sm:space-y-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center">
               <img src="/icons/error.png" alt="Проблема" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
@@ -243,7 +243,7 @@ export const Landing: React.FC = () => {
             </p>
           </div>
 
-          {/* Card 2: Подход */}
+          {/* Карточка 2: Подход */}
           <div className="bg-white border border-[#EAECF0] rounded-2xl p-5 sm:p-6 shadow-card hover:shadow-floating transition-shadow space-y-3 sm:space-y-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-sky-50 border border-sky-100 flex items-center justify-center">
               <img src="/icons/sattelate.png" alt="Подход" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
@@ -254,7 +254,7 @@ export const Landing: React.FC = () => {
             </p>
           </div>
 
-          {/* Card 3: Результат */}
+          {/* Карточка 3: Результат */}
           <div className="bg-white border border-[#EAECF0] rounded-2xl p-5 sm:p-6 shadow-card hover:shadow-floating transition-shadow space-y-3 sm:space-y-4">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
               <img src="/icons/result.png" alt="Результат" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
@@ -266,7 +266,7 @@ export const Landing: React.FC = () => {
           </div>
         </section>
 
-        {/* Метрика Section */}
+        {/* Раздел: Метрика */}
         <section className="bg-white border border-[#EAECF0] rounded-2xl p-6 sm:p-8 shadow-card space-y-6">
           <h2 className="text-xl sm:text-2xl font-bold text-text-primary">Метрика оценки решения</h2>
 
@@ -314,7 +314,7 @@ export const Landing: React.FC = () => {
         </section>
       </main>
 
-      {/* Footer */}
+      {/* Подвал */}
       <footer className="border-t border-[#EAECF0] bg-white py-6 sm:py-8 px-4 sm:px-8 mt-12 text-xs text-text-muted">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="space-y-1 text-center md:text-left">

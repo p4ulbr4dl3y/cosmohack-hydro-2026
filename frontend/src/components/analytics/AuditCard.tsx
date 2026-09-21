@@ -92,7 +92,7 @@ export const AuditCard: React.FC<AuditCardProps> = ({ audit, isLoading }) => {
         </span>
       </div>
 
-      {/* Merkle Root Box */}
+      {/* Блок корня Merkle */}
       <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-[11px] text-slate-700 flex items-center justify-between">
         <div className="truncate mr-2">
           <span className="text-slate-400 select-none mr-1">Root:</span>

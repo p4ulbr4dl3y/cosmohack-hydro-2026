@@ -324,7 +324,7 @@ export const Compare: React.FC = () => {
       onPointerUp={handlePointerUp}
       className="relative w-screen h-screen overflow-hidden select-none bg-[#0A192F] font-sans"
     >
-      {/* Top Header Bar */}
+      {/* Верхняя панель заголовка */}
       <header className="absolute top-0 left-0 right-0 z-30 h-14 bg-white/95 backdrop-blur-sm border-b border-[#EAECF0] px-3 sm:px-4 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3">
           <button
@@ -392,7 +392,7 @@ export const Compare: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5">
-          {/* Mode switch buttons */}
+          {/* Кнопки переключения режима */}
           <div className="flex items-center bg-[#F1F5F9] p-0.5 sm:p-1 rounded-lg border border-[#EAECF0]">
             {(['sar', 'msi', 'masks'] as const).map((m) => (
               <button
@@ -420,34 +420,34 @@ export const Compare: React.FC = () => {
         </div>
       </header>
 
-      {/* Map Layers Container */}
+      {/* Контейнер слоёв карты */}
       <div className="absolute inset-0 pt-14 pb-20 overflow-hidden">
-        {/* Under layer (Before Flood - Map 1) */}
+        {/* Нижний слой (до паводка - карта 1) */}
         <div className="absolute inset-0 z-0">
           <div ref={mapBeforeRef} className="w-full h-full" />
 
-          {/* Left Pill (Before Watermark) */}
+          {/* Левая плашка (водяной знак "ДО") */}
           <div className="absolute top-4 left-4 z-[1000] bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-lg px-3 py-1.5 shadow-floating text-xs font-mono font-semibold text-text-primary flex items-center gap-2 pointer-events-none">
             <span className="w-2.5 h-2.5 rounded-full bg-[#60A5FA]" />
             <span>ДО · {report?.date_pre_sar || '13.06.2019'}</span>
           </div>
         </div>
 
-        {/* Over layer (Peak Flood - Map 2) clipped by slider */}
+        {/* Верхний слой (пик затопления - карта 2), обрезается ползунком */}
         <div
           className="absolute inset-0 z-10 overflow-hidden"
           style={{ clipPath: `inset(0 0 0 ${sliderPos}%)` }}
         >
           <div ref={mapPeakRef} className="w-full h-full" />
 
-          {/* Right Pill (Peak Watermark) */}
+          {/* Правая плашка (водяной знак "ПИК") */}
           <div className="absolute top-4 right-4 z-[1000] bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-lg px-3 py-1.5 shadow-floating text-xs font-mono font-semibold text-[#F97316] flex items-center gap-2 pointer-events-none">
             <span className="w-2.5 h-2.5 rounded-full bg-[#F97316]" />
             <span>ПИК · {report?.date_peak_sar || '25.07.2019'}</span>
           </div>
         </div>
 
-        {/* Draggable Divider Line & Handle */}
+        {/* Перетаскиваемая линия разделителя и ручка */}
         <div
           className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-2xl"
           style={{ left: `${sliderPos}%` }}
@@ -458,15 +458,15 @@ export const Compare: React.FC = () => {
           </div>
         </div>
 
-        {/* Floating Legend on bottom right */}
+        {/* Плавающая легенда в правом нижнем углу */}
         <div className="absolute bottom-4 right-5 z-[1000]">
           <Legend aoiKm2={report?.aoi_km2 || 1245} />
         </div>
       </div>
 
-      {/* Bottom Overlay Bar */}
+      {/* Нижняя панель-оверлей */}
       <footer className="absolute bottom-0 left-0 right-0 h-16 sm:h-20 bg-white/95 backdrop-blur-sm border-t border-[#EAECF0] px-3 sm:px-8 flex items-center justify-between z-30 shadow-floating">
-        {/* Left: Before flood */}
+        {/* Слева: вода до */}
         <div className="space-y-0.5 text-left">
           <div className="font-mono text-xs sm:text-sm font-bold text-text-primary">
             ДО · {report?.date_pre_sar?.slice(5) || '13.06'}
@@ -476,7 +476,7 @@ export const Compare: React.FC = () => {
           </div>
         </div>
 
-        {/* Center: Flood Delta */}
+        {/* По центру: прирост затопления */}
         <div className="text-center space-y-0.5">
           <div className="font-mono text-lg sm:text-2xl md:text-3xl font-extrabold text-[#F97316] tracking-tight">
             {report ? `+${Math.round(report.flood_ha).toLocaleString('ru-RU')}` : '—'} га
@@ -486,7 +486,7 @@ export const Compare: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Peak flood */}
+        {/* Справа: пик затопления */}
         <div className="text-right space-y-0.5">
           <div className="font-mono text-xs sm:text-sm font-bold text-text-primary">
             ПИК · {report?.date_peak_sar?.slice(5) || '25.07'}

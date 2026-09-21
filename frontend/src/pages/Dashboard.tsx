@@ -232,12 +232,12 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background text-text-primary font-sans">
-      {/* Topbar */}
+      {/* Верхняя панель */}
       <Topbar onRefresh={handleRefresh} isRefreshing={isRefreshing} />
 
-      {/* Main Layout */}
+      {/* Основная раскладка */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Sidebar: Events / Pairs */}
+        {/* Левая панель: события / пары */}
         <div
           className={`h-full shrink-0 z-20 transition-all duration-200 ${
             mobileTab === 'pairs'
@@ -245,7 +245,7 @@ export const Dashboard: React.FC = () => {
               : 'hidden lg:flex'
           }`}
         >
-          {/* Mobile Back Button when opened in full screen */}
+          {/* Мобильная кнопка возврата при открытии на весь экран */}
           {mobileTab === 'pairs' && (
             <div className="absolute top-3 right-3 z-30 lg:hidden">
               <button
@@ -264,7 +264,7 @@ export const Dashboard: React.FC = () => {
           />
         </div>
 
-        {/* Center: Leaflet Interactive Map */}
+        {/* По центру: интерактивная карта Leaflet */}
         <div
           className={`flex-1 relative h-full ${
             mobileTab === 'map' ? 'flex' : 'hidden lg:flex'
@@ -272,7 +272,7 @@ export const Dashboard: React.FC = () => {
         >
           <MapContainer currentPair={currentPair} />
 
-          {/* Floating Mobile Controls overlayed on Map */}
+          {/* Плавающие мобильные элементы управления поверх карты */}
           <div className="lg:hidden absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-[1000]">
             <button
               onClick={() => setMobileTab('pairs')}
@@ -294,7 +294,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar: Analytics */}
+        {/* Правая панель: аналитика */}
         <aside
           className={`bg-surface border-l border-border flex flex-col h-full overflow-y-auto shrink-0 p-4 space-y-4 z-20 ${
             mobileTab === 'analytics'
@@ -302,7 +302,7 @@ export const Dashboard: React.FC = () => {
               : 'hidden xl:flex w-96'
           }`}
         >
-          {/* Mobile Back Button */}
+          {/* Мобильная кнопка возврата */}
           {mobileTab === 'analytics' && (
             <div className="flex items-center justify-between pb-2 border-b border-border xl:hidden">
               <button
@@ -316,7 +316,7 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Header */}
+          {/* Заголовок */}
           <div className="space-y-1">
             <h2 className="text-lg sm:text-xl font-bold text-text-primary tracking-tight truncate">
               {currentPair?.event_id || 'flood_2019_07'}
@@ -328,7 +328,7 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* Download Notification */}
+          {/* Уведомление о скачивании */}
           {downloadSuccess && (
             <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 animate-in fade-in">
               <CheckCircle className="w-4 h-4" />
@@ -336,7 +336,7 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* Report unavailable: never fall back to invented numbers */}
+          {/* Отчёт недоступен: никаких выдуманных чисел вместо данных */}
           {reportUnavailable && !loadingReport && (
             <div className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
               <AlertTriangle className="w-4 h-4" />
@@ -344,13 +344,13 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
-          {/* KPI Cards */}
+          {/* Карточки KPI */}
           <KpiCards report={currentReport} isLoading={loadingReport || reportUnavailable} />
 
-          {/* Landcover Chart */}
+          {/* График типов покрова */}
           <LandcoverChart landcover={currentReport?.landcover} />
 
-          {/* Hydrograph Mini Chart */}
+          {/* Мини-график гидрографа */}
           <HydrographChart
             datePre={currentPair?.date_pre_sar}
             datePeak={currentPair?.date_peak_sar}
@@ -358,16 +358,16 @@ export const Dashboard: React.FC = () => {
             waterPeakHa={currentReport?.water_peak_ha}
           />
 
-          {/* Advanced Analytics & Official Competition Score */}
+          {/* Расширенная аналитика и официальная оценка соревнования */}
           <OfficialScoreCard activePairId={activePairId} isLoading={loadingReport} />
           <UncertaintyCard uncertainty={uncertainty} isLoading={loadingExtra} />
           <SarAnalyticsCard sar={sar} isLoading={loadingExtra} />
           <CarbonMetricsCard pairId={activePairId} isLoading={loadingReport} />
           <AuditCard audit={audit} isLoading={loadingExtra} />
 
-          {/* Action Buttons */}
+          {/* Кнопки действий */}
           <div className="space-y-2 pt-1">
-            {/* MCHS Emergency Field Report Card */}
+            {/* Карточка экстренного полевого донесения МЧС */}
             <div className="p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-red-900">
@@ -438,7 +438,7 @@ export const Dashboard: React.FC = () => {
         </aside>
       </div>
 
-      {/* Mobile Bottom Navigation Bar (Tabs) */}
+      {/* Нижняя мобильная панель навигации (вкладки) */}
       <nav className="lg:hidden h-12 bg-white border-t border-border flex items-center justify-around z-30 shrink-0 select-none">
         <button
           onClick={() => setMobileTab('map')}
@@ -484,7 +484,7 @@ export const Dashboard: React.FC = () => {
         </button>
       </nav>
 
-      {/* Bottom Status Bar (Desktop) */}
+      {/* Нижняя строка состояния (десктоп) */}
       <footer className="hidden lg:flex h-7 bg-white border-t border-border px-4 items-center justify-between text-[11px] text-text-muted shrink-0 select-none z-30">
         <div>Последнее обновление: {currentReport?.generated_at ? new Date(currentReport.generated_at).toLocaleString('ru-RU') : '—'}</div>
         <div className="hidden sm:block">

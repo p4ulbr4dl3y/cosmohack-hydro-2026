@@ -54,12 +54,12 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
       id="report-printable-area"
       className="w-full max-w-5xl mx-auto space-y-6 print:space-y-0 print:p-0 print:m-0"
     >
-      {/* PAGE 1: МЕТАДАННЫЕ И РЕЗУЛЬТАТЫ */}
+      {/* СТРАНИЦА 1: МЕТАДАННЫЕ И РЕЗУЛЬТАТЫ */}
       <div
         data-pdf-page="1"
         className="bg-white border border-[#EAECF0] rounded-2xl shadow-card p-6 sm:p-8 space-y-6 print:border-none print:shadow-none print:p-0 print:m-0"
       >
-        {/* Header */}
+        {/* Заголовок */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#F1F5F9] pb-5">
         <div className="flex items-center gap-3">
           <img src="/icons/logo.png" alt="HydroWatch" className="w-8 h-8 object-contain" />
@@ -76,7 +76,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
         </div>
       </header>
 
-      {/* Title Block */}
+      {/* Блок заголовка */}
       <div className="space-y-1">
         <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-[#E0F2FE] text-[#0284C7] text-xs font-semibold uppercase tracking-wider mb-0.5">
           КосмоХакатон 2026
@@ -96,7 +96,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Card 1: Sentinel-1 (SAR) */}
+          {/* Карточка 1: Sentinel-1 (SAR) */}
           <div className="border border-[#EAECF0] rounded-xl p-4 bg-white space-y-3 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <img src="/icons/sattelate2.png" alt="SAR" className="w-5 h-5 object-contain" />
@@ -116,7 +116,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
           </div>
 
-          {/* Card 2: Sentinel-2 (MSI) */}
+          {/* Карточка 2: Sentinel-2 (MSI) */}
           <div className="border border-[#EAECF0] rounded-xl p-4 bg-white space-y-3 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <img src="/icons/image.png" alt="MSI" className="w-5 h-5 object-contain" />
@@ -142,7 +142,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Район интереса */}
+          {/* Карточка 3: Район интереса */}
           <div className="border border-[#EAECF0] rounded-xl p-4 bg-white space-y-3 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <img src="/icons/map.png" alt="AOI" className="w-5 h-5 object-contain" />
@@ -166,7 +166,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
           </div>
 
-          {/* Card 4: Вспомогательные слои */}
+          {/* Карточка 4: Вспомогательные слои */}
           <div className="border border-[#EAECF0] rounded-xl p-4 bg-white space-y-3 shadow-2xs">
             <div className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <img src="/icons/layers.png" alt="Aux" className="w-5 h-5 object-contain" />
@@ -232,7 +232,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
           </div>
         </div>
 
-        {/* Reference Comparison Table */}
+        {/* Таблица сравнения с эталоном */}
         <div className="border border-[#EAECF0] rounded-xl overflow-x-auto bg-white mt-4 shadow-2xs">
           <div className="bg-[#F8FAFC] px-4 py-2.5 border-b border-[#EAECF0] text-[11px] font-bold text-text-secondary uppercase">
             СРАВНЕНИЕ С ЭТАЛОНОМ
@@ -287,27 +287,27 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
         </div>
       </section>
 
-      {/* Page 1 Footer info */}
+      {/* Информация нижнего колонтитула страницы 1 */}
       <div className="pt-4 border-t border-[#F1F5F9] flex items-center justify-between text-xs text-text-muted">
         <span>Разделы 1–2: Исходные параметры и эталонное сопоставление</span>
         <span className="font-mono">Страница 1 из 2</span>
       </div>
     </div>
 
-    {/* Visual page break divider in web view, hard page break in print */}
+    {/* Визуальный разделитель страниц в веб-виде, жёсткий разрыв страницы при печати */}
     <div className="print:hidden border-t-2 border-dashed border-[#EAECF0] my-6 flex items-center justify-center">
       <span className="bg-[#F8FAFC] border border-[#EAECF0] rounded-full px-3 py-1 text-[11px] font-medium text-text-secondary -mt-3 shadow-2xs">
         Разрыв страницы (Страница 2: Карта затопления и Аналитика)
       </span>
     </div>
 
-    {/* PAGE 2: КАРТА ЗАТОПЛЕНИЯ, ПОКРОВ И МЕТОДИКА */}
+    {/* СТРАНИЦА 2: КАРТА ЗАТОПЛЕНИЯ, ПОКРОВ И МЕТОДИКА */}
     <div
       data-pdf-page="2"
       style={{ breakBefore: 'page', pageBreakBefore: 'always' }}
       className="bg-white border border-[#EAECF0] rounded-2xl shadow-card p-6 sm:p-8 space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:break-before-page"
     >
-      {/* Page 2 Running Header */}
+      {/* Верхний колонтитул страницы 2 */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F1F5F9] pb-4 text-xs text-text-secondary">
         <div className="flex items-center gap-2">
           <img src="/icons/logo.png" alt="HydroWatch" className="w-5 h-5 object-contain" />
@@ -322,7 +322,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
 
       {/* 3. КАРТА И РАСПРЕДЕЛЕНИЕ ПО ТИПАМ ПОКРОВА */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Map Preview */}
+        {/* Превью карты */}
         <div className="lg:col-span-6 space-y-2">
           <div className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
             3. КАРТА ЗАТОПЛЕНИЯ
@@ -362,7 +362,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
                     </pattern>
                   </defs>
                   <rect width="100%" height="100%" fill="url(#grid)" />
-                  {/* Simulated hydrography & flood contours */}
+                  {/* Имитация гидрографии и контуров затопления */}
                   <path
                     d="M 20 180 Q 120 130 200 160 T 360 140 T 480 200"
                     fill="none"
@@ -403,22 +403,22 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
               </div>
             )}
 
-            {/* Compass North Arrow */}
+            {/* Стрелка компаса на север */}
             <div className="absolute top-3 left-3 bg-black/60 text-white px-2 py-1 rounded text-[10px] font-bold z-10 pointer-events-none">
               ▲ N
             </div>
 
-            {/* City marker / AOI name */}
+            {/* Маркер города / название AOI */}
             <div className="absolute top-3 right-3 text-text-primary bg-white/95 backdrop-blur-sm border border-[#EAECF0] px-2.5 py-1 rounded-md text-xs font-semibold shadow-xs z-10 pointer-events-none">
               {report.aoi_name || 'Благовещенск'}
             </div>
 
-            {/* Mini scale */}
+            {/* Мини-масштаб */}
             <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-xs border border-[#EAECF0] px-2 py-0.5 rounded text-text-secondary text-[10px] font-mono z-10 pointer-events-none">
               | 0 — 5 — 10 км | EPSG:4326
             </div>
 
-            {/* Map Legend inside preview */}
+            {/* Легенда карты внутри превью */}
             <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-sm rounded-lg p-2 text-[10px] space-y-1 shadow-sm border border-[#EAECF0] z-10 pointer-events-none">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-xs bg-[#F97316]" />
@@ -443,13 +443,13 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
           </div>
         </div>
 
-        {/* Landcover chart + table */}
+        {/* График и таблица типов покрова */}
         <div className="lg:col-span-6 space-y-3">
           <div className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
             4. РАСПРЕДЕЛЕНИЕ ПО ТИПАМ ПОКРОВА (ESA WorldCover)
           </div>
 
-          {/* Bars */}
+          {/* Столбцы */}
           <div className="space-y-1.5 pt-1">
             {landcoverItems.map((item) => (
               <div key={item.class_name} className="flex items-center text-xs">
@@ -475,7 +475,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
           </div>
 
-          {/* Landcover breakdown table */}
+          {/* Таблица разбивки по типам покрова */}
           <div className="border border-[#EAECF0] rounded-xl overflow-x-auto bg-white mt-3 shadow-2xs">
             <table className="w-full text-xs text-left min-w-[320px]">
               <thead className="border-b border-[#EAECF0] bg-[#F8FAFC] text-text-muted">
@@ -534,7 +534,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Нижний колонтитул */}
       <footer className="pt-4 border-t border-[#EAECF0] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-text-muted">
         <div className="space-y-0.5 text-center sm:text-left">
           <div>Разметка построена автоматически по консенсусу SAR и MSI.</div>
