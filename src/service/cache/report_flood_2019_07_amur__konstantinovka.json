@@ -42,7 +42,7 @@
     "historic_water_extent_ha": 748.34,
     "historic_water_extent_pct": 81.63,
     "new_flood_extent_ha": 168.37,
-    "new_flood_extent_pct": 100.0,
+    "new_flood_extent_pct": 18.37,
     "mean_hand_m": 1.01,
     "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
   }
