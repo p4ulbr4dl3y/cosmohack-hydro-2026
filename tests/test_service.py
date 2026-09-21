@@ -263,6 +263,29 @@ def test_predict_endpoint_unparseable_scene_date(monkeypatch):
     assert resp.status_code == 200
 
 
+def test_missing_asset_returns_404_not_index_html():
+    # A stale index.html can reference an old hashed chunk. Serving the SPA
+    # shell as text/html for a .js request makes the module import fail and the
+    # page render blank, so missing assets must 404 instead.
+    for path in (
+        "/assets/index-BVnVLfPl.js",
+        "/assets/does-not-exist.css",
+        "/icons/missing.png",
+    ):
+        resp = client.get(path)
+        assert resp.status_code == 404, path
+        assert "text/html" not in resp.headers["content-type"], path
+
+
+def test_spa_fallback_serves_index_without_cache():
+    for path in ("/dashboard", "/report/some-pair", "/deeply/nested/route"):
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert "text/html" in resp.headers["content-type"], path
+        assert "HydroWatch" in resp.text, path
+    assert "no-cache" in client.get("/").headers["cache-control"]
+
+
 def test_static_index_html_not_found(monkeypatch, tmp_path):
     monkeypatch.setattr("src.service.app.STATIC_DIR", tmp_path / "nonexistent_static")
     resp = client.get("/")

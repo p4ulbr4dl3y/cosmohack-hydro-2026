@@ -522,7 +522,13 @@ async def root(full_path: str = "") -> FileResponse:
     if full_path and file_candidate.is_file():
         return FileResponse(file_candidate)
 
+    # Missing asset requests (e.g. a stale index.html pointing at an old chunk
+    # hash) must 404. Falling back to index.html would return text/html for a
+    # JavaScript module, which the browser rejects and renders a blank screen.
+    if full_path and Path(full_path).suffix:
+        raise HTTPException(status_code=404, detail=f"Asset '{full_path}' not found")
+
     index_file = STATIC_DIR / "index.html"
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
-    return FileResponse(index_file)
+    return FileResponse(index_file, headers={"Cache-Control": "no-cache, must-revalidate"})
