@@ -67,6 +67,9 @@ uv run python -m src.cli evaluate --run-ablations
 
 # Пространственный hold-out (leave-one-AOI-out) — дополнительная диагностика
 uv run python -m src.cli evaluate --holdout
+
+# Загрузка реальных мультиспектральных сцен Sentinel-2 L2A через Planetary Computer STAC
+uv run python -m src.cli fetch-optical --pair-id flood_2019_07_amur__belogorsk
 ```
 
 #### 3. Запуск полного набора автотестов

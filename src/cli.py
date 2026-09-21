@@ -291,6 +291,15 @@ def main() -> None:
         help="Where to store the machine-readable benchmark summary",
     )
 
+    # fetch-optical sub-command
+    fetch_opt_parser = subparsers.add_parser(
+        "fetch-optical",
+        help="Download and reproject real Sentinel-2 MSI L2A bands via Planetary Computer STAC",
+    )
+    fetch_opt_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
+    fetch_opt_parser.add_argument("--pair-id", type=str, default=None, help="Process single pair_id")
+    fetch_opt_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
+
     args, unknown = parser.parse_known_args()
 
     if args.command == "predict":
@@ -340,6 +349,14 @@ def main() -> None:
             predictions_dir=args.predictions_dir,
             iterations=args.iterations,
             output_json=args.output_json,
+        )
+    elif args.command == "fetch-optical":
+        from scripts.fetch_real_s2 import fetch_optical_scenes
+
+        fetch_optical_scenes(
+            pairs_csv_path=args.pairs,
+            data_dir=args.data_dir,
+            pair_id=args.pair_id,
         )
 
 
