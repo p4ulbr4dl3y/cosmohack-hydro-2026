@@ -1,4 +1,4 @@
-"""Optical index calculations and multispectral water segmentation."""
+"""Расчёт оптических индексов и мультиспектральная сегментация воды."""
 
 from __future__ import annotations
 
@@ -22,29 +22,29 @@ def calculate_optical_indices(
     blue: np.ndarray | None = None,
     red: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
-    """Calculate optical water and vegetation indices from Sentinel-2 MSI bands.
+    """Вычисляет оптические водные и вегетационные индексы по каналам Sentinel-2 MSI.
 
-    Always returned:
+    Возвращаются всегда:
         - NDWI = (Green - NIR) / (Green + NIR)
         - MNDWI = (Green - SWIR1) / (Green + SWIR1)
 
-    Returned when the required band is supplied:
-        - NDVI = (NIR - Red) / (NIR + Red)              [requires ``red``]
+    Возвращаются при наличии требуемого канала:
+        - NDVI = (NIR - Red) / (NIR + Red)              [требуется ``red``]
         - AWEIsh = Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2
-                                                        [requires ``blue``]
+                                                        [требуется ``blue``]
 
-    ``swir2`` is only used by AWEIsh.
+    ``swir2`` используется только в AWEIsh.
 
-    Args:
-        green: Green band (B03).
-        nir: Near-infrared band (B08).
-        swir1: Short-wave infrared 1 band (B11).
-        swir2: Short-wave infrared 2 band (B12), used by AWEIsh.
-        blue: Optional blue band (B02) required for AWEIsh.
-        red: Optional red band (B04) required for NDVI.
+    Аргументы:
+        green: зелёный канал (B03).
+        nir: ближний инфракрасный канал (B08).
+        swir1: коротковолновый инфракрасный канал 1 (B11).
+        swir2: коротковолновый инфракрасный канал 2 (B12), используется в AWEIsh.
+        blue: необязательный синий канал (B02), необходим для AWEIsh.
+        red: необязательный красный канал (B04), необходим для NDVI.
 
-    Returns:
-        Mapping of index name to 2D array.
+    Возвращает:
+        Сопоставление имени индекса и двумерного массива.
     """
     eps = 1e-7
     ndwi = (green - nir) / np.maximum(green + nir, eps)
@@ -64,29 +64,29 @@ def segment_optical(
     aweish_min: float = OPTICAL_AWEISH_MIN,
     ndvi_max: float = OPTICAL_NDVI_MAX,
 ) -> tuple[np.ndarray | None, np.ndarray]:
-    """Segment water using Sentinel-2 MSI indices where available.
+    """Сегментирует воду по индексам Sentinel-2 MSI там, где они доступны.
 
-    Turbid flood water has negative NDWI, so NDWI is not required.
-    Uses: (MNDWI > mndwi_min or AWEIsh > aweish_min) & (NDVI <= ndvi_max).
+    Мутная паводковая вода имеет отрицательный NDWI, поэтому NDWI не требуется.
+    Использует: (MNDWI > mndwi_min или AWEIsh > aweish_min) & (NDVI <= ndvi_max).
 
-    Args:
-        s2_path: Path to Sentinel-2 MSI GeoTIFF file.
-        target_shape: (height, width) expected output shape.
-        mndwi_min: Minimum MNDWI threshold (default 0.1).
-        aweish_min: Minimum AWEIsh threshold (default 0.0).
-        ndvi_max: Maximum NDVI threshold (default 0.3).
+    Аргументы:
+        s2_path: путь к файлу GeoTIFF Sentinel-2 MSI.
+        target_shape: ожидаемая форма выхода (height, width).
+        mndwi_min: минимальный порог MNDWI (по умолчанию 0.1).
+        aweish_min: минимальный порог AWEIsh (по умолчанию 0.0).
+        ndvi_max: максимальный порог NDVI (по умолчанию 0.3).
 
-    Returns:
+    Возвращает:
         (optical_water, valid_mask):
-            optical_water: 2D boolean array or None if file absent or no valid pixels.
-            valid_mask: 2D boolean array indicating valid MSI pixels.
+            optical_water: двумерный булев массив или None, если файл отсутствует или нет валидных пикселей.
+            valid_mask: двумерный булев массив, отмечающий валидные пиксели MSI.
     """
     height, width = target_shape
     if not s2_path or not Path(s2_path).exists():
         return None, np.zeros((height, width), dtype=bool)
 
     with rasterio.open(s2_path) as src:
-        # Expected bands: 5: NDWI, 6: MNDWI, 7: NDVI, 8: AWEIsh
+        # Ожидаемые каналы: 5: NDWI, 6: MNDWI, 7: NDVI, 8: AWEIsh
         if src.count < 8:
             return None, np.zeros((height, width), dtype=bool)
 
@@ -106,7 +106,7 @@ def segment_optical(
     if not np.any(valid_mask):
         return None, np.zeros((height, width), dtype=bool)
 
-    # Turbid water fix: MNDWI > 0.1 or AWEIsh > 0, NDVI <= 0.3
+    # Поправка на мутную воду: MNDWI > 0.1 или AWEIsh > 0, NDVI <= 0.3
     optical_water = ((mndwi > mndwi_min) | (aweish > aweish_min)) & (ndvi <= ndvi_max) & valid_mask
 
     return optical_water, valid_mask

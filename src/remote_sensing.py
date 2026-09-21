@@ -1,8 +1,8 @@
-"""Multi-spectral Remote Sensing & Optical Preprocessing Module.
+"""Модуль мультиспектрального дистанционного зондирования и оптической предобработки.
 
-Supports Sentinel-2 Level-2A data handling, Scene Classification Layer (SCL)
-cloud/shadow filtering, radiometric calibration, and spectral index calculations
-(NDWI, MNDWI, NDVI, NBR, AWEIsh, dNBR, dNDVI) with physical noise suppression.
+Поддерживает работу с данными Sentinel-2 Level-2A, слоем классификации сцены (SCL),
+фильтрацией облаков и теней, радиометрической калибровкой и расчётом спектральных индексов
+(NDWI, MNDWI, NDVI, NBR, AWEIsh, dNBR, dNDVI) с физическим подавлением шума.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import numpy as np
 
 
 class SCLClass(IntEnum):
-    """Sentinel-2 Scene Classification Layer (SCL) class codes."""
+    """Коды классов слоя классификации сцены (SCL) Sentinel-2."""
 
     NO_DATA = 0
     SATURATED_OR_DEFECTIVE = 1
@@ -50,7 +50,7 @@ def create_scl_valid_mask(
     valid_classes: tuple[int, ...] = DEFAULT_VALID_SCL_CLASSES,
     mask_classes: tuple[int, ...] = DEFAULT_MASKED_SCL_CLASSES,
 ) -> np.ndarray:
-    """Generate boolean mask of cloud-free and valid pixels from Sentinel-2 SCL."""
+    """Формирует булеву маску свободных от облаков и валидных пикселей по SCL Sentinel-2."""
     valid_mask = np.isin(scl, valid_classes)
     invalid_mask = np.isin(scl, mask_classes)
     return valid_mask & (~invalid_mask)
@@ -62,7 +62,7 @@ def mask_scene_clouds(
     valid_classes: tuple[int, ...] = DEFAULT_VALID_SCL_CLASSES,
     mask_classes: tuple[int, ...] = DEFAULT_MASKED_SCL_CLASSES,
 ) -> np.ndarray:
-    """Mask clouds, shadows, and invalid pixels with NaN in reflectance arrays."""
+    """Маскирует облака, тени и невалидные пиксели значениями NaN в массивах отражательной способности."""
     masked = reflectance.astype(np.float32, copy=True)
     if scl is None:
         return masked
@@ -81,19 +81,19 @@ def normalized_difference(
     mask: np.ndarray | None = None,
     eps: float = 1e-6,
 ) -> np.ndarray:
-    """Calculate normalized difference: (band_a - band_b) / (band_a + band_b).
+    """Вычисляет нормированную разность: (band_a - band_b) / (band_a + band_b).
 
-    Physically bounded to [-1.0, 1.0]. Negative reflectances or Sen2Cor processing
-    artifacts producing unphysical ratios outside [-1.0, 1.0] are masked to NaN.
+    Физически ограничено диапазоном [-1.0, 1.0]. Отрицательные отражательные способности или артефакты
+    обработки Sen2Cor, дающие нефизичные отношения вне [-1.0, 1.0], маскируются в NaN.
 
-    Args:
-        band_a: First spectral band (e.g. Green, NIR).
-        band_b: Second spectral band (e.g. NIR, SWIR, Red).
-        mask: Optional boolean valid mask.
-        eps: Minimum positive denominator value.
+    Аргументы:
+        band_a: первый спектральный канал (например, зелёный, NIR).
+        band_b: второй спектральный канал (например, NIR, SWIR, красный).
+        mask: необязательная булева маска валидности.
+        eps: минимальное положительное значение знаменателя.
 
-    Returns:
-        Float32 array of normalized index.
+    Возвращает:
+        Массив float32 нормированного индекса.
     """
     a = np.asarray(band_a, dtype=np.float32)
     b = np.asarray(band_b, dtype=np.float32)
@@ -108,29 +108,29 @@ def normalized_difference(
     index = np.full_like(a, np.nan, dtype=np.float32)
     np.divide(num, denom, out=index, where=valid)
 
-    # Filter unphysical mathematical noise outside [-1.0, 1.0]
+    # Отсев нефизичного математического шума вне [-1.0, 1.0]
     unphysical = valid & ((index < -1.0) | (index > 1.0))
     index[unphysical] = np.nan
     return index
 
 
 def calculate_ndwi(green: np.ndarray, nir: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
-    """Compute McFeeters Normalized Difference Water Index: NDWI = (Green - NIR) / (Green + NIR)."""
+    """Вычисляет нормированный разностный водный индекс Макфитерса: NDWI = (Green - NIR) / (Green + NIR)."""
     return normalized_difference(green, nir, mask=mask)
 
 
 def calculate_mndwi(green: np.ndarray, swir: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
-    """Compute Xu Modified NDWI: MNDWI = (Green - SWIR) / (Green + SWIR)."""
+    """Вычисляет модифицированный NDWI по Xu: MNDWI = (Green - SWIR) / (Green + SWIR)."""
     return normalized_difference(green, swir, mask=mask)
 
 
 def calculate_ndvi(nir: np.ndarray, red: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
-    """Compute Normalized Difference Vegetation Index: NDVI = (NIR - Red) / (NIR + Red)."""
+    """Вычисляет нормированный разностный вегетационный индекс: NDVI = (NIR - Red) / (NIR + Red)."""
     return normalized_difference(nir, red, mask=mask)
 
 
 def calculate_nbr(nir: np.ndarray, swir2: np.ndarray, mask: np.ndarray | None = None) -> np.ndarray:
-    """Compute Normalized Burn / Moisture Ratio: NBR = (NIR - SWIR2) / (NIR + SWIR2)."""
+    """Вычисляет нормированное отношение выгорания и увлажнения: NBR = (NIR - SWIR2) / (NIR + SWIR2)."""
     return normalized_difference(nir, swir2, mask=mask)
 
 
@@ -142,7 +142,7 @@ def calculate_aweish(
     swir2: np.ndarray,
     mask: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Compute Automated Water Extraction Index (shadow variant):
+    """Вычисляет автоматизированный индекс выделения воды (вариант для теней):
 
     AWEIsh = Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2.
     """
@@ -159,12 +159,12 @@ def calculate_aweish(
 
 
 def calculate_dnbr(nbr_pre: np.ndarray, nbr_post: np.ndarray) -> np.ndarray:
-    """Compute differential NBR: dNBR = NBR_pre - NBR_post."""
+    """Вычисляет дифференциальный NBR: dNBR = NBR_pre - NBR_post."""
     return (np.asarray(nbr_pre, dtype=np.float32) - np.asarray(nbr_post, dtype=np.float32)).astype(np.float32)
 
 
 def calculate_dndvi(ndvi_pre: np.ndarray, ndvi_post: np.ndarray) -> np.ndarray:
-    """Compute differential NDVI: dNDVI = NDVI_pre - NDVI_post."""
+    """Вычисляет дифференциальный NDVI: dNDVI = NDVI_pre - NDVI_post."""
     return (np.asarray(ndvi_pre, dtype=np.float32) - np.asarray(ndvi_post, dtype=np.float32)).astype(np.float32)
 
 
@@ -175,10 +175,10 @@ def apply_sentinel2_radiometry(
     offset: float | None = None,
     nodata: float | int = 0,
 ) -> np.ndarray:
-    """Apply radiometric scaling and offset to Sentinel-2 DN values.
+    """Применяет радиометрическое масштабирование и смещение к значениям DN Sentinel-2.
 
-    For baseline >= 04.00, offset is -0.1 (Reflectance = DN * 0.0001 - 0.1).
-    For baseline < 04.00, offset is 0.0 (Reflectance = DN * 0.0001).
+    Для baseline >= 04.00 смещение равно -0.1 (отражательная способность = DN * 0.0001 - 0.1).
+    Для baseline < 04.00 смещение равно 0.0 (отражательная способность = DN * 0.0001).
     """
     arr = data.astype(np.float32, copy=True)
     nodata_mask = arr == nodata

@@ -1,7 +1,7 @@
-"""Sentinel-1 SAR C-band Radar Hydrological Analytics Module.
+"""Модуль гидрологической аналитики радиолокационных данных Sentinel-1 SAR C-диапазона.
 
-Performs dual-polarization (VV/VH) radar analysis for hydrological monitoring,
-flood mapping, cross-polarization ratio computation, and cloud-penetration verification.
+Выполняет двухполяризационный (VV/VH) радиолокационный анализ для гидрологического мониторинга,
+картирования затопления, расчёта кросс-поляризационного отношения и проверки проникновения через облака.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SARAnalyticsResult:
-    """Aggregated Sentinel-1 SAR radar analytics summary."""
+    """Сводка агрегированной аналитики радара Sentinel-1 SAR."""
 
     water_fraction: float
     water_area_ha: float
@@ -29,17 +29,17 @@ def compute_cross_polarization_ratio(
     vh_backscatter_db: np.ndarray,
     vv_backscatter_db: np.ndarray,
 ) -> np.ndarray:
-    """Compute cross-polarization ratio in dB: CR = VH - VV.
+    """Вычисляет кросс-поляризационное отношение в дБ: CR = VH - VV.
 
-    In linear scale: CR_lin = I_VH / I_VV.
-    In decibel logarithmic scale: 10*log10(I_VH / I_VV) = VH_dB - VV_dB.
+    В линейной шкале: CR_lin = I_VH / I_VV.
+    В логарифмической шкале децибел: 10*log10(I_VH / I_VV) = VH_dB - VV_dB.
 
-    Args:
-        vh_backscatter_db: VH backscatter array in dB.
-        vv_backscatter_db: VV backscatter array in dB.
+    Аргументы:
+        vh_backscatter_db: массив обратного рассеяния VH в дБ.
+        vv_backscatter_db: массив обратного рассеяния VV в дБ.
 
-    Returns:
-        Array of cross-polarization ratio (dB), with invalid pixels as NaN.
+    Возвращает:
+        Массив кросс-поляризационного отношения (дБ), где невалидные пиксели равны NaN.
     """
     vh = np.asarray(vh_backscatter_db, dtype=np.float32)
     vv = np.asarray(vv_backscatter_db, dtype=np.float32)
@@ -56,22 +56,22 @@ def analyze_sar_hydrology(
     threshold_db: float = -16.5,
     area_ha: float = 0.0,
 ) -> tuple[np.ndarray, SARAnalyticsResult]:
-    """Analyze dual-polarization Sentinel-1 radar backscatter for hydrological state.
+    """Анализирует двухполяризационное обратное рассеяние радара Sentinel-1 для гидрологического состояния.
 
-    Specular reflection over smooth water creates steep drops in both VV and VH.
-    Cross-polarization ratio (VH - VV) and contrast metrics distinguish open water
-    from rough soil and urban areas.
+    Зеркальное отражение от гладкой воды создаёт резкие провалы как в VV, так и в VH.
+    Кросс-поляризационное отношение (VH - VV) и метрики контраста отличают открытую воду
+    от шероховатой почвы и городских территорий.
 
-    Args:
-        vv_backscatter_db: 2D array of Sentinel-1 VV backscatter in dB.
-        vh_backscatter_db: Optional 2D array of Sentinel-1 VH backscatter in dB.
-        threshold_db: Threshold in dB below which pixels represent water specular reflection.
-        area_ha: Total reference area in hectares.
+    Аргументы:
+        vv_backscatter_db: двумерный массив обратного рассеяния Sentinel-1 VV в дБ.
+        vh_backscatter_db: необязательный двумерный массив обратного рассеяния Sentinel-1 VH в дБ.
+        threshold_db: порог в дБ, ниже которого пиксели соответствуют зеркальному отражению воды.
+        area_ha: общая эталонная площадь в гектарах.
 
-    Returns:
+    Возвращает:
         (water_mask, result):
-            water_mask: Boolean 2D mask of specular water reflection.
-            result: SARAnalyticsResult dataclass.
+            water_mask: булева двумерная маска зеркального отражения воды.
+            result: датакласс SARAnalyticsResult.
     """
     vv = np.asarray(vv_backscatter_db, dtype=np.float64)
     valid_vv = np.isfinite(vv) & (vv > -70.0) & (vv < 20.0)
@@ -99,7 +99,7 @@ def analyze_sar_hydrology(
 
     water_mask = (vv < threshold_db) & valid
     if vh is not None:
-        # Cross-polarization also suppresses volume scattering
+        # Кросс-поляризация также подавляет объёмное рассеяние
         water_mask = water_mask & (vh < (threshold_db - 3.0))
 
     water_count = int(np.sum(water_mask))
@@ -109,21 +109,21 @@ def analyze_sar_hydrology(
     mean_vv = float(np.mean(vv[valid]))
     mean_vh = float(np.mean(vh[valid])) if vh is not None else 0.0
 
-    # Cross-polarization ratio (VH - VV in dB)
+    # Кросс-поляризационное отношение (VH - VV в дБ)
     if vh is not None:
         cr_vals = vh[valid] - vv[valid]
         mean_cr = float(np.mean(cr_vals))
     else:
         mean_cr = 0.0
 
-    # Radar contrast: difference between non-water mode and water mode
+    # Радиолокационный контраст: разница между модами неводы и воды
     non_water = valid & (~water_mask)
     if np.any(water_mask) and np.any(non_water):
         contrast = float(np.median(vv[non_water]) - np.median(vv[water_mask]))
     else:
         contrast = 0.0
 
-    # Double bounce indication: elevated VH/VV ratio and high VV
+    # Признак двойного отражения: повышенное отношение VH/VV и высокий VV
     if vh is not None:
         db_cand = (vh - vv > -5.0) & (vv > -12.0) & valid
         db_fraction = float(np.sum(db_cand) / valid_count)

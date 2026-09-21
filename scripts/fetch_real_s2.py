@@ -1,4 +1,4 @@
-"""Download and reproject Sentinel-2 L2A scenes via Planetary Computer STAC."""
+"""Скачивает и перепроецирует сцены Sentinel-2 L2A через STAC Planetary Computer."""
 
 from __future__ import annotations
 

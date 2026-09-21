@@ -1,9 +1,9 @@
-"""End-to-end prediction and inference pipeline for HydroWatch Amur.
+"""Сквозной конвейер предсказания и инференса для HydroWatch Amur.
 
-Processes all 11 pairs in hydrowatch_amur/pairs.csv, outputs:
-  - submission.csv with columns [pair_id, flood_ha, water_pre_ha, water_peak_ha]
+Обрабатывает все 11 пар в hydrowatch_amur/pairs.csv, формирует:
+  - submission.csv со столбцами [pair_id, flood_ha, water_pre_ha, water_peak_ha]
   - predictions/<pair_id>_flood.tif (GeoTIFF, uint8, 0/1, EPSG:32652)
-Verifies that the CSV areas match raster pixel counts within 2%.
+Проверяет, что площади в CSV совпадают с числом растровых пикселей в пределах 2%.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-# Ensure repository root is in sys.path
+# Гарантируем наличие корня репозитория в sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from typing import Any
@@ -53,23 +53,23 @@ def read_sar_bands(
     path: str | Path,
     block_rows: int = SAR_READ_BLOCK_ROWS,
 ) -> tuple[np.ndarray, np.ndarray | None]:
-    """Read VV (band 1) and VH (band 2) from a Sentinel-1 scene in row blocks.
+    """Читает VV (канал 1) и VH (канал 2) из сцены Sentinel-1 блоками строк.
 
-    Full S1 scenes in this case are ~3700x4500 float32; reading them as whole arrays
-    (``src.read(1)`` / ``src.read(2)``) makes peak RSS scale with the scene size. Here the
-    band is streamed with ``rasterio.windows.Window`` in ``block_rows``-high strips and
-    written into the destination array, so the extra working set is bounded by one block
-    (``block_rows * width`` pixels) instead of the whole scene.
+    Полные сцены S1 в этом кейсе имеют размер ~3700x4500 float32; чтение их целиком
+    (``src.read(1)`` / ``src.read(2)``) делает пиковый RSS пропорциональным размеру сцены. Здесь
+    канал читается потоком через ``rasterio.windows.Window`` полосами высотой ``block_rows`` и
+    пишется в целевой массив, поэтому дополнительный рабочий набор ограничен одним блоком
+    (``block_rows * width`` пикселей) вместо всей сцены.
 
-    The destination is allocated with the raster's native dtype and each block is copied
-    verbatim, so the result is bit-identical to a whole-array read.
+    Целевой массив выделяется с собственным dtype растра, и каждый блок копируется
+    дословно, поэтому результат побитово идентичен чтению всего массива.
 
-    Args:
-        path: Path to the S1 raster (band 1 = VV, band 2 = VH when present).
-        block_rows: Number of rows per window (default from ``SAR_READ_BLOCK_ROWS``).
+    Аргументы:
+        path: путь к растру S1 (канал 1 = VV, канал 2 = VH при наличии).
+        block_rows: число строк на окно (по умолчанию из ``SAR_READ_BLOCK_ROWS``).
 
-    Returns:
-        (vv, vh): ``vh`` is ``None`` when the raster has fewer than 2 bands.
+    Возвращает:
+        (vv, vh): ``vh`` равен ``None``, когда в растре меньше 2 каналов.
     """
     rows_per_block = max(int(block_rows), 1)
     with rasterio.open(path) as src:
@@ -87,12 +87,12 @@ def read_sar_bands(
 
 
 def resolve_orbit_pass(row: pd.Series) -> str | None:
-    """Return the SAR orbit pass label ("ASCENDING"/"DESCENDING") from a pairs row.
+    """Возвращает метку направления орбиты SAR ("ASCENDING"/"DESCENDING") из строки pairs.
 
-    The label drives the orbit-aware radar-shadow guard in :func:`segment_water`: a
-    right-looking Sentinel-1 illuminates from the west on descending passes and from the
-    east on ascending passes, so the shadowed terrain aspect flips by 180 deg. Returns
-    ``None`` when the column is absent or empty, which disables the guard.
+    Метка управляет защитой от радиолокационной тени с учётом орбиты в :func:`segment_water`:
+    правосторонняя Sentinel-1 освещает с запада на нисходящих витках и с
+    востока на восходящих витках, поэтому затенённая экспозиция рельефа меняется на 180 град. Возвращает
+    ``None``, когда столбец отсутствует или пуст, что отключает защиту.
     """
     value = row.get("orbit_pass") if hasattr(row, "get") else None
     if value is None:
@@ -102,7 +102,7 @@ def resolve_orbit_pass(row: pd.Series) -> str | None:
 
 
 def _process_pair_worker(task_args: tuple[int, int, pd.Series, Path, Path, int]) -> dict[str, float | str]:
-    """Top-level worker helper for multiprocessing pool execution."""
+    """Вспомогательная функция верхнего уровня для запуска в пуле многопроцессной обработки."""
     idx, total, row, data_dir, predictions_dir, ablation_mode = task_args
     logger.info(f"Processing [{idx + 1}/{total}]: {row['pair_id']}")
     return process_pair(
@@ -119,26 +119,26 @@ def process_pair(
     predictions_dir: Path,
     ablation_mode: int = 4,
 ) -> dict[str, float | str]:
-    """Process a single AOI pair through the segmentation pipeline.
+    """Обрабатывает одну пару AOI через конвейер сегментации.
 
-    Ablation modes:
-      1: Naive SAR Otsu alone (no priors, no optical, no MMU, no permanent).
-      2: SAR Otsu + HAND/Slope filter.
-      3: SAR + MSI optical fusion (where available) + HAND/Slope filter.
-      4: Full pipeline (+ MMU 25px + GSW permanent).
+    Режимы аблации:
+      1: только наивный SAR Otsu (без априорных данных, оптики, MMU и постоянной воды).
+      2: SAR Otsu + фильтр по HAND и уклону.
+      3: объединение SAR и оптики MSI (где доступно) + фильтр по HAND и уклону.
+      4: полный конвейер (+ MMU 25 пикс. + постоянная вода GSW).
     """
     pair_id = str(row["pair_id"])
     rasters_dir = data_dir / str(row["rasters_dir"])
 
-    # 1. Locate Sentinel-1 rasters first to allow standalone geometry fallback
+    # 1. Сначала находим растры Sentinel-1, чтобы обеспечить автономный откат по геометрии
     s1_pre_files = sorted(glob.glob(str(rasters_dir / "S1_pre_*.tif")))
     s1_peak_files = sorted(glob.glob(str(rasters_dir / "S1_peak_*.tif")))
 
     if not s1_pre_files or not s1_peak_files:
         raise FileNotFoundError(f"Missing S1 pre/peak rasters in {rasters_dir}")
 
-    # Target geometry: derive from the Sentinel-1 scene grid (native sensor grid).
-    # The reference raster is only a fallback when S1 metadata is unavailable.
+    # Целевая геометрия: берётся из сетки сцены Sentinel-1 (нативная сетка сенсора).
+    # Эталонный растр используется только как запасной вариант, когда метаданные S1 недоступны.
     with rasterio.open(s1_pre_files[0]) as s1_src:
         target_shape = s1_src.shape
         target_transform = s1_src.transform
@@ -146,12 +146,12 @@ def process_pair(
 
     height, width = target_shape
 
-    # Windowed (row-block) reads: peak RSS of the SAR read path is bounded by
-    # SAR_READ_BLOCK_ROWS rather than the full scene size. Bit-identical to src.read().
+    # Оконное чтение (блоками строк): пиковый RSS пути чтения SAR ограничен
+    # SAR_READ_BLOCK_ROWS, а не полным размером сцены. Побитово идентично src.read().
     vv_pre, vh_pre = read_sar_bands(s1_pre_files[0], block_rows=SAR_READ_BLOCK_ROWS)
     vv_peak, vh_peak = read_sar_bands(s1_peak_files[0], block_rows=SAR_READ_BLOCK_ROWS)
 
-    # 2. Load Topographic & Hydrological priors from AUX
+    # 2. Загрузка топографических и гидрологических априорных данных из AUX
     aux_file = rasters_dir / "AUX_terrain_gsw.tif"
     if aux_file.exists() and ablation_mode >= 2:
         aux_data = load_aux_priors(aux_file, target_shape, target_transform, target_crs)
@@ -171,7 +171,7 @@ def process_pair(
         builtup_arr = None
         occ_arr = None
 
-    # 3. Load Optical Sentinel-2 where available
+    # 3. Загрузка оптических данных Sentinel-2 там, где они доступны
     opt_pre_w, opt_pre_v = None, None
     opt_peak_w, opt_peak_v = None, None
     if ablation_mode >= 3:
@@ -187,11 +187,11 @@ def process_pair(
     use_mmu = ablation_mode == 4
     use_permanent = ablation_mode == 4
 
-    # Orbit geometry from the pairs row drives the orbit-aware radar-shadow guard
-    # (descending looks west, ascending looks east -> the shadowed aspect flips).
+    # Геометрия орбиты из строки pairs управляет защитой от радиолокационной тени с учётом орбиты
+    # (нисходящий виток смотрит на запад, восходящий на восток, поэтому затенённая экспозиция меняется).
     orbit_pass = resolve_orbit_pass(row)
 
-    # 4. Segment pre-flood water
+    # 4. Сегментация воды до паводка
     water_pre = segment_water(
         vv=vv_pre,
         vh=vh_pre,
@@ -212,7 +212,7 @@ def process_pair(
         use_permanent=use_permanent,
     )
 
-    # 5. Segment peak-flood water
+    # 5. Сегментация воды пика паводка
     water_peak = segment_water(
         vv=vv_peak,
         vh=vh_peak,
@@ -235,12 +235,12 @@ def process_pair(
         use_permanent=use_permanent,
     )
 
-    # 5c. Morphological closing on water mirrors (fills internal speckle holes and wave gaps)
+    # 5c. Морфологическое закрытие водных зеркал (заполняет внутренние спекл-провалы и разрывы от волн)
     if ablation_mode >= 2:
         water_pre = apply_morphological_closing(water_pre, kernel_size=5)
         water_peak = apply_morphological_closing(water_peak, kernel_size=5)
 
-    # 6. Compute temporal dynamics
+    # 6. Расчёт временной динамики
     temporal = compute_temporal_dynamics(
         water_pre=water_pre,
         water_peak=water_peak,
@@ -252,8 +252,8 @@ def process_pair(
     water_pre_mask = temporal["water_pre"]
     water_peak_mask = temporal["water_peak"]
 
-    # 5b. Sub-canopy flooded vegetation (double bounce) as a separate product layer.
-    # Not part of the open-water mirror (task spec section 5); informational only.
+    # 5b. Затопленная растительность под пологом (двойное отражение) как отдельный слой продукта.
+    # Не входит в зеркало открытой воды (раздел 5 ТЗ); только справочно.
     flooded_vegetation_mask = np.zeros(water_peak_mask.shape, dtype=np.uint8)
     if ablation_mode >= 2:
         fv = detect_flooded_vegetation(
@@ -267,7 +267,7 @@ def process_pair(
         )
         flooded_vegetation_mask = fv.astype(np.uint8)
 
-    # 6b. AOI polygon boundary clipping (eliminates out-of-boundary predictions)
+    # 6b. Обрезка по границе полигона AOI (устраняет предсказания за пределами границ)
     aoi_geojson_path = data_dir / "vectors" / "aoi.geojson"
     if aoi_geojson_path.exists():
         try:
@@ -283,9 +283,9 @@ def process_pair(
         except Exception as e:
             logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
 
-    # 6c. Multi-Seed Hydrological connectivity filter and MMU in full pipeline mode (Mode 4)
+    # 6c. Фильтр гидрологической связности с несколькими опорами и MMU в режиме полного конвейера (режим 4)
     if ablation_mode == 4:
-        # Seed network: permanent river water (GSW >= 80%) plus seasonal channels (GSW occurrence >= 70%)
+        # Опорная сеть: постоянная речная вода (GSW >= 80%) плюс сезонные русла (GSW occurrence >= 70%)
         seed_mask = None
         if perm_mask is not None and np.any(perm_mask):
             seed_mask = perm_mask.copy()
@@ -309,12 +309,12 @@ def process_pair(
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
-    # Recompute areas in hectares after clipping, connectivity and MMU
+    # Пересчёт площадей в гектарах после обрезки, связности и MMU
     flood_ha = round(float(np.sum(flood_mask == 1) * PIXEL_SIZE_HA), 2)
     water_pre_ha = round(float(np.sum(water_pre_mask == 1) * PIXEL_SIZE_HA), 2)
     water_peak_ha = round(float(np.sum(water_peak_mask == 1) * PIXEL_SIZE_HA), 2)
 
-    # 7. Write GeoTIFF prediction
+    # 7. Запись предсказания GeoTIFF
     predictions_dir.mkdir(parents=True, exist_ok=True)
     out_tif = predictions_dir / f"{pair_id}_flood.tif"
     with rasterio.open(
@@ -332,7 +332,7 @@ def process_pair(
     ) as dst:
         dst.write(flood_mask, 1)
 
-    # 7b. Write own water mask GeoTIFFs (served by the FastAPI service)
+    # 7b. Запись собственных водных масок GeoTIFF (отдаются сервисом FastAPI)
     water_masks_map = {
         "water_pre": water_pre_mask,
         "water_peak": water_peak_mask,
@@ -355,7 +355,7 @@ def process_pair(
         ) as dst:
             dst.write(water_masks_map[water_layer], 1)
 
-    # 8. Strict Area Verification (< 2% difference between CSV and raster mask)
+    # 8. Строгая проверка площадей (< 2% расхождения между CSV и растровой маской)
     raster_flood_px = int(np.sum(flood_mask == 1))
     raster_flood_ha = round(raster_flood_px * PIXEL_SIZE_HA, 2)
     diff = abs(flood_ha - raster_flood_ha)
@@ -376,7 +376,7 @@ def process_pair(
         "water_peak_ha": water_peak_ha,
     }
 
-    # Free temporary memory and trigger garbage collection
+    # Освобождение временной памяти и запуск сборки мусора
     del vv_pre, vh_pre, vv_peak, vh_peak
     if "aux_data" in locals():
         del aux_data
@@ -397,7 +397,7 @@ def run_prediction(
     ablation_mode: int = 4,
     workers: int | None = None,
 ) -> pd.DataFrame:
-    """Run inference over all pairs in pairs.csv and generate submission.csv."""
+    """Запускает инференс по всем парам в pairs.csv и формирует submission.csv."""
     pairs_df = pd.read_csv(pairs_csv_path)
     total_pairs = len(pairs_df)
     logger.info(f"Loaded {total_pairs} pairs from {pairs_csv_path}")

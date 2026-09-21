@@ -1,9 +1,9 @@
-"""Helpers for fetching and unpacking the external HydroWatch Amur dataset.
+"""Вспомогательные функции для скачивания и распаковки внешнего датасета HydroWatch Amur.
 
-The Sentinel-1 scenes (S1_pre_*.tif / S1_peak_*.tif, ~2.9 GB) are not stored
-in git (see .gitignore) and are distributed by the case organizers via
-Google Drive. This module provides a safe unpacker (stdlib only, no external
-``unzip`` binary required) and a check for which pairs still lack S1 scenes.
+Сцены Sentinel-1 (S1_pre_*.tif / S1_peak_*.tif, ~2.9 GB) не хранятся
+в git (см. .gitignore) и распространяются организаторами кейса через
+Google Drive. Этот модуль предоставляет безопасный распаковщик (только стандартная библиотека, без внешнего
+бинарника ``unzip``) и проверку того, у каких пар всё ещё нет сцен S1.
 """
 
 from __future__ import annotations
@@ -13,15 +13,15 @@ import glob
 import zipfile
 from pathlib import Path
 
-#: Link also documented in docs/Ссылка на данные.txt
+#: Ссылка также описана в docs/Ссылка на данные.txt
 DATA_URL = "https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing"
 
 
 def safe_extract(archive_path: Path, dest: Path) -> int:
-    """Extract a zip archive into ``dest``, guarding against zip-slip.
+    """Распаковывает zip-архив в ``dest``, защищаясь от zip-slip.
 
-    Returns the number of extracted entries. Every entry target must stay
-    inside ``dest``; otherwise a ``RuntimeError`` is raised before extraction.
+    Возвращает число распакованных записей. Цель каждой записи должна оставаться
+    внутри ``dest``; иначе до распаковки возникает ``RuntimeError``.
     """
     dest = dest.resolve()
     with zipfile.ZipFile(archive_path) as archive:
@@ -34,7 +34,7 @@ def safe_extract(archive_path: Path, dest: Path) -> int:
 
 
 def missing_s1_pairs(pairs_csv: Path, data_dir: Path) -> list[str]:
-    """Return pair ids whose S1 pre/peak scenes are not present on disk."""
+    """Возвращает идентификаторы пар, для которых сцены S1 pre/peak отсутствуют на диске."""
     if not pairs_csv.exists():
         return []
     missing: list[str] = []

@@ -1,1 +1,1 @@
-"""HydroWatch Amur pipeline and metric engineering."""
+"""Пайплайн HydroWatch Amur и инженерные метрики."""

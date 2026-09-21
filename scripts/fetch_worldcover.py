@@ -1,18 +1,18 @@
-"""Fetch ESA WorldCover v200 cropland masks for every AOI.
+"""Скачивает маски пашни ESA WorldCover v200 для каждого AOI.
 
-Downloads the WorldCover COG tiles (10 m) via the Microsoft Planetary Computer
-STAC API and clips/reprojects the cropland class (v200 class code 40) onto each
-pair's native Sentinel-1 grid, writing
+Скачивает COG-тайлы WorldCover (10 м) через STAC API Microsoft Planetary
+Computer и обрезает и перепроецирует класс пашни (версия v200, код класса 40) на
+нативную сетку Sentinel-1 каждой пары, записывая
 
     hydrowatch_amur/rasters/<event>/<aoi>/CROPLAND_worldcover.tif
 
-as a uint8 0/1 mask. The resulting masks are consumed by
-``src.service.data_loader`` to stratify the flooded area into built-up,
-cropland and other natural land.
+как маску uint8 0/1. Полученные маски используются
+в ``src.service.data_loader`` для разбиения затопленной площади на застройку,
+пашню и прочие естественные земли.
 
-Usage:
-    uv run python -m scripts.fetch_worldcover            # all pairs
-    uv run python -m scripts.fetch_worldcover --force    # overwrite existing
+Использование:
+    uv run python -m scripts.fetch_worldcover            # все пары
+    uv run python -m scripts.fetch_worldcover --force    # перезаписать существующие
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 
 
 def _worldcover_cropland_on_grid(bounds: tuple[float, float, float, float], shape, transform, crs) -> np.ndarray:
-    """Return a 0/1 cropland mask reprojected onto the requested target grid."""
+    """Возвращает маску пашни 0/1, перепроецированную на запрошенную целевую сетку."""
     height, width = shape
     left, bottom, right, top = bounds
 
@@ -62,7 +62,7 @@ def _worldcover_cropland_on_grid(bounds: tuple[float, float, float, float], shap
 
 
 def fetch_pair(row: pd.Series, data_dir: Path, force: bool = False) -> Path | None:
-    """Fetch the cropland mask for a single pair; return its path (or None)."""
+    """Скачивает маску пашни для одной пары; возвращает её путь (или None)."""
     pair_id = str(row["pair_id"])
     rasters_dir = data_dir / str(row["rasters_dir"])
     out_path = rasters_dir / "CROPLAND_worldcover.tif"
