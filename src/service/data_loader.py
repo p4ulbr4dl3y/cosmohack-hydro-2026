@@ -198,23 +198,62 @@ class DataLoader:
             dtype="uint8",
         ).astype(bool)
 
-    def _scoped_layer_area_ha(self, pair_id: str, layer: str, query_geom: Any) -> float | None:
-        """Flood/water area in hectares restricted to the query geometry, from rasters."""
+    def _measure_layer_area_ha(self, pair_id: str, layer: str, query_geom: Any | None = None) -> float | None:
+        """Flood/water area in hectares measured from the model raster.
+
+        ``query_geom`` (a WGS84 shapely geometry) restricts the measured pixels to
+        the query polygon; ``None`` measures the whole AOI. Returns ``None`` when
+        the layer raster has not been produced (never falls back to reference masks).
+        """
         tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
         if not tif.exists():
             return None
         with rasterio.open(tif) as src:
             mask = src.read(1) == 1
             px_ha = (abs(src.res[0]) * abs(src.res[1])) / 10000.0
-            inside = self._query_inside_mask(src, query_geom)
-            return round(float((mask & inside).sum()) * px_ha, 2)
+            if query_geom is not None:
+                mask = mask & self._query_inside_mask(src, query_geom)
+            return round(float(mask.sum()) * px_ha, 2)
+
+    def _cross_check_submission(
+        self,
+        pair_id: str,
+        flood_ha: float | None,
+        water_pre_ha: float | None,
+        water_peak_ha: float | None,
+    ) -> None:
+        """Warn when raster-measured areas diverge from submission.csv by >= 2%.
+
+        ``src/predict.py`` guarantees raster/CSV agreement below 2%; submission.csv
+        is retained here purely as a cross-check, it is never the served value.
+        """
+        if not self.submission_csv.exists():
+            return
+        sub_df = pd.read_csv(self.submission_csv)
+        sub_row = sub_df[sub_df["pair_id"] == pair_id]
+        if sub_row.empty:
+            return
+        r0 = sub_row.iloc[0]
+        for layer, measured in (("flood", flood_ha), ("water_pre", water_pre_ha), ("water_peak", water_peak_ha)):
+            if measured is None or f"{layer}_ha" not in r0:
+                continue
+            csv_val = float(r0[f"{layer}_ha"])
+            diff_pct = abs(measured - csv_val) / max(abs(csv_val), 1.0) * 100.0
+            if diff_pct >= 2.0:
+                logger.warning(
+                    f"[{pair_id}] {layer}_ha divergence: raster={measured} ha, "
+                    f"submission.csv={csv_val} ha ({diff_pct:.2f}%)"
+                )
 
     def get_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
         """Hydrological report for a pair.
 
-        When ``query_geom`` (a WGS84 shapely geometry) is given, all areas are
-        recomputed from the model rasters restricted to that geometry and the
-        result is neither read from nor written to the disk cache.
+        All served areas (``flood_ha``/``water_pre_ha``/``water_peak_ha``) are
+        measured from the model rasters in ``predictions/``; ``submission.csv`` is
+        only ever used as a divergence cross-check, never as the source of truth.
+        When ``query_geom`` (a WGS84 shapely geometry) is given, the measurement is
+        restricted to that geometry and the result is neither read from nor written
+        to the disk cache.
         """
         cache_file: Path | None = None
         if query_geom is None:
@@ -237,25 +276,12 @@ class DataLoader:
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         aux_tif = self.data_dir / str(row["rasters_dir"]) / "AUX_terrain_gsw.tif"
 
-        # Load areas from submission.csv if available (whole-AOI reporting only)
-        flood_ha = None
-        water_pre_ha = None
-        water_peak_ha = None
-
-        if query_geom is None and self.submission_csv.exists():
-            sub_df = pd.read_csv(self.submission_csv)
-            sub_row = sub_df[sub_df["pair_id"] == pair_id]
-            if not sub_row.empty:
-                r0 = sub_row.iloc[0]
-                flood_ha = float(r0["flood_ha"])
-                water_pre_ha = float(r0["water_pre_ha"])
-                water_peak_ha = float(r0["water_peak_ha"])
-
-        # Spatial-query scoping: areas come from the rasters clipped to the query polygon
-        if query_geom is not None:
-            flood_ha = self._scoped_layer_area_ha(pair_id, "flood", query_geom)
-            water_pre_ha = self._scoped_layer_area_ha(pair_id, "water_pre", query_geom)
-            water_peak_ha = self._scoped_layer_area_ha(pair_id, "water_peak", query_geom)
+        # Areas always come from measuring the model rasters (whole AOI or, when a
+        # query geometry is given, restricted to it). Never from submission.csv and
+        # never from the organizer reference masks.
+        flood_ha = self._measure_layer_area_ha(pair_id, "flood", query_geom)
+        water_pre_ha = self._measure_layer_area_ha(pair_id, "water_pre", query_geom)
+        water_peak_ha = self._measure_layer_area_ha(pair_id, "water_peak", query_geom)
 
         # Target flood raster: use model prediction (do not fall back to organizer reference)
         target_flood_tif = pred_tif if pred_tif.exists() else None
@@ -385,6 +411,10 @@ class DataLoader:
             permanent_ha = round(float(perm_pts.sum() * px_ha), 2)
         else:
             permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2) if (water_pre_ha and flood_ha) else 0.0
+
+        # submission.csv is a cross-check only: warn if the served raster numbers
+        # diverge from it beyond the <2% agreement guaranteed by src/predict.py.
+        self._cross_check_submission(pair_id, flood_ha, water_pre_ha, water_peak_ha)
 
         if flood_ha is None:
             flood_ha = 0.0

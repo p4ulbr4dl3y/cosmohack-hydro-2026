@@ -119,9 +119,48 @@ def test_data_loader_report_no_submission_csv(tmp_path):
     )
     rep = loader.get_report("flood_2019_07_amur__blagoveshchensk")
     assert rep is not None
+    # Areas come from the rasters, so they are present even with no submission.csv
     assert rep["flood_ha"] > 0
-    assert rep["water_pre_ha"] == 0.0
-    assert rep["water_peak_ha"] == rep["flood_ha"]
+    assert rep["water_pre_ha"] > 0
+    assert rep["water_peak_ha"] > 0
+
+
+def test_data_loader_report_ignores_wrong_submission_csv(tmp_path):
+    """Served areas come from the rasters, not from submission.csv (audit D10)."""
+    import json
+
+    import rasterio
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    wrong_sub = tmp_path / "wrong_submission.csv"
+    wrong_sub.write_text(
+        f"pair_id,flood_ha,water_pre_ha,water_peak_ha\n{pair_id},1.0,2.0,3.0\n",
+        encoding="utf-8",
+    )
+    cache_dir = tmp_path / "cache"
+    loader = DataLoader(submission_csv=wrong_sub, cache_dir=cache_dir)
+
+    rep = loader.get_report(pair_id)
+    assert rep is not None
+
+    def raster_ha(layer: str) -> float:
+        with rasterio.open(loader.predictions_dir / f"{pair_id}_{layer}.tif") as src:
+            px_ha = (abs(src.res[0]) * abs(src.res[1])) / 10000.0
+            return round(float((src.read(1) == 1).sum()) * px_ha, 2)
+
+    assert rep["flood_ha"] == raster_ha("flood")
+    assert rep["water_pre_ha"] == raster_ha("water_pre")
+    assert rep["water_peak_ha"] == raster_ha("water_peak")
+    # Deliberately wrong CSV values are never served
+    assert rep["flood_ha"] != 1.0
+    assert rep["water_pre_ha"] != 2.0
+
+    # The cached whole-AOI report also carries the raster-measured values
+    cache_file = cache_dir / f"report_{pair_id}.json"
+    assert cache_file.exists()
+    cached = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert cached["flood_ha"] == raster_ha("flood")
+    assert cached["water_peak_ha"] == raster_ha("water_peak")
 
 
 def test_data_loader_get_pairs(tmp_path):
