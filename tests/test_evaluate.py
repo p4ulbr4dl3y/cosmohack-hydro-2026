@@ -1,6 +1,7 @@
 """Tests for official competition evaluation and ablation analysis."""
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -14,6 +15,7 @@ from src.evaluate import (
     compute_raster_metrics,
     load_reference_stats,
     run_ablation_study,
+    run_holdout_study,
 )
 from src.evaluate import (
     main as eval_main,
@@ -491,6 +493,180 @@ def test_run_ablation_study_mocked(tmp_path):
         assert "ablation_1" in res
         assert "ablation_4" in res
         assert out_json.exists()
+
+
+def _write_holdout_fixture(tmp_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Write a 5-pair / 3-AOI fixture and return (pairs_df, ref_df)."""
+    rows = [
+        ("base_alpha", "alpha", "baseline", 0.0),
+        ("ev_alpha", "alpha", "flood_summer", 50.0),
+        ("base_beta", "beta", "baseline", 0.0),
+        ("ev_beta", "beta", "flood_summer", 120.0),
+        ("ev_gamma", "gamma", "flood_summer", 80.0),
+    ]
+    csv_lines = ["pair_id,aoi_id,event_kind,reference_mask"]
+    for pair_id, aoi_id, event_kind, ref_flood in rows:
+        csv_lines.append(f"{pair_id},{aoi_id},{event_kind},{pair_id}.tif")
+        (tmp_path / f"{pair_id}.json").write_text(
+            json.dumps(
+                {
+                    "stats": {
+                        "aoi_ha": 10000.0,
+                        "flood_ha": ref_flood,
+                        "water_pre_ha": 500.0,
+                        "water_peak_ha": 600.0,
+                        "permanent_ha": 400.0,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+    pairs_csv = tmp_path / "pairs.csv"
+    pairs_csv.write_text("\n".join(csv_lines) + "\n", encoding="utf-8")
+
+    pairs_df = pd.read_csv(pairs_csv)
+    ref_df = load_reference_stats(pairs_df, tmp_path)
+    return pairs_df, ref_df
+
+
+def test_run_holdout_study_folds_match_aois_and_schema(tmp_path):
+    """One fold per AOI, and a machine-readable artifact with the expected schema."""
+    pairs_df, ref_df = _write_holdout_fixture(tmp_path)
+    sub_df = pd.DataFrame(
+        [
+            {"pair_id": "base_alpha", "flood_ha": 0.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_alpha", "flood_ha": 50.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "base_beta", "flood_ha": 0.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_beta", "flood_ha": 120.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_gamma", "flood_ha": 80.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+        ]
+    )
+
+    out_json = tmp_path / "holdout.json"
+    res = run_holdout_study(sub_df, pairs_df, ref_df, output_json_path=out_json)
+
+    expected_aois = sorted(pairs_df["aoi_id"].unique())
+    assert res["num_folds"] == len(expected_aois) == 3
+    assert res["aois"] == expected_aois
+    assert sorted(res["folds"].keys()) == expected_aois
+    assert res["num_pairs"] == len(pairs_df)
+
+    # Schema of the persisted artifact.
+    assert out_json.exists()
+    with open(out_json, encoding="utf-8") as fp:
+        stored = json.load(fp)
+    assert stored == res
+    assert stored["method"] == "spatial leave-one-AOI-out (LOAO)"
+    assert "official_pooled_metrics" in stored
+    assert set(stored["fold_summary"]) == {"mean_score", "std_score", "min_score", "max_score"}
+
+    for aoi, fold in stored["folds"].items():
+        assert fold["held_out_aoi"] == aoi
+        assert fold["num_pairs"] == len(fold["pair_ids"])
+        assert set(fold["official_metrics"]) >= {"score", "Q_flood", "Q_water_peak", "Q_water_pre", "Spec_base"}
+        assert set(fold["in_sample_metrics"]) >= {"score", "Q_flood", "Q_water_peak", "Q_water_pre", "Spec_base"}
+
+
+def test_run_holdout_study_reuses_official_metric(tmp_path):
+    """Each fold is scored by the SAME ``compute_official_score`` on the held-out AOI."""
+    pairs_df, ref_df = _write_holdout_fixture(tmp_path)
+    sub_df = pd.DataFrame(
+        [
+            {"pair_id": "base_alpha", "flood_ha": 0.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_alpha", "flood_ha": 50.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "base_beta", "flood_ha": 10.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_beta", "flood_ha": 120.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+            {"pair_id": "ev_gamma", "flood_ha": 0.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
+        ]
+    )
+
+    res = run_holdout_study(sub_df, pairs_df, ref_df, output_json_path=tmp_path / "h.json")
+
+    ref = ref_df.copy()
+    ref["pair_id"] = ref["pair_id"].astype(str)
+    ref["aoi_id"] = pairs_df.set_index("pair_id")["aoi_id"].reindex(ref["pair_id"]).values
+
+    for aoi in res["aois"]:
+        manual = compute_official_score(sub_df, ref[ref["aoi_id"] == aoi].drop(columns=["aoi_id"]))
+        assert res["folds"][aoi]["official_metrics"] == manual
+
+    # Pooled metrics are the untouched official metric over all pairs.
+    assert res["official_pooled_metrics"] == compute_official_score(sub_df, ref_df)
+    # Held-out mean is a genuine diagnostic of the fold spread.
+    assert res["fold_summary"]["min_score"] <= res["fold_summary"]["mean_score"] <= res["fold_summary"]["max_score"]
+
+
+def test_holdout_main_cli_prints_table_and_writes_json(tmp_path, monkeypatch, capsys):
+    pairs_df, _ = _write_holdout_fixture(tmp_path)
+    sub_csv = tmp_path / "submission.csv"
+    sub_csv.write_text(
+        "pair_id,flood_ha,water_pre_ha,water_peak_ha\n"
+        "base_alpha,0.0,500.0,600.0\n"
+        "ev_alpha,50.0,500.0,600.0\n"
+        "base_beta,0.0,500.0,600.0\n"
+        "ev_beta,120.0,500.0,600.0\n"
+        "ev_gamma,80.0,500.0,600.0\n",
+        encoding="utf-8",
+    )
+    out_json = tmp_path / "holdout_results.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "evaluate.py",
+            "--submission",
+            str(sub_csv),
+            "--pairs",
+            str(tmp_path / "pairs.csv"),
+            "--data_dir",
+            str(tmp_path),
+            "--holdout",
+            "--holdout_json",
+            str(out_json),
+        ],
+    )
+    eval_main()
+    out = capsys.readouterr().out
+    assert "SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT)" in out
+    assert "ADDITIONAL DIAGNOSTIC" in out
+    assert "Official pooled Score" in out
+    assert out_json.exists()
+    with open(out_json, encoding="utf-8") as fp:
+        stored = json.load(fp)
+    assert stored["num_folds"] == len(pairs_df["aoi_id"].unique())
+    # The official pooled number is reported, never replaced.
+    assert "official_pooled_metrics" in stored
+
+
+def test_default_evaluate_path_unchanged_no_holdout(tmp_path, monkeypatch, capsys):
+    """The default (no-flag) evaluate output must stay pooled-only: no hold-out section."""
+    dummy_pairs = tmp_path / "pairs.csv"
+    dummy_pairs.write_text("pair_id,event_kind,reference_mask\np1,flood,ref.tif\n", encoding="utf-8")
+    (tmp_path / "ref.json").write_text(
+        json.dumps({"stats": {"aoi_ha": 1000.0, "flood_ha": 50.0, "water_pre_ha": 100.0, "water_peak_ha": 150.0}}),
+        encoding="utf-8",
+    )
+    sub_csv = tmp_path / "submission.csv"
+    sub_csv.write_text("pair_id,flood_ha,water_pre_ha,water_peak_ha\np1,50.0,100.0,150.0\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "evaluate.py",
+            "--submission",
+            str(sub_csv),
+            "--pairs",
+            str(dummy_pairs),
+            "--data_dir",
+            str(tmp_path),
+            "--predictions_dir",
+            str(tmp_path),
+        ],
+    )
+    eval_main()
+    out = capsys.readouterr().out
+    assert "Composite Score: 1.0000" in out
+    assert "SPATIAL HOLD-OUT" not in out
 
 
 def test_evaluate_main_cli(tmp_path, monkeypatch, capsys):

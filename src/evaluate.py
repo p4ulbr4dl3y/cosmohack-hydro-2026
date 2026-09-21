@@ -11,6 +11,13 @@ Runs ablations across 4 configurations:
   3: SAR + MSI fusion (where available).
   4: Full pipeline (+ MMU 25px + GSW permanent).
 Saves results to data/ablation_results.json.
+
+Also runs a spatial leave-one-AOI-out (LOAO) hold-out diagnostic with the
+*very same* metric (``compute_official_score``): the submission is re-scored per
+held-out AOI, so no threshold is ever reported against the same pairs it was
+chosen on without a separate, clearly labelled fold-by-fold number.
+Saves results to data/holdout_results.json (additional diagnostic only: the
+official pooled Score stays untouched in submission.csv / ablation_results.json).
 """
 
 from __future__ import annotations
@@ -302,6 +309,127 @@ def run_ablation_study(
     return ablation_results
 
 
+def run_holdout_study(
+    submission_df: pd.DataFrame,
+    pairs_df: pd.DataFrame,
+    ref_df: pd.DataFrame,
+    output_json_path: Path = Path("data/holdout_results.json"),
+) -> dict[str, Any]:
+    """Spatial leave-one-AOI-out (LOAO) hold-out diagnostic.
+
+    Every threshold in ``config.yaml`` was selected on the same 11 pairs that are
+    then reported as the result. This diagnostic re-scores the *unchanged*
+    submission with the *same* metric (:func:`compute_official_score`) once per
+    held-out AOI, so each AOI is scored as if it had been excluded from threshold
+    selection while the remaining AOIs play the role of the in-sample set.
+
+    Only an ADDITIONAL diagnostic: the official pooled ``Score`` (all pairs) is
+    reported for reference and is never modified by this function.
+
+    Folds that contain no baseline (mid-water) pair have nothing to penalise and
+    therefore inherit the metric's documented ``Spec_base = 1.0`` default; the
+    per-fold baseline count is reported so this is explicit.
+    """
+    submission_df = submission_df.copy()
+    submission_df["pair_id"] = submission_df["pair_id"].astype(str)
+
+    ref = ref_df.copy()
+    ref["pair_id"] = ref["pair_id"].astype(str)
+
+    has_aoi_col = "aoi_id" in pairs_df.columns
+    aoi_by_pair = {}
+    for _, row in pairs_df.iterrows():
+        pair_id = str(row["pair_id"])
+        if has_aoi_col and pd.notna(row.get("aoi_id")):
+            aoi_id = str(row["aoi_id"])
+        elif "__" in pair_id:
+            aoi_id = pair_id.rsplit("__", 1)[-1]
+        else:
+            aoi_id = pair_id
+        aoi_by_pair[pair_id] = aoi_id
+
+    ref["aoi_id"] = ref["pair_id"].map(aoi_by_pair).fillna(ref["pair_id"])
+    aois = sorted(ref["aoi_id"].unique())
+
+    pooled = compute_official_score(submission_df, ref)
+
+    folds: dict[str, Any] = {}
+    fold_scores: list[float] = []
+    for aoi in aois:
+        held_out_ref = ref[ref["aoi_id"] == aoi]
+        in_sample_ref = ref[ref["aoi_id"] != aoi]
+
+        held_out_metrics = compute_official_score(submission_df, held_out_ref)
+        in_sample_metrics = compute_official_score(submission_df, in_sample_ref)
+        fold_scores.append(float(held_out_metrics["score"]))
+
+        folds[str(aoi)] = {
+            "held_out_aoi": str(aoi),
+            "num_pairs": len(held_out_ref),
+            "num_events": held_out_metrics["num_events"],
+            "num_baselines": held_out_metrics["num_baselines"],
+            "pair_ids": sorted(str(p) for p in held_out_ref["pair_id"]),
+            "official_metrics": held_out_metrics,
+            "in_sample_metrics": in_sample_metrics,
+        }
+
+    scores = np.array(fold_scores) if fold_scores else np.array([0.0])
+    summary = {
+        "mean_score": round(float(scores.mean()), 4),
+        "std_score": round(float(scores.std()), 4),
+        "min_score": round(float(scores.min()), 4),
+        "max_score": round(float(scores.max()), 4),
+    }
+
+    results: dict[str, Any] = {
+        "method": "spatial leave-one-AOI-out (LOAO)",
+        "metric": "src.evaluate.compute_official_score (45/25/15/15 weights, unchanged)",
+        "note": (
+            "Additional diagnostic only. The official pooled Score in submission.csv and "
+            "data/ablation_results.json is unchanged and is reported here as "
+            "official_pooled_metrics for reference."
+        ),
+        "official_pooled_metrics": pooled,
+        "num_folds": len(aois),
+        "aois": [str(a) for a in aois],
+        "num_pairs": len(ref),
+        "fold_summary": summary,
+        "folds": folds,
+    }
+
+    output_json_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_json_path, "w", encoding="utf-8") as fp:
+        json.dump(results, fp, indent=2, ensure_ascii=False)
+
+    print("\n" + "=" * 78)
+    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) — ADDITIONAL DIAGNOSTIC")
+    print("=" * 78)
+    print(f"Official pooled Score (all {len(ref)} pairs, UNCHANGED): {pooled['score']:.4f}")
+    print("Thresholds were tuned on these same pairs, so the pooled number is optimistic.")
+    print("-" * 78)
+    print(f"{'Held-out AOI':<20}{'pairs':>6}{'base':>6}{'Q_flood':>10}{'Q_peak':>9}{'Q_pre':>8}{'Spec':>8}{'Score':>9}")
+    for aoi, fold in folds.items():
+        m = fold["official_metrics"]
+        print(
+            f"{aoi:<20}{fold['num_pairs']:>6}{fold['num_baselines']:>6}"
+            f"{m['Q_flood']:>10.4f}{m['Q_water_peak']:>9.4f}{m['Q_water_pre']:>8.4f}"
+            f"{m['Spec_base']:>8.4f}{m['score']:>9.4f}"
+        )
+    print("-" * 78)
+    print(
+        f"Held-out fold Score: mean {summary['mean_score']:.4f} | std {summary['std_score']:.4f} | "
+        f"min {summary['min_score']:.4f} | max {summary['max_score']:.4f} ({len(aois)} AOI folds)"
+    )
+    print(
+        "Folds without baseline pairs have no false-alarm pairs to penalise and inherit the "
+        "metric's documented Spec_base = 1.0 default (see the 'base' column)."
+    )
+    print(f"Machine-readable summary saved to {output_json_path}")
+    print("=" * 78 + "\n")
+
+    return results
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate submissions and run ablations")
     parser.add_argument("--submission", type=Path, default=Path("submission.csv"))
@@ -309,7 +437,18 @@ def main() -> None:
     parser.add_argument("--data_dir", type=Path, default=Path("hydrowatch_amur"))
     parser.add_argument("--predictions_dir", type=Path, default=Path("predictions"))
     parser.add_argument("--run_ablations", action="store_true", help="Run full 4-stage ablation study")
+    parser.add_argument(
+        "--holdout",
+        action="store_true",
+        help="Run the additional spatial leave-one-AOI-out hold-out diagnostic",
+    )
     parser.add_argument("--output_json", type=Path, default=Path("data/ablation_results.json"))
+    parser.add_argument(
+        "--holdout_json",
+        type=Path,
+        default=Path("data/holdout_results.json"),
+        help="Where to store the machine-readable hold-out summary",
+    )
     args = parser.parse_args()
 
     pairs_df = pd.read_csv(args.pairs)
@@ -321,7 +460,24 @@ def main() -> None:
             data_dir=args.data_dir,
             output_json_path=args.output_json,
         )
-    elif args.submission.exists():
+
+    if args.holdout:
+        if not args.submission.exists():
+            logger.error(f"Submission file not found: {args.submission}. Run predict.py first.")
+            return
+        sub_df = pd.read_csv(args.submission)
+        run_holdout_study(
+            submission_df=sub_df,
+            pairs_df=pairs_df,
+            ref_df=ref_df,
+            output_json_path=args.holdout_json,
+        )
+        return
+
+    if args.run_ablations:
+        return
+
+    if args.submission.exists():
         sub_df = pd.read_csv(args.submission)
         score_res = compute_official_score(sub_df, ref_df)
         raster_res = compute_raster_metrics(args.predictions_dir, pairs_df, args.data_dir)

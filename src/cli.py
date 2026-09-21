@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 #: Human-readable hint printed when Sentinel-1 scenes are missing (they are
 #: distributed outside the git repository, see docs/Ссылка на данные.txt).
-DATA_DOWNLOAD_HINT = """\
+DATA_DOWNLOAD_HINT = f"""\
 Sentinel-1 scenes are required to run prediction, but they are NOT in this
 git repository (see .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
 
@@ -37,8 +37,11 @@ Fetch the full case dataset first:
 
 (Downloads the archive from Google Drive and unpacks it; requires no external
 ``unzip`` binary. The link is also documented in docs/Ссылка на данные.txt.)
+Google Drive link (one-time ~2.9 GB download, internet required):
+    {DATA_URL}
 After unpacking, hydrowatch_amur/rasters/ must contain the S1_pre_*.tif /
 S1_peak_*.tif scenes referenced by hydrowatch_amur/pairs.csv.
+Prediction is therefore NOT reproducible offline until this download is done.
 """
 
 
@@ -248,6 +251,11 @@ def main() -> None:
     eval_parser.add_argument("--submission-csv", type=Path, default=Path("submission.csv"))
     eval_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
     eval_parser.add_argument("--run-ablations", action="store_true", help="Run all 4 ablations")
+    eval_parser.add_argument(
+        "--holdout",
+        action="store_true",
+        help="Run the additional spatial leave-one-AOI-out (LOAO) hold-out diagnostic",
+    )
 
     # report sub-command
     report_parser = subparsers.add_parser("report", help="Generate hydrological report for a pair or all pairs")
@@ -313,6 +321,8 @@ def main() -> None:
             sys.argv.extend(["--predictions_dir", str(args.predictions_dir)])
         if args.run_ablations:
             sys.argv.append("--run_ablations")
+        if args.holdout:
+            sys.argv.append("--holdout")
         evaluate_main()
     elif args.command == "report":
         run_report(pair_id=args.pair_id, output=args.output)

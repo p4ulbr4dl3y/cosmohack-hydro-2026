@@ -75,6 +75,10 @@ def test_predict_without_s1_prints_hint(tmp_path, capsys):
     assert "Sentinel-1 scenes are required" in out
     assert "src.cli fetch" in out
     assert "docs/Ссылка на данные.txt" in out
+    # The one-time external download must be named explicitly (D1: honest offline story).
+    assert "2.9 GB" in out
+    assert "drive.google.com" in out
+    assert "NOT reproducible offline" in out
 
 
 def test_cli_report_unknown_pair_exits(capsys):
@@ -203,6 +207,27 @@ def test_main_subcommand_dispatching(monkeypatch):
     monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "benchmark"])
     main()
     assert called.get("benchmark")
+
+
+def test_cli_evaluate_holdout_forwards_flag(monkeypatch):
+    """``evaluate --holdout`` must forward ``--holdout`` to src.evaluate.main."""
+    captured = {}
+
+    def fake_evaluate_main():
+        captured["argv"] = list(sys.argv)
+
+    monkeypatch.setattr("src.cli.evaluate_main", fake_evaluate_main)
+
+    monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "evaluate", "--holdout"])
+    main()
+    assert "--holdout" in captured["argv"]
+
+    # Without the flag the argument must NOT be injected (default path unchanged).
+    captured.clear()
+    monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "evaluate"])
+    main()
+    assert "--holdout" not in captured["argv"]
+    assert captured["argv"][0] == "hydrowatch-cli"
 
 
 def test_cli_main_module_execution(monkeypatch):
