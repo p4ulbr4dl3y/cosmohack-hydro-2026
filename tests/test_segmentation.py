@@ -100,6 +100,49 @@ def test_compute_otsu_threshold():
     assert compute_otsu_threshold(tiny) == -16.5
 
 
+def test_compute_otsu_threshold_configurable_gates():
+    """Validity gates, minimum sample count and fallback value are caller-configurable."""
+    rng = np.random.default_rng(7)
+    data = (
+        np.concatenate([rng.normal(-20.0, 0.4, 200), rng.normal(-14.5, 0.4, 200)]).reshape((20, 20)).astype(np.float32)
+    )
+
+    # Narrowing the validity window removes the "land" population and, with a
+    # minimum sample requirement above the remaining population, forces the fallback
+    th_narrow = compute_otsu_threshold(
+        data,
+        valid_min_db=-100.0,
+        valid_max_db=-17.0,
+        min_valid_pixels=1000,
+        fallback_db=-19.0,
+    )
+    assert th_narrow == -19.0
+
+    # Same data, wide window -> real Otsu threshold inside the physical corridor
+    th_wide = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-12.0)
+    assert -22.0 <= th_wide <= -14.0
+
+    # min_valid_pixels below population size keeps the real threshold
+    th_min_px = compute_otsu_threshold(data, min_valid_pixels=10)
+    assert -22.0 <= th_min_px <= -14.0
+
+    # min_valid_pixels above population size forces the fallback
+    th_need_more = compute_otsu_threshold(data, min_valid_pixels=10**6, fallback_db=-13.0)
+    assert th_need_more == -13.0
+
+
+def test_otsu_gates_come_from_yaml():
+    """Load-config exposes the Otsu validity gate as data, not as literals in code."""
+    import src.segmentation as seg
+
+    cfg = seg.load_config()
+    assert cfg["otsu_valid_min_db"] == -30.0
+    assert cfg["otsu_valid_max_db"] == -12.0
+    assert cfg["otsu_min_valid_pixels"] == 50
+    assert cfg["otsu_fallback_db"] == -16.5
+    assert cfg["sar_nodata_max_db"] == -100.0
+
+
 def test_load_aux_priors(tmp_path):
     aux_path = tmp_path / "test_aux.tif"
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
@@ -353,3 +396,75 @@ def test_segment_water_sar_nodata_non_peak():
         use_mmu=True,
     )
     assert np.array_equal(water, perm_mask.astype(np.uint8))
+
+
+def test_segment_water_partial_sar_fallback_is_config_driven():
+    """Sparse-SAR fallback expansion must follow config thresholds, not in-code literals.
+
+    The Poyarkovo-style branch (sar_valid fraction below threshold) expands the water
+    mask over ``topo_mask & (hand <= fallback_hand_max_m) & (occurrence >= fallback_occurrence_min_pct)``.
+    """
+    import src.segmentation as seg
+
+    shape = (20, 20)
+    # Only 1% of pixels carry valid SAR -> below the 10% coverage gate
+    vv = np.full(shape, -999.0, dtype=np.float32)
+    vv[0, 0] = -15.0
+
+    perm_mask = np.zeros(shape, dtype=bool)
+    perm_mask[2:5, 2:5] = True
+
+    topo_mask = np.ones(shape, dtype=bool)
+    hand = np.full(shape, 0.5, dtype=np.float32)  # <= 1.0 m -> inside fallback envelope
+    occurrence = np.full(shape, 10.0, dtype=np.float32)  # >= 5% -> inside fallback envelope
+
+    original = seg.load_config()
+    try:
+        # Baseline config: HAND 0.5 <= 1.0 and occurrence 10 >= 5 -> expansion active
+        seg._CONFIG_CACHE = None
+        water = segment_water(
+            vv=vv,
+            permanent_mask=perm_mask,
+            topo_mask=topo_mask,
+            hand=hand,
+            occurrence=occurrence,
+            is_peak=True,
+            use_permanent=True,
+            use_mmu=False,
+        )
+        assert water.sum() > perm_mask.sum(), "expansion should add floodplain pixels"
+        assert water[10, 10] == 1
+
+        # Tighten the configurable gates so the expansion envelope becomes empty
+        tightened = dict(original)
+        tightened["fallback_hand_max_m"] = 0.1
+        seg._CONFIG_CACHE = tightened
+        water_tight = segment_water(
+            vv=vv,
+            permanent_mask=perm_mask,
+            topo_mask=topo_mask,
+            hand=hand,
+            occurrence=occurrence,
+            is_peak=True,
+            use_permanent=True,
+            use_mmu=False,
+        )
+        assert np.array_equal(water_tight, perm_mask.astype(np.uint8))
+
+        # Raising the coverage gate above the actual valid fraction still keeps the fallback
+        loosened = dict(original)
+        loosened["sar_valid_frac_min"] = 0.0
+        seg._CONFIG_CACHE = loosened
+        water_no_fallback = segment_water(
+            vv=vv,
+            permanent_mask=perm_mask,
+            topo_mask=topo_mask,
+            hand=hand,
+            occurrence=occurrence,
+            is_peak=True,
+            use_permanent=True,
+            use_mmu=False,
+        )
+        assert not np.array_equal(water_no_fallback, water), "disabling the fallback changes the mask"
+    finally:
+        seg._CONFIG_CACHE = None

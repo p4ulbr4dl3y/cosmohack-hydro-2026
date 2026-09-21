@@ -163,6 +163,53 @@ def test_data_loader_geojson_missing_rasters(tmp_path):
     assert loader.get_geojson("flood_2019_07_amur__blagoveshchensk", layer="flood") is None
 
 
+def test_geojson_total_area_matches_raster(tmp_path):
+    """Exported contours must not silently truncate the mapped flood area.
+
+    The default config disables the contour cap, so the summed polygon area has to
+    stay within a small tolerance of the raster pixel area.
+    """
+    import rasterio
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    loader = DataLoader(cache_dir=tmp_path / "cache")
+    geojson = loader.get_geojson(pair_id, layer="flood")
+    assert geojson is not None
+
+    with rasterio.open(loader.predictions_dir / f"{pair_id}_flood.tif") as src:
+        raster_ha = float((src.read(1) == 1).sum()) * 0.01
+
+    contour_ha = sum(f["properties"]["area_ha"] for f in geojson["features"])
+    assert contour_ha <= raster_ha * 1.02
+    # Both limits are lossy in principle: tiny clusters (<500 m²) and polygon
+    # simplification. Aggregate loss must stay small (< 5% of mapped area).
+    assert contour_ha >= raster_ha * 0.95
+
+
+def test_geojson_contour_cap_is_config_driven(tmp_path, monkeypatch):
+    """A non-zero geojson_max_contours caps the export; 0 keeps every contour."""
+    from src.config import HydroConfig
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    real_from_yaml = HydroConfig.from_yaml
+
+    # Default config: no cap -> every contour exported
+    uncapped = DataLoader(cache_dir=tmp_path / "cache_uncapped").get_geojson(pair_id, layer="flood")
+    assert uncapped is not None
+    assert len(uncapped["features"]) > 5
+
+    def capped_from_yaml(cls, path=None):
+        cfg = real_from_yaml(path)
+        cfg.extra["geojson_max_contours"] = 5
+        return cfg
+
+    monkeypatch.setattr(HydroConfig, "from_yaml", classmethod(capped_from_yaml))
+    capped = DataLoader(cache_dir=tmp_path / "cache_capped").get_geojson(pair_id, layer="flood")
+    assert capped is not None
+    assert len(capped["features"]) == 5
+
+
 def test_data_loader_predict_non_overlapping_bounds(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
     with pytest.raises(ValueError, match="do not overlap"):

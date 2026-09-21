@@ -109,6 +109,9 @@ def test_indices_calculations(tmp_path):
     assert "ndwi" in indices
     assert "mndwi" in indices
     assert indices["ndwi"].shape == (2, 2)
+    # NDVI/AWEIsh require their own bands and must not be silently fabricated
+    assert "ndvi" not in indices
+    assert "aweish" not in indices
 
     # segment_optical non-existent
     w, v = segment_optical(tmp_path / "non_existent.tif", (10, 10))
@@ -133,6 +136,31 @@ def test_indices_calculations(tmp_path):
     w, v = segment_optical(short_tif, (5, 5))
     assert w is None
     assert not np.any(v)
+
+
+def test_indices_optional_bands_enable_ndvi_and_aweish():
+    """NDVI and AWEIsh are emitted only when the red/blue bands are provided."""
+    green = np.array([[0.20, 0.30]], dtype=np.float32)
+    nir = np.array([[0.10, 0.40]], dtype=np.float32)
+    swir1 = np.array([[0.05, 0.10]], dtype=np.float32)
+    swir2 = np.array([[0.02, 0.05]], dtype=np.float32)
+    red = np.array([[0.15, 0.20]], dtype=np.float32)
+    blue = np.array([[0.08, 0.09]], dtype=np.float32)
+
+    with_red = calculate_optical_indices(green, nir, swir1, swir2, red=red)
+    assert "ndvi" in with_red
+    assert "aweish" not in with_red
+    expected_ndvi = (nir - red) / (nir + red)
+    assert np.allclose(with_red["ndvi"], expected_ndvi)
+
+    with_blue = calculate_optical_indices(green, nir, swir1, swir2, blue=blue)
+    assert "aweish" in with_blue
+    assert "ndvi" not in with_blue
+    expected_aweish = blue + 2.5 * green - 1.5 * (nir + swir1) - 0.25 * swir2
+    assert np.allclose(with_blue["aweish"], expected_aweish)
+
+    both = calculate_optical_indices(green, nir, swir1, swir2, blue=blue, red=red)
+    assert set(both) == {"ndwi", "mndwi", "ndvi", "aweish"}
 
 
 def test_geo_utils_read_raster_with_meta(tmp_path):

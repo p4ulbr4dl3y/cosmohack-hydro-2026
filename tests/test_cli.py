@@ -98,6 +98,28 @@ def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
     assert "Throughput:" in out
 
 
+def test_run_benchmark_writes_json_summary(tmp_path, monkeypatch):
+    """Benchmark summary is persisted as a machine-readable artifact."""
+    from src.cli import run_benchmark
+
+    dummy_csv = tmp_path / "pairs.csv"
+    dummy_csv.write_text("pair_id\npair1\n", encoding="utf-8")
+
+    monkeypatch.setattr("src.cli.process_pair", lambda predictions_dir, **kwargs: None)
+
+    out_json = tmp_path / "bench.json"
+    summary = run_benchmark(dummy_csv, tmp_path, tmp_path, iterations=1, output_json=out_json)
+
+    assert out_json.exists()
+    with open(out_json, encoding="utf-8") as fp:
+        stored = json.load(fp)
+    assert stored == summary
+    assert stored["scenes_processed"] == 1.0
+    assert stored["avg_latency_s_per_pair"] >= 0.0
+    assert stored["peak_rss_mb"] > 0.0
+    assert stored["gpu_vram_mb"] == 0.0
+
+
 def test_check_s1_data_available_success(tmp_path, monkeypatch):
     from src.cli import check_s1_data_available
 

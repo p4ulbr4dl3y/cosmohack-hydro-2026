@@ -204,6 +204,40 @@ def test_process_pair_no_reference_mask_fallback(synthetic_pair_env):
     assert (synthetic_pair_env["predictions_dir"] / "no_ref_pair_flood.tif").exists()
 
 
+def test_process_pair_geometry_comes_from_s1_not_reference(synthetic_pair_env):
+    """Output grid is the native Sentinel-1 grid even when a mismatched reference exists."""
+    data_dir = synthetic_pair_env["data_dir"]
+    rasters_dir = data_dir / "rasters" / "pair1"
+
+    # Rewrite BOTH S1 scenes onto a coarser grid (20x20, 20 m pixels)
+    coarse_transform = from_origin(127.0, 50.0, 20.0, 20.0)
+    for name, band0 in [("S1_pre_20200101.tif", -13.0), ("S1_peak_20200115.tif", -20.0)]:
+        coarse = np.full((2, 20, 20), band0, dtype=np.float32)
+        coarse[1] = band0 - 6.0
+        with rasterio.open(
+            rasters_dir / name,
+            "w",
+            driver="GTiff",
+            height=20,
+            width=20,
+            count=2,
+            dtype=np.float32,
+            crs="EPSG:32652",
+            transform=coarse_transform,
+        ) as dst:
+            dst.write(coarse)
+
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "grid_from_s1"
+    res = process_pair(row, data_dir, synthetic_pair_env["predictions_dir"], ablation_mode=1)
+    assert res["pair_id"] == "grid_from_s1"
+
+    # Reference grid is 30x30 / 10 m: the prediction must follow S1 instead
+    with rasterio.open(synthetic_pair_env["predictions_dir"] / "grid_from_s1_flood.tif") as out:
+        assert out.shape == (20, 20)
+        assert out.transform == coarse_transform
+
+
 def test_process_pair_aoi_geojson_clipping(synthetic_pair_env):
     """AOI polygon boundary clipping filters out pixels outside AOI (lines 176-185)."""
     data_dir = synthetic_pair_env["data_dir"]
