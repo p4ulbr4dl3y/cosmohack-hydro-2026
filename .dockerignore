@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.ruff_cache
+*.zip
+*.tar*
+.DS_Store
+predictions_ablation/
+data/
+hydrowatch_amur/rasters/
+hydrowatch_amur/reference_masks/
