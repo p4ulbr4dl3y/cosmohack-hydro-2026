@@ -41,3 +41,12 @@ dist/
 .idea/
 .vscode/
 .johnston/config.local.json
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+# Generated at build time by frontend/scripts/sync-assets.mjs
+frontend/public/vendor/
+frontend/public/icons/
+frontend/public/data/

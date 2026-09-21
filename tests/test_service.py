@@ -441,3 +441,50 @@ def test_data_loader_cache_resolution(tmp_path, monkeypatch):
 
     # When neither primary nor legacy exists, return primary
     assert loader_fallback._resolve_cache_path("missing_file.json") == tmp_path / "new_cache" / "missing_file.json"
+
+
+def test_openapi_events_and_aoi():
+    resp = client.get("/api/v1/events")
+    assert resp.status_code == 200
+    assert isinstance(resp.json(), list)
+
+    aoi_resp = client.get("/api/v1/aoi")
+    assert aoi_resp.status_code == 200
+    assert aoi_resp.json().get("type") == "FeatureCollection"
+
+
+def test_openapi_analyze_and_layers():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    analyze_resp = client.post("/api/v1/analyze", json={"pair_id": pair_id})
+    assert analyze_resp.status_code == 200
+    assert analyze_resp.json()["status"] == "success"
+
+    layer_resp = client.get(f"/api/v1/layers/{pair_id}/geojson")
+    assert layer_resp.status_code == 200
+    assert layer_resp.json().get("type") == "FeatureCollection"
+
+
+def test_openapi_export_endpoints():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    vec_resp = client.get(f"/api/v1/export/{pair_id}/vectors?format=geojson")
+    assert vec_resp.status_code == 200
+
+    vec_shp = client.get(f"/api/v1/export/{pair_id}/vectors?format=shp")
+    assert vec_shp.status_code == 200
+    assert vec_shp.headers["content-type"] == "application/zip"
+
+    rep_json = client.get(f"/api/v1/export/{pair_id}/report?format=json")
+    assert rep_json.status_code == 200
+
+    rep_csv = client.get(f"/api/v1/export/{pair_id}/report?format=csv")
+    assert rep_csv.status_code == 200
+    assert "text/csv" in rep_csv.headers["content-type"]
+
+
+def test_openapi_ablation_and_recompute():
+    ablation_resp = client.get("/api/v1/ablation")
+    assert ablation_resp.status_code == 200
+
+    recompute_resp = client.post("/api/v1/recompute")
+    assert recompute_resp.status_code == 200
+    assert recompute_resp.json()["status"] == "success"

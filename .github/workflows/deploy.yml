@@ -45,9 +45,35 @@ jobs:
       - name: Run Pytest Suite
         run: uv run pytest
 
+  frontend-checks:
+    name: Frontend Tests & Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run Vitest suite
+        run: npm test
+        working-directory: frontend
+
+      - name: Build production bundle
+        run: npm run build
+        working-directory: frontend
+
   deploy-vps:
     name: Deploy to VPS
-    needs: [backend-checks]
+    needs: [backend-checks, frontend-checks]
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15

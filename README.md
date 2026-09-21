@@ -73,6 +73,28 @@ uv run pytest
 
 ---
 
+### Вариант C. Разработка интерактивного дашборда (`frontend/`)
+
+Исходники SPA (React 18 + Vite + TypeScript + Tailwind) лежат в `frontend/`; production-бандл собирается сразу в `src/service/static/`, откуда его отдаёт FastAPI.
+
+```bash
+# Установка зависимостей фронтенда
+npm ci --prefix frontend
+
+# Юнит- и компонентные тесты (Vitest / RTL)
+npm test --prefix frontend
+
+# Production-сборка: tsc + vite build в src/service/static/
+npm run build --prefix frontend
+
+# Dev-сервер с проксированием /api и /vendor на бэкенд :8000
+npm run dev --prefix frontend
+```
+
+> Каталоги `frontend/public/{vendor,icons,data}` генерируются скриптом `frontend/scripts/sync-assets.mjs` перед `npm run dev` / `npm run build` / `npm test` и в git не хранятся: офлайн-ассеты берутся из `src/service/static/{vendor,icons}`, а векторы и реестр пар — из `hydrowatch_amur/{vectors,tables,pairs.csv}`. Единый источник данных остаётся в `hydrowatch_amur/`, второй копии ~15 МБ в репозитории нет.
+
+---
+
 ## 1. Архитектурная схема репозитория
 
 ```
@@ -87,6 +109,10 @@ cosmohack-hydro-2026/
 ├── data/                              # Артефакты валидации
 │   └── ablation_results.json          # Официальные результаты абляций Mode 1..4
 ├── predictions/                       # Сгенерированные одноканальные маски затопления (GeoTIFF)
+├── frontend/                          # Исходники SPA (React + Vite + TS); сборка идёт в src/service/static/
+│   ├── src/                           # Компоненты карты Leaflet, аналитика, отчёты, API-клиент
+│   ├── public/                        # Офлайн-ассеты (vendor/icons/data) — генерируются sync-assets.mjs
+│   └── scripts/sync-assets.mjs        # Сбор офлайн-ассетов из src/service/static и hydrowatch_amur
 ├── scripts/                           # Утилиты выгрузки внешних данных
 │   ├── download_all_scenes.py         # Загрузка S1 (σ⁰ GRD) и S2 (MSI + SCL) из Planetary Computer STAC
 │   └── fetch_worldcover.py            # ESA WorldCover v200 cropland-маски для стратификации затопления
@@ -108,10 +134,11 @@ cosmohack-hydro-2026/
 │       ├── app.py                     # FastAPI приложение, REST API эндпоинты, CORS, Swagger
 │       ├── data_loader.py             # Кэширование GeoJSON, векторизация растров, расчет площадей
 │       ├── cache/                     # Кэшированные JSON-отчёты и GeoJSON-слои пар
-│       └── static/                    # Интерактивный Leaflet фронтенд и дашборд
+│       └── static/                    # Собранный фронтенд (SPA), офлайн-vendor и слои карты
 └── tests/                             # Автоматические тесты функциональности и сервиса
     ├── test_pipeline.py               # Тесты алгоритмов сегментации, Оцу и временной динамики
-    └── test_service.py                # Тесты эндпоинтов FastAPI (health, pairs, report, geojson, predict)
+    ├── test_service.py                # Тесты эндпоинтов FastAPI (health, pairs, report, geojson, predict)
+    └── test_landcover_offline.py      # Стратификация WorldCover и офлайн-консистентность статики
 ```
 
 > Слои `rasters/`, `reference_masks/` и `vectors/` (каталоги внутри `hydrowatch_amur/`) **не входят в git-репозиторий** — это внешние данные на Google Drive (см. раздел «Данные» ниже). Их необходимо скачать перед запуском инференса.
@@ -465,7 +492,7 @@ uv run python -m src.cli fetch
 | **Время обработки сцены** | **~6.5 сек / пара** (верифицировано) | Измерено на полном наборе из 11 пар через `uv run python -m src.cli benchmark` |
 | **Требование к GPU** | **Не требуется (0 MB VRAM)** | Высокопроизводительные векторные вычисления на NumPy/SciPy |
 | **Инференс (SAR-ядро)** | **Без интернет-запросов** | Растровые данные и приоры читаются с локального диска; внешних API нет |
-| **Web-дашборд** | **Работает офлайн** | Leaflet / Chart.js / Font Awesome и шрифты Inter/JetBrains Mono подключены локально из `src/service/static/vendor/`; внешняя спутниковая подложка Esri требует интернет, но интерфейс и векторные слои работают без сети |
+| **Web-дашборд** | **Работает офлайн** | Leaflet и стили бандлятся в SPA, шрифты Inter/JetBrains Mono и иконки подключены локально (`src/service/static/vendor/`, `src/service/static/icons/`); внешняя спутниковая подложка Esri требует интернет, но интерфейс и векторные слои работают без сети |
 | **Время холодного старта API** | **< 1.0 сек** | Легковесный ASGI uvicorn + FastAPI |
 | **Формат выходных данных** | GeoTIFF (uint8) + GeoJSON + Shapefile (ZIP) | Полная совместимость с QGIS, ArcGIS, MapLibre, NextGIS |
 

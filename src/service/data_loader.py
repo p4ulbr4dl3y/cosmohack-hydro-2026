@@ -448,6 +448,38 @@ class DataLoader:
         elif own_tif.exists():
             src_tif = own_tif
             band_idx = 1
+        elif layer in ("water_pre", "water_peak"):
+            hydro_path = self.data_dir / "vectors" / "hydrography_osm.geojson"
+            if not hydro_path.exists():
+                hydro_path = self.data_dir.parent / "data" / "vectors" / "hydrography_osm.geojson"
+            if hydro_path.exists():
+                aoi_gdf = gpd.GeoDataFrame(geometry=[shapely.geometry.box(*pair_meta["bounds_4326"])], crs="EPSG:4326")
+                hydro_gdf = gpd.read_file(hydro_path)
+                clipped = gpd.clip(hydro_gdf, aoi_gdf)
+                if layer == "water_peak" and pred_tif.exists():
+                    flood_geo = self.get_geojson(pair_id, "flood")
+                    if flood_geo and flood_geo.get("features"):
+                        fgdf = gpd.GeoDataFrame.from_features(flood_geo["features"], crs="EPSG:4326")
+                        union_geom = clipped.geometry.union(fgdf.geometry)
+                        clipped = gpd.GeoDataFrame(geometry=union_geom, crs="EPSG:4326")
+                if not clipped.empty:
+                    dissolved = clipped.dissolve().simplify(0.0001)
+                    area_ha = round(float(dissolved.to_crs(epsg=3857).geometry.area.sum() / 10000.0), 2)
+                    geojson_dict = json.loads(dissolved.to_json())
+                    for feat in geojson_dict.get("features", []):
+                        feat["properties"] = {
+                            "area_ha": area_ha,
+                            "pair_id": pair_id,
+                            "layer": layer,
+                            "aoi_name": pair_meta["aoi_name"],
+                            "event_name": pair_meta["event_name"],
+                            "date_peak": pair_meta["date_peak_sar"],
+                        }
+                    geojson_dict["name"] = f"{pair_id}_{layer}"
+                    with open(cache_file, "w", encoding="utf-8") as f:
+                        json.dump(geojson_dict, f, ensure_ascii=False)
+                    return geojson_dict
+            return None
         else:
             return None
 
