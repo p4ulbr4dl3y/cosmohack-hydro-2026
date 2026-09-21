@@ -30,7 +30,6 @@ DATA_DIR = BASE_DIR / "hydrowatch_amur"
 PREDICTIONS_DIR = BASE_DIR / "predictions"
 SUBMISSION_CSV = BASE_DIR / "submission.csv"
 DEFAULT_CACHE_DIR = BASE_DIR / ".cache" / "hydrowatch"
-LEGACY_CACHE_DIR = BASE_DIR / "src" / "service" / "cache"
 CACHE_DIR = Path(os.getenv("HYDROWATCH_CACHE_DIR", str(DEFAULT_CACHE_DIR)))
 
 
@@ -41,33 +40,19 @@ class DataLoader:
         predictions_dir: Path = PREDICTIONS_DIR,
         submission_csv: Path = SUBMISSION_CSV,
         cache_dir: Path | None = None,
-        legacy_cache_dir: Path | None = None,
     ):
         self.data_dir = data_dir
         self.predictions_dir = predictions_dir
         self.submission_csv = submission_csv
         if cache_dir is None:
             self.cache_dir = Path(os.getenv("HYDROWATCH_CACHE_DIR", str(DEFAULT_CACHE_DIR)))
-            self.legacy_cache_dir = legacy_cache_dir or LEGACY_CACHE_DIR
         else:
             self.cache_dir = Path(cache_dir)
-            self.legacy_cache_dir = legacy_cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.pairs_df: pd.DataFrame | None = None
         self._pairs_cache: list[dict[str, Any]] = []
         self._reports_cache: dict[str, dict[str, Any]] = {}
         self.init_data()
-
-    def _resolve_cache_path(self, filename: str) -> Path:
-        """Resolve path to cached file with fallback to legacy cache dir."""
-        primary = self.cache_dir / filename
-        if primary.exists():
-            return primary
-        if self.legacy_cache_dir is not None:
-            legacy = self.legacy_cache_dir / filename
-            if legacy.exists():
-                return legacy
-        return primary
 
     @staticmethod
     def _parse_query_dates(date_pre: str | None, date_peak: str | None) -> dict[str, Any]:
@@ -199,17 +184,50 @@ class DataLoader:
                 return p
         return None
 
-    def get_report(self, pair_id: str) -> dict[str, Any] | None:
-        if pair_id in self._reports_cache:
-            return self._reports_cache[pair_id]
+    def _query_inside_mask(self, src: Any, query_geom: Any) -> Any:
+        """Boolean raster mask of pixels overlapping the WGS84 query geometry."""
+        from rasterio.features import rasterize
+        from rasterio.warp import transform_geom
 
-        cache_file = self.cache_dir / f"report_{pair_id}.json"
-        if cache_file.exists():
-            with open(cache_file, encoding="utf-8") as f:
-                data = json.load(f)
-            self._backfill_report_metadata(data, pair_id, cache_file)
-            self._reports_cache[pair_id] = data
-            return data
+        geom_native = transform_geom("EPSG:4326", src.crs, mapping(query_geom))
+        return rasterize(
+            [(geom_native, 1)],
+            out_shape=src.shape,
+            transform=src.transform,
+            fill=0,
+            dtype="uint8",
+        ).astype(bool)
+
+    def _scoped_layer_area_ha(self, pair_id: str, layer: str, query_geom: Any) -> float | None:
+        """Flood/water area in hectares restricted to the query geometry, from rasters."""
+        tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
+        if not tif.exists():
+            return None
+        with rasterio.open(tif) as src:
+            mask = src.read(1) == 1
+            px_ha = (abs(src.res[0]) * abs(src.res[1])) / 10000.0
+            inside = self._query_inside_mask(src, query_geom)
+            return round(float((mask & inside).sum()) * px_ha, 2)
+
+    def get_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
+        """Hydrological report for a pair.
+
+        When ``query_geom`` (a WGS84 shapely geometry) is given, all areas are
+        recomputed from the model rasters restricted to that geometry and the
+        result is neither read from nor written to the disk cache.
+        """
+        cache_file: Path | None = None
+        if query_geom is None:
+            if pair_id in self._reports_cache:
+                return self._reports_cache[pair_id]
+
+            cache_file = self.cache_dir / f"report_{pair_id}.json"
+            if cache_file.exists():
+                with open(cache_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                self._backfill_report_metadata(data, pair_id, cache_file)
+                self._reports_cache[pair_id] = data
+                return data
 
         pair_meta = self.get_pair_meta(pair_id)
         if not pair_meta:
@@ -219,12 +237,12 @@ class DataLoader:
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         aux_tif = self.data_dir / str(row["rasters_dir"]) / "AUX_terrain_gsw.tif"
 
-        # Load areas from submission.csv if available
+        # Load areas from submission.csv if available (whole-AOI reporting only)
         flood_ha = None
         water_pre_ha = None
         water_peak_ha = None
 
-        if self.submission_csv.exists():
+        if query_geom is None and self.submission_csv.exists():
             sub_df = pd.read_csv(self.submission_csv)
             sub_row = sub_df[sub_df["pair_id"] == pair_id]
             if not sub_row.empty:
@@ -232,6 +250,12 @@ class DataLoader:
                 flood_ha = float(r0["flood_ha"])
                 water_pre_ha = float(r0["water_pre_ha"])
                 water_peak_ha = float(r0["water_peak_ha"])
+
+        # Spatial-query scoping: areas come from the rasters clipped to the query polygon
+        if query_geom is not None:
+            flood_ha = self._scoped_layer_area_ha(pair_id, "flood", query_geom)
+            water_pre_ha = self._scoped_layer_area_ha(pair_id, "water_pre", query_geom)
+            water_peak_ha = self._scoped_layer_area_ha(pair_id, "water_peak", query_geom)
 
         # Target flood raster: use model prediction (do not fall back to organizer reference)
         target_flood_tif = pred_tif if pred_tif.exists() else None
@@ -258,9 +282,16 @@ class DataLoader:
                 ref_crs = ref.crs
                 res = ref.res
                 px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
+                inside = self._query_inside_mask(ref, query_geom) if query_geom is not None else None
 
-            if flood_ha is None:
-                flood_ha = round(float((flood_mask == 1).sum() * px_ha), 2)
+            flood_pts = flood_mask == 1
+            if inside is not None:
+                flood_pts = flood_pts & inside
+
+            if query_geom is not None:
+                flood_ha = round(float(flood_pts.sum()) * px_ha, 2)
+            elif flood_ha is None:
+                flood_ha = round(float(flood_pts.sum() * px_ha), 2)
 
             builtup = np.zeros(ref_shape, dtype=np.float32)
             max_extent = np.zeros(ref_shape, dtype=np.float32)
@@ -306,7 +337,6 @@ class DataLoader:
                     resampling=Resampling.nearest,
                 )
 
-            flood_pts = flood_mask == 1
             tot_pix = int(flood_pts.sum())
 
             # Cropland from a locally cached ESA WorldCover mask (may be absent)
@@ -350,6 +380,8 @@ class DataLoader:
 
             # Permanent water from GSW occurrence >= 80% (standard hydrological baseline)
             perm_pts = (occurrence >= 80.0) & np.isfinite(occurrence)
+            if inside is not None:
+                perm_pts = perm_pts & inside
             permanent_ha = round(float(perm_pts.sum() * px_ha), 2)
         else:
             permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2) if (water_pre_ha and flood_ha) else 0.0
@@ -377,6 +409,9 @@ class DataLoader:
                     res = pre_src.res
                     px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
                     receded_ha = compute_receded_ha(pre_mask, peak_mask, px_ha)
+                    if query_geom is not None:
+                        inside_receded = self._query_inside_mask(pre_src, query_geom)
+                        receded_ha = compute_receded_ha(pre_mask, peak_mask, px_ha, inside=inside_receded)
             except Exception:
                 logger.warning(f"[{pair_id}] Failed to compute receded_ha from own water masks; falling back to 0.0")
 
@@ -432,10 +467,10 @@ class DataLoader:
             },
         }
 
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(report_data, f, ensure_ascii=False, indent=2)
-
-        self._reports_cache[pair_id] = report_data
+        if cache_file is not None:
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(report_data, f, ensure_ascii=False, indent=2)
+            self._reports_cache[pair_id] = report_data
         return report_data
 
     def get_geojson(self, pair_id: str, layer: str = "flood") -> dict[str, Any] | None:
@@ -547,6 +582,48 @@ class DataLoader:
                 json.dump(empty_fc, f, ensure_ascii=False)
             return empty_fc
 
+    def clip_layer_to_geometry(
+        self,
+        pair_id: str,
+        layer: str,
+        query_geom: Any,
+    ) -> tuple[dict[str, Any] | None, float | None]:
+        """Clip one vector layer to a query geometry and return (geojson, area_ha).
+
+        Contour ``area_ha`` attributes are recomputed in the pair's local metric CRS.
+        Returns ``(None, None)`` when the layer has no features at all.
+        """
+        geojson = self.get_geojson(pair_id, layer=layer)
+        if not geojson or not geojson.get("features"):
+            return None, None
+
+        clipped_features: list[dict[str, Any]] = []
+        total_ha = 0.0
+        for feat in geojson["features"]:
+            try:
+                geom = shape(feat["geometry"])
+            except Exception:  # noqa: BLE001
+                continue
+            if not geom.intersects(query_geom):
+                continue
+            clipped_geom = geom.intersection(query_geom)
+            if clipped_geom.is_empty:
+                continue
+            new_feat = dict(feat)
+            new_feat["geometry"] = mapping(clipped_geom)
+            props = dict(feat.get("properties") or {})
+            area_ha = round(self._metric_area_ha(clipped_geom, pair_id), 2)
+            props["area_ha"] = area_ha
+            new_feat["properties"] = props
+            clipped_features.append(new_feat)
+            total_ha += area_ha
+
+        return {
+            "type": "FeatureCollection",
+            "name": f"{pair_id}_{layer}_clipped",
+            "features": clipped_features,
+        }, round(total_ha, 2)
+
     def get_shapefile_zip(self, pair_id: str, layer: str = "flood") -> bytes | None:
         """Export layer polygons as a zipped ESRI Shapefile archive."""
         import io
@@ -624,7 +701,9 @@ class DataLoader:
         elif not target_pair_id:
             target_pair_id = self._pairs_cache[0]["pair_id"]
 
-        report = self.get_report(target_pair_id)
+        # A spatial query binds BOTH the reported numbers and the returned geometry:
+        # all areas are recomputed from the model rasters inside the query polygon.
+        report = self.get_report(target_pair_id, query_geom=query_geom)
         if not report:
             raise ValueError(f"Pair {target_pair_id} not found")
 
@@ -632,24 +711,8 @@ class DataLoader:
 
         # If a query geometry was given, clip feature geometries to its intersection
         # and recompute area_ha in a metric (UTM) projection rather than degrees.
-        if query_geom is not None and geojson and geojson.get("features"):
-            clipped_features = []
-            for feat in geojson["features"]:
-                geom = shape(feat["geometry"])
-                if geom.intersects(query_geom):
-                    clipped_geom = geom.intersection(query_geom)
-                    if not clipped_geom.is_empty:
-                        new_feat = dict(feat)
-                        new_feat["geometry"] = mapping(clipped_geom)
-                        props = dict(feat.get("properties") or {})
-                        props["area_ha"] = round(self._metric_area_ha(clipped_geom, target_pair_id), 2)
-                        new_feat["properties"] = props
-                        clipped_features.append(new_feat)
-            geojson = {
-                "type": "FeatureCollection",
-                "name": f"{target_pair_id}_flood_clipped",
-                "features": clipped_features,
-            }
+        if query_geom is not None:
+            geojson, _ = self.clip_layer_to_geometry(target_pair_id, "flood", query_geom)
 
         return {
             "status": "success",

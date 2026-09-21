@@ -13,6 +13,7 @@ def compute_receded_ha(
     water_pre_mask: np.ndarray,
     water_peak_mask: np.ndarray,
     px_ha: float,
+    inside: np.ndarray | None = None,
 ) -> float:
     """Compute the receded water area in hectares.
 
@@ -23,11 +24,15 @@ def compute_receded_ha(
         water_pre_mask: Binary mask of water on pre-event date (uint8, 0/1).
         water_peak_mask: Binary mask of water on peak date (uint8, 0/1).
         px_ha: Area of a single pixel in hectares.
+        inside: Optional boolean mask restricting the computation to a spatial
+            query geometry (same shape as the water masks).
 
     Returns:
         Receded area in hectares, rounded to 2 decimals.
     """
     receded_bool = water_pre_mask.astype(bool) & (~water_peak_mask.astype(bool))
+    if inside is not None:
+        receded_bool = receded_bool & inside.astype(bool)
     receded_ha = float(np.sum(receded_bool) * px_ha)
     return round(receded_ha, 2)
 

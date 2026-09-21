@@ -448,22 +448,11 @@ def test_data_loader_cache_resolution(tmp_path, monkeypatch):
     assert loader.cache_dir == custom_cache
     assert custom_cache.exists()
 
-    # Test fallback to legacy cache
-    legacy_dir = tmp_path / "legacy"
-    legacy_dir.mkdir()
-    (legacy_dir / "report_mock.json").write_text('{"mock": true}', encoding="utf-8")
-
-    loader_fallback = DataLoader(cache_dir=tmp_path / "new_cache", legacy_cache_dir=legacy_dir)
-    resolved = loader_fallback._resolve_cache_path("report_mock.json")
-    assert resolved == legacy_dir / "report_mock.json"
-
-    # If primary exists, primary takes priority
-    primary_file = tmp_path / "new_cache" / "report_mock.json"
-    primary_file.write_text('{"primary": true}', encoding="utf-8")
-    assert loader_fallback._resolve_cache_path("report_mock.json") == primary_file
-
-    # When neither primary nor legacy exists, return primary
-    assert loader_fallback._resolve_cache_path("missing_file.json") == tmp_path / "new_cache" / "missing_file.json"
+    # Explicit cache_dir override wins over the env var
+    override_cache = tmp_path / "explicit_cache"
+    loader_override = DataLoader(cache_dir=override_cache)
+    assert loader_override.cache_dir == override_cache
+    assert override_cache.exists()
 
 
 def test_openapi_events_and_aoi():
@@ -510,4 +499,78 @@ def test_openapi_ablation_and_recompute():
 
     recompute_resp = client.post("/api/v1/recompute")
     assert recompute_resp.status_code == 200
-    assert recompute_resp.json()["status"] == "success"
+    body = recompute_resp.json()
+    assert body["status"] == "success"
+    assert len(body["pairs"]) == 11
+    assert body["processing_time_sec"] > 0.0
+    assert body["memory_peak_gb"] >= 0.0
+    assert body["timestamp_utc"].endswith(" UTC")
+
+
+def test_recompute_single_pair_measures_real_time_and_invalidates_cache():
+    from src.service.app import data_loader
+
+    pair_id = "flood_2019_07_amur__belogorsk"
+    first = client.post("/api/v1/recompute", json={"pair_id": pair_id})
+    second = client.post("/api/v1/recompute", json={"pair_id": pair_id})
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+    first_body = first.json()
+    second_body = second.json()
+    assert first_body["pairs"] == [pair_id]
+    assert second_body["pairs"] == [pair_id]
+
+    # Times are measured, not hard-coded, and vary between identical calls
+    assert first_body["processing_time_sec"] != 12.4
+    assert second_body["processing_time_sec"] != 12.4
+    assert first_body["processing_time_sec"] > 0.0
+    assert second_body["processing_time_sec"] > 0.0
+    assert first_body["timestamp_utc"] != "2026-09-21 14:32:00 UTC"
+
+    # The rebuilt report is served again and matches the on-disk prediction
+    report = client.get(f"/api/v1/report/{pair_id}")
+    assert report.status_code == 200
+    sub = pd.read_csv(Path("submission.csv"))
+    row = sub[sub["pair_id"] == pair_id].iloc[0]
+    assert report.json()["flood_ha"] == float(row["flood_ha"])
+
+    # Caches were invalidated and rebuilt on disk
+    assert (data_loader.cache_dir / f"report_{pair_id}.json").exists()
+    assert pair_id in data_loader._reports_cache
+
+
+def test_recompute_removes_stale_disk_caches(monkeypatch):
+    from src.service.app import data_loader
+
+    pair_id = "flood_2019_07_amur__belogorsk"
+    stale_report = data_loader.cache_dir / f"report_{pair_id}.json"
+    stale_layer = data_loader.cache_dir / f"{pair_id}_flood.geojson"
+    stale_report.parent.mkdir(parents=True, exist_ok=True)
+    stale_report.write_text('{"flood_ha": -1}', encoding="utf-8")
+    stale_layer.write_text('{"type": "FeatureCollection", "stale": true}', encoding="utf-8")
+    data_loader._reports_cache[pair_id] = {"flood_ha": -1}
+
+    resp = client.post("/api/v1/recompute", json={"pair_id": pair_id})
+    assert resp.status_code == 200
+
+    assert not stale_layer.exists()
+    assert data_loader._reports_cache[pair_id]["flood_ha"] != -1
+
+
+def test_recompute_unknown_pair_returns_404():
+    resp = client.post("/api/v1/recompute", json={"pair_id": "does_not_exist"})
+    assert resp.status_code == 404
+    assert "does_not_exist" in resp.json()["detail"]
+
+
+def test_recompute_missing_data_returns_real_500(monkeypatch):
+    from src.service.app import data_loader
+
+    def mock_get_report(pair_id, query_geom=None):
+        raise RuntimeError("raster missing on disk")
+
+    monkeypatch.setattr(data_loader, "get_report", mock_get_report)
+    resp = client.post("/api/v1/recompute", json={"pair_id": "flood_2019_07_amur__belogorsk"})
+    assert resp.status_code == 500
+    assert "raster missing on disk" in resp.json()["detail"]

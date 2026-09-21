@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import io
-from datetime import date, datetime
+import sys
+from datetime import UTC, date, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import Any
+
+try:
+    import resource
+except ImportError:  # pragma: no cover
+    resource = None  # type: ignore[assignment]
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from src.service.data_loader import data_loader
 from src.service.schemas import (
@@ -411,15 +420,69 @@ async def get_ablation_results() -> dict[str, Any]:
         return json.load(f)
 
 
+class RecomputeRequest(BaseModel):
+    """Optional payload for the recompute endpoint."""
+
+    pair_id: str | None = None
+
+
+#: Layers whose GeoJSON cache is invalidated together with the report cache.
+RECOMPUTE_LAYERS = ("flood", "water_pre", "water_peak")
+
+
+def _peak_rss_gb() -> float:
+    """Process peak RSS in GiB (macOS/Windows report bytes, Linux reports KiB)."""
+    if resource is None:  # pragma: no cover
+        return 0.0
+    ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform in ("darwin", "win32"):
+        return ru_maxrss / (1024.0**3)
+    return ru_maxrss / (1024.0**2)
+
+
+def _invalidate_pair_caches(pair_ids: list[str]) -> None:
+    """Drop in-memory report entries and on-disk report/GeoJSON caches."""
+    for pair_id in pair_ids:
+        data_loader._reports_cache.pop(pair_id, None)
+        for name in (f"report_{pair_id}.json", *(f"{pair_id}_{layer}.geojson" for layer in RECOMPUTE_LAYERS)):
+            with contextlib.suppress(OSError):
+                (data_loader.cache_dir / name).unlink()
+
+
 @app.post("/api/v1/recompute")
-async def recompute_observation() -> dict[str, Any]:
-    """Incremental recomputation endpoint for new observations."""
+async def recompute_observation(request: RecomputeRequest | None = None) -> dict[str, Any]:
+    """Rebuild report and GeoJSON caches for one pair (or every pair) with real timings."""
+    all_pair_ids = [p["pair_id"] for p in data_loader.get_pairs()]
+    target_pair_id = request.pair_id if request else None
+
+    if target_pair_id is not None:
+        if target_pair_id not in all_pair_ids:
+            raise HTTPException(status_code=404, detail=f"Pair '{target_pair_id}' not found")
+        pair_ids = [target_pair_id]
+    else:
+        pair_ids = all_pair_ids
+
+    rss_before_gb = _peak_rss_gb()
+    started = perf_counter()
+    try:
+        _invalidate_pair_caches(pair_ids)
+        for pair_id in pair_ids:
+            if data_loader.get_report(pair_id) is None:
+                raise RuntimeError(f"Report could not be rebuilt for pair '{pair_id}'")
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Recompute failed: {e!s}")
+    elapsed = perf_counter() - started
+
+    scope = f"пары '{target_pair_id}'" if target_pair_id else f"все {len(pair_ids)} пар"
     return {
         "status": "success",
-        "message": "Инкрементальный пересчёт выполнен успешно",
-        "processing_time_sec": 12.4,
-        "memory_peak_gb": 1.8,
-        "timestamp_utc": "2026-09-21 14:32:00 UTC",
+        "message": f"Инкрементальный пересчёт выполнен успешно ({scope})",
+        "processing_time_sec": round(elapsed, 3),
+        "memory_peak_gb": round(max(0.0, _peak_rss_gb() - rss_before_gb), 3),
+        "timestamp_utc": datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "pairs": pair_ids,
     }
 
 
@@ -452,30 +515,22 @@ async def export_vectors(
     pair_id: str,
     format: str = Query(default="geojson", description="Format: 'geojson' or 'shp'"),
 ) -> Response:
-    """Export vector contours as GeoJSON or Shapefile (.zip)."""
+    """Export vector contours as GeoJSON or a genuine ESRI Shapefile (.zip)."""
+    if format.lower() == "shp":
+        shp_bytes = data_loader.get_shapefile_zip(pair_id, layer="flood")
+        if shp_bytes is None:
+            raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
+        return Response(
+            content=shp_bytes,
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename={pair_id}_flood_shp.zip"},
+        )
+
     geojson = data_loader.get_geojson(pair_id, layer="flood")
     if geojson is None:
         raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
 
     import json
-
-    if format.lower() == "shp":
-        import io
-        import zipfile
-
-        zip_buf = io.BytesIO()
-        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr(f"{pair_id}_flood.geojson", json.dumps(geojson, indent=2))
-            zf.writestr(
-                f"{pair_id}_flood.prj",
-                'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]',
-            )
-            zf.writestr("README.txt", f"Shapefile package for {pair_id}")
-        return Response(
-            content=zip_buf.getvalue(),
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=vectors_{pair_id}.zip"},
-        )
 
     return Response(
         content=json.dumps(geojson, indent=2),
