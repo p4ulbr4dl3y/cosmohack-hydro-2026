@@ -2,11 +2,23 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { WATER_COLORS } from '../../lib/colors';
-import type { BasemapType } from '../../types/domain';
+import type { BasemapType, GradientOverlayMode } from '../../types/domain';
 
 export const LayerControl: React.FC = () => {
   const [isOpen, setIsOpen] = useState(true);
-  const { layers, toggleLayer, setLayerOpacity, basemap, setBasemap, showLegend, toggleLegend } = useUiStore();
+  const {
+    layers,
+    toggleLayer,
+    setLayerOpacity,
+    basemap,
+    setBasemap,
+    showLegend,
+    toggleLegend,
+    gradientMode,
+    setGradientMode,
+    gradientOpacity,
+    setGradientOpacity,
+  } = useUiStore();
 
   const handleBasemapChange = (type: BasemapType) => {
     setBasemap(type);
@@ -203,11 +215,65 @@ export const LayerControl: React.FC = () => {
             </div>
           </div>
 
-          {/* Section: Прозрачность */}
+          {/* Section: Растровый градиент */}
+          <div className="pt-2 border-t border-[#F1F5F9]">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                Растровый градиент
+              </span>
+              <span className="font-mono text-[10px] text-text-secondary">
+                {gradientMode !== 'none' ? `${Math.round(gradientOpacity * 100)}%` : 'Выкл'}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              {[
+                { id: 'flood', label: 'Затопление (Градиент)' },
+                { id: 'water_peak', label: 'Пик половодья' },
+                { id: 'water_pre', label: 'Базовое русло' },
+                { id: 'none', label: 'Отключить' },
+              ].map((item) => (
+                <label key={item.id} className="flex items-center gap-1.5 cursor-pointer py-0.5 group">
+                  <input
+                    type="radio"
+                    name="gradientMode"
+                    checked={gradientMode === item.id}
+                    onChange={() => setGradientMode(item.id as GradientOverlayMode)}
+                    className="w-3.5 h-3.5 accent-[#0EA5E9] cursor-pointer"
+                  />
+                  <span className="text-text-primary text-[11px] group-hover:text-text-secondary">
+                    {item.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+
+            {gradientMode !== 'none' && (
+              <div className="mt-2 pt-1.5 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-1 text-[10px] text-text-muted">
+                  <span>Прозрачность растра</span>
+                  <span className="font-mono text-text-primary font-medium">
+                    {Math.round(gradientOpacity * 100)}%
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={Math.round(gradientOpacity * 100)}
+                  onChange={(e) => setGradientOpacity(Number(e.target.value) / 100)}
+                  className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0EA5E9]"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Section: Прозрачность векторов */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
-                Прозрачность
+                Векторы (прозрачность)
               </span>
               <span className="font-mono text-[11px] text-text-primary font-medium">
                 {Math.round(layers.opacity * 100)}%

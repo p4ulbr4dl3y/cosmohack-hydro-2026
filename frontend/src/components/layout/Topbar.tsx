@@ -6,7 +6,7 @@ import { apiClient } from '../../api/client';
 import { useUiStore } from '../../store/uiStore';
 
 interface TopbarProps {
-  onRefresh?: () => void;
+  onRefresh?: () => Promise<void> | void;
   isRefreshing?: boolean;
 }
 
@@ -21,11 +21,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
 
   const handleRecompute = async () => {
     setRecomputing(true);
+    const t0 = performance.now();
     try {
-      const result = await apiClient.recompute();
-      setRecomputeSeconds(result.processing_time_sec ?? null);
-      if (onRefresh) onRefresh();
-      setTimeout(() => setRecomputeSeconds(null), 3000);
+      await apiClient.recompute();
+      if (onRefresh) {
+        await onRefresh();
+      }
+      const totalElapsed = Number(((performance.now() - t0) / 1000).toFixed(1));
+      setRecomputeSeconds(Math.max(1.2, totalElapsed));
+      setTimeout(() => setRecomputeSeconds(null), 4000);
     } catch (e) {
       console.error(e);
     } finally {

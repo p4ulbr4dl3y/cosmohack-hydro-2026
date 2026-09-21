@@ -9,9 +9,12 @@ Verifies that the CSV areas match raster pixel counts within 2%.
 from __future__ import annotations
 
 import argparse
+import gc
 import glob
 import logging
+import os
 import sys
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 # Ensure repository root is in sys.path
@@ -37,6 +40,18 @@ from src.temporal import compute_temporal_dynamics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _process_pair_worker(task_args: tuple[int, int, pd.Series, Path, Path, int]) -> dict[str, float | str]:
+    """Top-level worker helper for multiprocessing pool execution."""
+    idx, total, row, data_dir, predictions_dir, ablation_mode = task_args
+    logger.info(f"Processing [{idx + 1}/{total}]: {row['pair_id']}")
+    return process_pair(
+        row=row,
+        data_dir=data_dir,
+        predictions_dir=predictions_dir,
+        ablation_mode=ablation_mode,
+    )
 
 
 def process_pair(
@@ -262,12 +277,24 @@ def process_pair(
         f"[{pair_id}] Done -> flood: {flood_ha} ha, pre: {water_pre_ha} ha, peak: {water_peak_ha} ha (diff={diff_pct:.4f}%)"
     )
 
-    return {
+    res = {
         "pair_id": pair_id,
         "flood_ha": flood_ha,
         "water_pre_ha": water_pre_ha,
         "water_peak_ha": water_peak_ha,
     }
+
+    # Free temporary memory and trigger garbage collection
+    del vv_pre, vh_pre, vv_peak, vh_peak
+    if "aux_data" in locals():
+        del aux_data
+    del hand_arr, slope_arr, builtup_arr, occ_arr, topo_mask, perm_mask
+    del opt_pre_w, opt_pre_v, opt_peak_w, opt_peak_v
+    del water_pre, water_peak, temporal
+    del flood_mask, water_pre_mask, water_peak_mask, flooded_vegetation_mask, water_masks_map
+    gc.collect()
+
+    return res
 
 
 def run_prediction(
@@ -276,21 +303,46 @@ def run_prediction(
     output_csv_path: Path = Path("submission.csv"),
     predictions_dir: Path = Path("predictions"),
     ablation_mode: int = 4,
+    workers: int | None = None,
 ) -> pd.DataFrame:
     """Run inference over all pairs in pairs.csv and generate submission.csv."""
     pairs_df = pd.read_csv(pairs_csv_path)
-    logger.info(f"Loaded {len(pairs_df)} pairs from {pairs_csv_path}")
+    total_pairs = len(pairs_df)
+    logger.info(f"Loaded {total_pairs} pairs from {pairs_csv_path}")
+
+    if total_pairs == 0:
+        sub_df = pd.DataFrame(columns=["pair_id", "flood_ha", "water_pre_ha", "water_peak_ha"])
+        sub_df.to_csv(output_csv_path, index=False)
+        return sub_df
+
+    if workers is None:
+        cpu_cores = os.cpu_count() or 1
+        effective_workers = min(cpu_cores, total_pairs)
+    elif workers <= 1:
+        effective_workers = 1
+    else:
+        effective_workers = min(workers, total_pairs)
 
     records: list[dict[str, Any]] = []
-    for idx, row in pairs_df.iterrows():
-        logger.info(f"Processing [{idx + 1}/{len(pairs_df)}]: {row['pair_id']}")
-        rec = process_pair(
-            row=row,
-            data_dir=data_dir,
-            predictions_dir=predictions_dir,
-            ablation_mode=ablation_mode,
-        )
-        records.append(rec)
+    if effective_workers > 1:
+        logger.info(f"Running parallel inference across {effective_workers} worker processes")
+        tasks = [
+            (idx, total_pairs, row, data_dir, predictions_dir, ablation_mode)
+            for idx, row in pairs_df.iterrows()
+        ]
+        with ProcessPoolExecutor(max_workers=effective_workers) as executor:
+            records = list(executor.map(_process_pair_worker, tasks))
+    else:
+        logger.info("Running sequential inference (1 worker)")
+        for idx, row in pairs_df.iterrows():
+            logger.info(f"Processing [{idx + 1}/{total_pairs}]: {row['pair_id']}")
+            rec = process_pair(
+                row=row,
+                data_dir=data_dir,
+                predictions_dir=predictions_dir,
+                ablation_mode=ablation_mode,
+            )
+            records.append(rec)
 
     sub_df = pd.DataFrame(records)
     sub_df.to_csv(output_csv_path, index=False)
@@ -305,6 +357,14 @@ def main() -> None:
     parser.add_argument("--output_csv", type=Path, default=Path("submission.csv"))
     parser.add_argument("--predictions_dir", type=Path, default=Path("predictions"))
     parser.add_argument("--ablation_mode", type=int, default=4, choices=[1, 2, 3, 4])
+    parser.add_argument(
+        "--workers",
+        "--jobs",
+        dest="workers",
+        type=int,
+        default=None,
+        help="Number of worker processes for parallel batch inference (default: auto)",
+    )
     args = parser.parse_args()
 
     run_prediction(
@@ -313,6 +373,7 @@ def main() -> None:
         output_csv_path=args.output_csv,
         predictions_dir=args.predictions_dir,
         ablation_mode=args.ablation_mode,
+        workers=args.workers,
     )
 
 

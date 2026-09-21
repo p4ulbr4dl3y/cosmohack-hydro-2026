@@ -212,3 +212,14 @@ def test_cli_main_module_execution(monkeypatch):
         monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "--help"])
         runpy.run_module("src.cli", run_name="__main__")
     assert exc.value.code == 0
+
+
+def test_cli_predict_workers_flag(monkeypatch):
+    called = {}
+    monkeypatch.setattr("src.cli.predict_main", lambda: called.setdefault("predict_args", list(sys.argv)))
+    monkeypatch.setattr("src.cli.check_s1_data_available", lambda *args: True)
+
+    monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "predict", "--workers", "4"])
+    main()
+    assert "--workers" in called.get("predict_args", [])
+    assert "4" in called.get("predict_args", [])

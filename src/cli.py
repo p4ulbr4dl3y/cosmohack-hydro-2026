@@ -9,6 +9,7 @@ import logging
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 try:
     import resource
@@ -17,11 +18,13 @@ except ImportError:  # pragma: no cover
 
 import pandas as pd
 
+from src.audit import generate_flood_audit_certificate
 from src.data_fetch import DATA_URL, missing_s1_pairs, safe_extract
 from src.evaluate import main as evaluate_main
 from src.predict import main as predict_main
 from src.predict import process_pair
 from src.service.data_loader import DataLoader
+from src.uncertainty import compute_flood_area_uncertainty
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +109,119 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
         print("=" * 60)
 
 
+def run_audit(pair_id: str, output_json: Path | None = None) -> dict[str, Any]:
+    """Generate cryptographic Merkle verification certificate for a monitored pair."""
+    loader = DataLoader()
+    rep = loader.get_report(pair_id)
+    if not rep:
+        print(f"Error: Pair '{pair_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    meta = loader.get_pair_meta(pair_id) or {}
+    inputs_info = {
+        "pair_id": pair_id,
+        "aoi_id": rep.get("aoi_id"),
+        "date_pre": rep.get("date_pre_sar"),
+        "date_peak": rep.get("date_peak_sar"),
+        "rasters_dir": str(meta.get("rasters_dir", "")),
+    }
+    params = {
+        "otsu_corridor_db": [-22.0, -12.0],
+        "mmu_min_pixels": 25,
+        "speckle_filter": "Lee-MMSE-7x7",
+    }
+    summary = {
+        "flood_ha": rep.get("flood_ha", 0.0),
+        "water_peak_ha": rep.get("water_peak_ha", 0.0),
+        "water_pre_ha": rep.get("water_pre_ha", 0.0),
+    }
+    cert = generate_flood_audit_certificate(
+        pair_id=pair_id,
+        aoi_id=rep.get("aoi_id", "AOI"),
+        inputs_info=inputs_info,
+        parameters=params,
+        results_summary=summary,
+    )
+    cert_dict = cert.to_dict()
+
+    print("\n" + "=" * 60)
+    print(f"HYDRO AUDIT CERTIFICATE: {cert.certificate_id}")
+    print("=" * 60)
+    print(f"Pair ID:       {cert.pair_id}")
+    print(f"Issued At:     {cert.issued_at}")
+    print(f"Merkle Root:   {cert.merkle_root}")
+    print(f"Signature:     {cert.signature_hash}")
+    print(f"Status:        {cert.status}")
+    print(f"Flood Area:    {summary['flood_ha']:.2f} ha")
+    print("=" * 60 + "\n")
+
+    if output_json:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(cert_dict, f, indent=2, ensure_ascii=False)
+        print(f"Audit certificate saved to {output_json}\n")
+
+    return cert_dict
+
+
+def run_uncertainty(
+    pair_id: str,
+    confidence_level: float = 0.95,
+    spatial_correlation: float = 0.20,
+    output_json: Path | None = None,
+) -> dict[str, Any]:
+    """Compute spatial uncertainty and confidence interval [L, U] for a monitored pair."""
+    import numpy as np
+
+    loader = DataLoader()
+    rep = loader.get_report(pair_id)
+    if not rep:
+        print(f"Error: Pair '{pair_id}' not found.", file=sys.stderr)
+        sys.exit(1)
+
+    flood_ha = float(rep.get("flood_ha", 0.0))
+    n_pixels = int(round(flood_ha / 0.01))
+    dummy_mask = np.ones(n_pixels, dtype=bool) if n_pixels > 0 else np.zeros(0, dtype=bool)
+    res = compute_flood_area_uncertainty(
+        dummy_mask,
+        pixel_area_ha=0.01,
+        spatial_correlation=spatial_correlation,
+        confidence_level=confidence_level,
+    )
+
+    out = {
+        "pair_id": pair_id,
+        "flood_area_ha": res.area_ha,
+        "confidence_level": res.confidence_level,
+        "lower_bound_ha": res.lower_bound_ha,
+        "upper_bound_ha": res.upper_bound_ha,
+        "margin_ha": res.margin_ha,
+        "relative_uncertainty_pct": res.relative_uncertainty_pct,
+        "sigma_effective_ha": res.sigma_effective_ha,
+        "effective_n_pixels": res.effective_n_pixels,
+        "spatial_correlation": res.spatial_correlation,
+    }
+
+    print("\n" + "=" * 60)
+    print(f"SPATIAL UNCERTAINTY ANALYSIS: {pair_id}")
+    print("=" * 60)
+    print(f"Flood Area:             {res.area_ha:.2f} ha")
+    print(f"Confidence Level:       {res.confidence_level * 100:.1f}% (z = {res.z_score})")
+    print(f"Confidence Interval:    [{res.lower_bound_ha:.2f}, {res.upper_bound_ha:.2f}] ha")
+    print(f"Absolute Margin (H):    ±{res.margin_ha:.2f} ha")
+    print(f"Relative Uncertainty:   ±{res.relative_uncertainty_pct:.2f}%")
+    print(f"Spatial Error Rho:      {res.spatial_correlation:.2f}")
+    print("=" * 60 + "\n")
+
+    if output_json:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_json, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=2, ensure_ascii=False)
+        print(f"Uncertainty summary saved to {output_json}\n")
+
+    return out
+
+
 def run_benchmark(
     pairs_csv_path: Path,
     data_dir: Path,
@@ -150,10 +266,42 @@ def run_benchmark(
     total_time = sum(times)
     fps = len(times) / total_time
 
-    # Peak RSS: macOS returns bytes, Linux returns KiB, Windows fallback
+    # Peak RSS: macOS returns bytes, Linux returns KiB, Windows uses GetProcessMemoryInfo
     if resource is not None:
         ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         peak_mb = (ru_maxrss / (1024.0 * 1024.0)) if sys.platform == "darwin" else (ru_maxrss / 1024.0)
+    elif sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class _PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+                _fields_ = [
+                    ("cb", wintypes.DWORD),
+                    ("PageFaultCount", wintypes.DWORD),
+                    ("PeakWorkingSetSize", ctypes.c_size_t),
+                    ("WorkingSetSize", ctypes.c_size_t),
+                    ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                    ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                    ("PagefileUsage", ctypes.c_size_t),
+                    ("PeakPagefileUsage", ctypes.c_size_t),
+                ]
+
+            _pmc = _PROCESS_MEMORY_COUNTERS()
+            _pmc.cb = ctypes.sizeof(_PROCESS_MEMORY_COUNTERS)
+            _k32 = ctypes.WinDLL("kernel32")
+            _k32.GetCurrentProcess.restype = wintypes.HANDLE
+            _psapi = ctypes.WinDLL("psapi")
+            _psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+            _psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+            if _psapi.GetProcessMemoryInfo(_k32.GetCurrentProcess(), ctypes.byref(_pmc), _pmc.cb):
+                peak_mb = _pmc.PeakWorkingSetSize / (1024.0 * 1024.0)
+            else:
+                peak_mb = 1.0
+        except Exception:
+            peak_mb = 1.0
     else:
         peak_mb = 0.0
 
@@ -244,6 +392,14 @@ def main() -> None:
     predict_parser.add_argument("--output-csv", type=Path, default=Path("submission.csv"))
     predict_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
     predict_parser.add_argument("--ablation-mode", type=int, default=4, choices=[1, 2, 3, 4])
+    predict_parser.add_argument(
+        "--workers",
+        "--jobs",
+        dest="workers",
+        type=int,
+        default=None,
+        help="Number of worker processes for parallel batch inference (default: auto)",
+    )
 
     # evaluate sub-command
     eval_parser = subparsers.add_parser(
@@ -289,6 +445,22 @@ def main() -> None:
         help="Where to store the machine-readable benchmark summary",
     )
 
+    # audit sub-command
+    audit_parser = subparsers.add_parser("audit", help="Generate cryptographic Merkle audit certificate")
+    audit_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID to audit")
+    audit_parser.add_argument("--output-json", type=Path, default=None, help="Path to save audit certificate JSON")
+
+    # uncertainty sub-command
+    unc_parser = subparsers.add_parser("uncertainty", help="Compute spatial error bounds and confidence interval")
+    unc_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID for uncertainty estimation")
+    unc_parser.add_argument(
+        "--confidence-level", type=float, default=0.95, help="Statistical confidence level (default 0.95)"
+    )
+    unc_parser.add_argument(
+        "--spatial-correlation", type=float, default=0.20, help="Spatial autocorrelation coefficient rho (default 0.20)"
+    )
+    unc_parser.add_argument("--output-json", type=Path, default=None, help="Path to save uncertainty results JSON")
+
     args, unknown = parser.parse_known_args()
 
     if args.command == "predict":
@@ -306,6 +478,8 @@ def main() -> None:
             sys.argv.extend(["--predictions_dir", str(args.predictions_dir)])
         if args.ablation_mode:
             sys.argv.extend(["--ablation_mode", str(args.ablation_mode)])
+        if args.workers is not None:
+            sys.argv.extend(["--workers", str(args.workers)])
         predict_main()
     elif args.command == "evaluate":
         sys.argv = [sys.argv[0]]
@@ -335,6 +509,15 @@ def main() -> None:
             data_dir=args.data_dir,
             predictions_dir=args.predictions_dir,
             iterations=args.iterations,
+            output_json=args.output_json,
+        )
+    elif args.command == "audit":
+        run_audit(pair_id=args.pair_id, output_json=args.output_json)
+    elif args.command == "uncertainty":
+        run_uncertainty(
+            pair_id=args.pair_id,
+            confidence_level=args.confidence_level,
+            spatial_correlation=args.spatial_correlation,
             output_json=args.output_json,
         )
 

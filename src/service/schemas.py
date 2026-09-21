@@ -181,3 +181,77 @@ class PredictRequest(BaseModel):
     date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
     date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
     task_id: str | None = Field(default=None, description="Optional asynchronous tracking task identifier")
+
+
+class HydroAuditCertificateResponse(BaseModel):
+    """Cryptographic Merkle audit certificate response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    certificate_id: str = Field(description="Unique certificate identifier")
+    pair_id: str = Field(description="Pair identifier")
+    aoi_id: str = Field(description="AOI code")
+    issued_at: str = Field(description="ISO-8601 UTC timestamp of issue")
+    merkle_root: str = Field(description="Hexadecimal SHA-256 root of the Merkle tree")
+    leaf_count: int = Field(description="Total audited components/leaves in the tree")
+    status: str = Field(description="Verification status: 'VERIFIED'")
+    algorithm: str = Field(description="Auditing protocol version")
+    signature_hash: str = Field(description="Canonical SHA-256 integrity signature digest")
+    summary: dict[str, Any] = Field(description="Summary hydrological metrics")
+    leaves: list[dict[str, Any]] = Field(description="Audited Merkle leaf nodes")
+
+    # Aliases for frontend compatibility
+    merkle_root_sha256: str | None = Field(default=None, description="Alias for merkle_root")
+    inputs_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of input scenes")
+    parameters_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of processing parameters")
+    results_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of output flood masks")
+    timestamp: str | None = Field(default=None, description="Alias for issued_at")
+    verified: bool = Field(default=True, description="Verification status boolean")
+
+
+class FloodUncertaintyResponse(BaseModel):
+    """Spatial uncertainty and confidence intervals response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    area_ha: float = Field(description="Central flood area in hectares")
+    confidence_level: float = Field(description="Statistical confidence level (e.g. 0.95)")
+    lower_bound_ha: float = Field(description="Conservative lower bound L (ha)")
+    upper_bound_ha: float = Field(description="Upper bound U (ha)")
+    margin_ha: float = Field(description="Absolute uncertainty margin H (ha)")
+    relative_uncertainty_pct: float = Field(description="Relative uncertainty margin in percent")
+    sigma_effective_ha: float = Field(description="Effective standard error with spatial covariance (ha)")
+    effective_n_pixels: float = Field(description="Effective number of independent observations")
+    spatial_correlation: float = Field(description="Assumed spatial error autocorrelation rho")
+
+
+class SARAnalyticsResponse(BaseModel):
+    """Sentinel-1 radar analytics response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    water_fraction: float = Field(description="Fraction of area with water specular reflection")
+    water_area_ha: float = Field(description="Water surface area estimated from SAR (ha)")
+    mean_vv_db: float = Field(description="Mean VV backscatter in dB")
+    mean_vh_db: float = Field(description="Mean VH backscatter in dB")
+    mean_vh_vv_ratio: float = Field(description="Mean cross-polarization ratio (VH - VV) in dB")
+    radar_contrast_db: float = Field(description="Radar contrast between water and land (dB)")
+    cloud_penetration_verified: bool = Field(description="Whether all-weather cloud penetration is confirmed")
+    double_bounce_fraction: float = Field(description="Fraction of suspected flooded vegetation signature")
+
+
+class OverlayMetadataResponse(BaseModel):
+    """Metadata response for raster PNG map overlay."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    layer: str = Field(description="Layer name: 'flood', 'water_pre', 'water_peak'")
+    bounds: list[list[float]] = Field(description="Leaflet WGS84 overlay coordinates [[south, west], [north, east]]")
+    width: int = Field(description="Image pixel width")
+    height: int = Field(description="Image pixel height")
+    crs: str = Field(description="Source Coordinate Reference System")
+    overlay_url: str = Field(description="Direct URL to fetch transparent PNG overlay")
+
