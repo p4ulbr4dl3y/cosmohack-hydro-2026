@@ -160,3 +160,84 @@ export interface SARAnalytics {
   cloud_penetration_verified: boolean;
   double_bounce_fraction: number;
 }
+
+export interface PairScoreDetail {
+  pair_id: string;
+  event_kind: string;
+  aoi_ha: number;
+  flood_sub_ha: number;
+  flood_ref_ha: number;
+  water_peak_sub_ha: number;
+  water_peak_ref_ha: number;
+  water_pre_sub_ha: number;
+  water_pre_ref_ha: number;
+  q_flood: number;
+  q_water_peak: number;
+  q_water_pre: number;
+  spec_score?: number | null;
+  flood_abs_diff_ha: number;
+  flood_rel_diff_pct: number;
+  raster_ha?: number | null;
+  raster_csv_discrepancy_pct?: number | null;
+}
+
+export interface OfficialMetrics {
+  score: number;
+  q_flood: number;
+  q_water_peak: number;
+  q_water_pre: number;
+  spec_base: number;
+  num_events: number;
+  num_baselines: number;
+  technical_points: number;
+  details: PairScoreDetail[];
+}
+
+export interface SubmissionDiscrepancy {
+  pair_id: string;
+  csv_flood_ha: number;
+  raster_flood_ha: number;
+  discrepancy_pct: number;
+  is_within_2_percent: boolean;
+}
+
+export interface SubmissionValidation {
+  is_valid: boolean;
+  num_pairs: number;
+  passed_checks: string[];
+  errors: string[];
+  warnings: string[];
+  discrepancies: SubmissionDiscrepancy[];
+}
+
+export interface CarbonCreditPotential {
+  is_available: boolean;
+  status: string;
+  E_proj_tCO2e: number;
+  E_base_tCO2e: number;
+  LK_tCO2e: number;
+  R_tCO2e: number;
+  H_tCO2e: number;
+  H_over_R?: number | null;
+  UNC_deduction_rate: number;
+  R_adj_tCO2e: number;
+  buffer_reserve_B_tCO2e: number;
+  Q_credits: number;
+  fractional_remainder: number;
+  valuations_rub: Record<string | number, number>;
+  area_ha: number;
+  delta_t_years: number;
+}
+
+export interface FloodCarbonImpact {
+  pair_id: string;
+  flood_ha: number;
+  biomass_loss_dry_matter_t: number;
+  carbon_loss_tC: number;
+  emissions_equivalent_tCO2e: number;
+  cropland_loss_tC: number;
+  forest_loss_tC: number;
+  credit_potential: CarbonCreditPotential;
+  notes: string;
+}
+

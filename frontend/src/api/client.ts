@@ -1,4 +1,14 @@
-import type { Pair, ReportData, ComparisonData, HydroAuditCertificate, FloodUncertainty, SARAnalytics } from '../types/domain';
+import type {
+  Pair,
+  ReportData,
+  ComparisonData,
+  HydroAuditCertificate,
+  FloodUncertainty,
+  SARAnalytics,
+  OfficialMetrics,
+  SubmissionValidation,
+  FloodCarbonImpact,
+} from '../types/domain';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || '';
 
@@ -327,6 +337,36 @@ export const apiClient = {
     } catch {}
     return null;
   },
+
+  async fetchOfficialMetrics(): Promise<OfficialMetrics | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/metrics/official`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.error('Failed to fetch official metrics', e);
+    }
+    return null;
+  },
+
+  async validateSubmission(): Promise<SubmissionValidation | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/metrics/validate-submission`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.error('Failed to validate submission', e);
+    }
+    return null;
+  },
+
+  async fetchCarbonImpact(pairId: string): Promise<FloodCarbonImpact | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/carbon-metrics/${pairId}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.error('Failed to fetch carbon metrics', e);
+    }
+    return null;
+  },
 };
 
 export const fetchPairs = apiClient.fetchPairs.bind(apiClient);
@@ -337,7 +377,11 @@ export const fetchLayerGeoJson = apiClient.fetchLayerGeoJson.bind(apiClient);
 export const fetchAudit = apiClient.fetchAudit.bind(apiClient);
 export const fetchUncertainty = apiClient.fetchUncertainty.bind(apiClient);
 export const fetchSarAnalytics = apiClient.fetchSarAnalytics.bind(apiClient);
+export const fetchOfficialMetrics = apiClient.fetchOfficialMetrics.bind(apiClient);
+export const validateSubmission = apiClient.validateSubmission.bind(apiClient);
+export const fetchCarbonImpact = apiClient.fetchCarbonImpact.bind(apiClient);
 export const getOverlayUrl = apiClient.getOverlayUrl.bind(apiClient);
 export const fetchOverlayMeta = apiClient.fetchOverlayMeta.bind(apiClient);
 export const postRecompute = apiClient.recompute.bind(apiClient);
 export const postAnalyze = apiClient.analyze.bind(apiClient);
+

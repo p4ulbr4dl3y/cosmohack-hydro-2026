@@ -9,6 +9,8 @@ import { HydrographChart } from '../components/analytics/HydrographChart';
 import { AuditCard } from '../components/analytics/AuditCard';
 import { UncertaintyCard } from '../components/analytics/UncertaintyCard';
 import { SarAnalyticsCard } from '../components/analytics/SarAnalyticsCard';
+import { OfficialScoreCard } from '../components/analytics/OfficialScoreCard';
+import { CarbonMetricsCard } from '../components/analytics/CarbonMetricsCard';
 import { useUiStore } from '../store/uiStore';
 import { apiClient } from '../api/client';
 import type { Pair, ReportData, HydroAuditCertificate, FloodUncertainty, SARAnalytics } from '../types/domain';
@@ -332,9 +334,11 @@ export const Dashboard: React.FC = () => {
             waterPeakHa={currentReport?.water_peak_ha}
           />
 
-          {/* Advanced Analytics Ported from MRV */}
+          {/* Advanced Analytics & Official Competition Score */}
+          <OfficialScoreCard activePairId={activePairId} isLoading={loadingReport} />
           <UncertaintyCard uncertainty={uncertainty} isLoading={loadingExtra} />
           <SarAnalyticsCard sar={sar} isLoading={loadingExtra} />
+          <CarbonMetricsCard pairId={activePairId} isLoading={loadingReport} />
           <AuditCard audit={audit} isLoading={loadingExtra} />
 
           {/* Action Buttons */}

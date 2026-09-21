@@ -255,3 +255,48 @@ class OverlayMetadataResponse(BaseModel):
     crs: str = Field(description="Source Coordinate Reference System")
     overlay_url: str = Field(description="Direct URL to fetch transparent PNG overlay")
 
+
+class OfficialMetricsResponse(BaseModel):
+    """Live official competition score breakdown (docs/TASK_SPEC.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    score: float = Field(description="Official Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base")
+    q_flood: float = Field(description="Mean flood area convergence score Q_flood")
+    q_water_peak: float = Field(description="Mean peak water area convergence score Q_water_peak")
+    q_water_pre: float = Field(description="Mean pre-flood water area convergence score Q_water_pre")
+    spec_base: float = Field(description="Baseline low-water specificity Spec_base")
+    num_events: int = Field(description="Number of evaluated flood events (8)")
+    num_baselines: int = Field(description="Number of evaluated baseline low-water pairs (3)")
+    technical_points: float = Field(description="Normalized points for technical evaluation criteria (0-7)")
+    details: list[dict[str, Any]] = Field(description="Detailed per-pair convergence stats")
+
+
+class SubmissionValidationResponse(BaseModel):
+    """Validation report for submission.csv and raster masks (docs/CRITERIA.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    is_valid: bool = Field(description="Whether submission meets all mandatory competition criteria")
+    num_pairs: int = Field(description="Total evaluated pairs in submission")
+    passed_checks: list[str] = Field(description="List of verified rule checks")
+    errors: list[str] = Field(description="Critical errors that disqualify submission")
+    warnings: list[str] = Field(description="Warnings or non-critical issues")
+    discrepancies: list[dict[str, Any]] = Field(description="Per-pair raster vs CSV divergence analysis (2% rule)")
+
+
+class FloodCarbonImpactResponse(BaseModel):
+    """Biomass and carbon stock loss assessment for flood events."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    flood_ha: float = Field(description="Total inundated area in hectares")
+    biomass_loss_dry_matter_t: float = Field(description="Estimated dry biomass destroyed/washed out (tonnes)")
+    carbon_loss_tC: float = Field(description="Carbon stock loss (tonnes C, CF=0.47)")
+    emissions_equivalent_tCO2e: float = Field(description="Emissions equivalent (tonnes CO2e, ratio 44/12)")
+    cropland_loss_tC: float = Field(description="Carbon lost on agricultural lands (t C)")
+    forest_loss_tC: float = Field(description="Carbon lost in flooded forests/tree cover (t C)")
+    credit_potential: dict[str, Any] = Field(description="Mitigation carbon credits potential Q and valuations")
+    notes: str = Field(description="Methodological explanatory summary")
+

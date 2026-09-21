@@ -6,22 +6,28 @@ import csv
 import gc
 import io
 import json
+from dataclasses import asdict
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from src.audit import generate_flood_audit_certificate
+from src.carbon_metrics import compute_flood_carbon_impact
+from src.competition_metrics import compute_live_official_score, validate_submission_file
 from src.scene_renderer import get_scene_wgs84_bounds, render_mask_png
 from src.service.data_loader import data_loader
 from src.service.schemas import (
+    FloodCarbonImpactResponse,
     FloodUncertaintyResponse,
     HydroAuditCertificateResponse,
+    OfficialMetricsResponse,
     OverlayMetadataResponse,
     PairsListResponse,
     PredictionTaskResponse,
@@ -29,6 +35,7 @@ from src.service.schemas import (
     PredictResponse,
     ReportResponse,
     SARAnalyticsResponse,
+    SubmissionValidationResponse,
 )
 from src.uncertainty import compute_flood_area_uncertainty
 
@@ -727,6 +734,66 @@ async def get_raster_overlay_metadata(
         overlay_url=f"/api/v1/overlay/{pair_id}?layer={norm_layer}",
     )
 
+
+@app.get(
+    "/api/v1/metrics/official",
+    response_model=OfficialMetricsResponse,
+    summary="Official competition score and component convergence (docs/TASK_SPEC.md)",
+)
+async def get_official_metrics() -> Any:
+    """Computes live official competition score across all 11 pairs:
+    Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
+    """
+    sub_path = BASE_DIR / "submission.csv"
+    pairs_path = BASE_DIR / "hydrowatch_amur" / "pairs.csv"
+    data_dir = BASE_DIR / "hydrowatch_amur"
+    if not sub_path.exists():
+        raise HTTPException(status_code=404, detail="submission.csv not found")
+
+    sub_df = pd.read_csv(sub_path)
+    score_obj = compute_live_official_score(
+        submission_df=sub_df,
+        pairs_csv_path=pairs_path,
+        data_dir=data_dir,
+        predictions_dir=PREDICTIONS_DIR if PREDICTIONS_DIR.exists() else None,
+    )
+    return asdict(score_obj)
+
+
+@app.get(
+    "/api/v1/metrics/validate-submission",
+    response_model=SubmissionValidationResponse,
+    summary="Validate submission.csv and raster masks against criteria (docs/CRITERIA.md)",
+)
+async def validate_submission() -> Any:
+    """Validates submission.csv constraints and checks 2% raster discrepancy rule."""
+    sub_path = BASE_DIR / "submission.csv"
+    pairs_path = BASE_DIR / "hydrowatch_amur" / "pairs.csv"
+    val = validate_submission_file(
+        submission_path=sub_path,
+        pairs_csv_path=pairs_path,
+        predictions_dir=PREDICTIONS_DIR if PREDICTIONS_DIR.exists() else None,
+    )
+    return asdict(val)
+
+
+@app.get(
+    "/api/v1/carbon-metrics/{pair_id}",
+    response_model=FloodCarbonImpactResponse,
+    summary="Biomass and carbon stock loss assessment for flood events",
+)
+async def get_carbon_impact(pair_id: str) -> Any:
+    """Calculates carbon footprint, biomass loss (IPCC default CF=0.47) and mitigation credits."""
+    report = data_loader.get_report(pair_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+
+    flood_ha = float(report.get("flood_ha", 0.0))
+    landcover = report.get("landcover", {})
+    impact = compute_flood_carbon_impact(pair_id=pair_id, flood_ha=flood_ha, landcover_ha=landcover)
+    res_dict = asdict(impact)
+    res_dict["credit_potential"] = asdict(impact.credit_potential)
+    return res_dict
 
 
 # Mount static assets
