@@ -161,7 +161,7 @@ def compute_otsu_threshold(
     if len(valid_vals) < 50:
         return -16.5
 
-    counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(-22.0, -14.0))
+    counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(min_val, max_val))
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
 
     weight1 = np.cumsum(counts)
@@ -174,7 +174,7 @@ def compute_otsu_threshold(
     best_idx = int(np.argmax(variance))
     threshold = float(bin_centers[best_idx])
 
-    return float(np.clip(threshold, min_val, min(max_val, -14.5)))
+    return float(np.clip(threshold, min_val, max_val))
 
 
 def load_aux_priors(

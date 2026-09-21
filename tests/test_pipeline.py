@@ -82,3 +82,28 @@ def test_submission_exists_and_valid():
     assert not df.isna().any().any()
     assert (df["flood_ha"] >= 0).all()
     assert (df["water_peak_ha"] >= df["flood_ha"]).all()
+
+
+def test_refined_lee_filter_noise_reduction():
+    from src.segmentation import refined_lee_filter
+
+    rng = np.random.default_rng(42)
+    clean = np.full((30, 30), -18.0, dtype=np.float32)
+    noise = rng.normal(0.0, 3.0, (30, 30)).astype(np.float32)
+    noisy = clean + noise
+
+    filtered = refined_lee_filter(noisy, size=7, n_looks=4.4)
+    # Variance of filtered in homogeneous area should be significantly lower than noisy
+    assert np.var(filtered) < np.var(noisy)
+
+
+def test_compute_otsu_threshold_synthetic():
+    from src.segmentation import compute_otsu_threshold
+
+    rng = np.random.default_rng(100)
+    water = rng.normal(-21.0, 0.4, 600)
+    land = rng.normal(-15.0, 0.4, 600)
+    synthetic_vv = np.concatenate([water, land]).reshape((30, 40)).astype(np.float32)
+
+    th = compute_otsu_threshold(synthetic_vv, min_db=-22.0, max_db=-14.5)
+    assert -21.0 < th < -14.5
