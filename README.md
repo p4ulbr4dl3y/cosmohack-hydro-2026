@@ -8,10 +8,18 @@
 
 ## Общедоступный стенд и интерфейсы
 
-- **Интерактивная геоинформационная карта-дашборд:** [http://localhost:8000/](http://localhost:8000/)
-- **Интерактивная спецификация REST API (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Альтернативная документация ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
-- **Проверка работоспособности сервиса (Health Check):** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+### Публичный рабочий стенд (Production):
+- **Интерактивная геоинформационная карта-дашборд:** [https://state3407.space/](https://state3407.space/) (зеркало: [https://state3407.space/hydro/](https://state3407.space/hydro/))
+- **Интерактивная спецификация REST API (Swagger UI):** [https://state3407.space/docs](https://state3407.space/docs) (зеркало: [https://state3407.space/hydro/docs](https://state3407.space/hydro/docs))
+- **Альтернативная документация ReDoc:** [https://state3407.space/redoc](https://state3407.space/redoc)
+- **Проверка работоспособности сервиса (Health Check):** [https://state3407.space/api/v1/health](https://state3407.space/api/v1/health)
+
+### Локальное окружение (при запуске на машине):
+- **Локальный дашборд:** [http://localhost:8000/](http://localhost:8000/)
+- **Локальный Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Локальный Health Check:** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+
+### Материалы проекта:
 - **Полный научно-технический отчёт:** [`REPORT.md`](REPORT.md)
 - **Презентационные слайды защиты:** [`SLIDES.md`](SLIDES.md)
 
