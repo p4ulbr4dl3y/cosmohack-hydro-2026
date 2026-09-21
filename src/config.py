@@ -31,6 +31,13 @@ DOUBLE_BOUNCE_SLOPE_MAX_DEG: float = 3.0
 DOUBLE_BOUNCE_VV_PRE_MIN_DB: float = -14.0
 SLOPE_MAX_DEG: float = 5.0
 HAND_MAX_M: float = 25.0
+# Radar-shadow geometry (orbit/aspect-aware guard). Sentinel-1 IW carries no per-pixel
+# incidence-angle band in this dataset, so the nominal mid-swath look angle is used
+# together with the orbit pass; facets at/above the shadow limit are geometrically dark.
+SAR_NOMINAL_INCIDENCE_DEG: float = 38.0
+RADAR_SHADOW_MIN_INCIDENCE_DEG: float = 90.0
+# Row block size for windowed (rasterio.windows.Window) reads of the full S1 scenes.
+SAR_READ_BLOCK_ROWS: int = 1024
 GSW_OCCURRENCE_MIN_PCT: float = 80.0
 OPTICAL_MNDWI_MIN: float = 0.1
 OPTICAL_AWEISH_MIN: float = 0.0
@@ -66,6 +73,9 @@ class HydroConfig:
     double_bounce_vv_pre_min_db: float = DOUBLE_BOUNCE_VV_PRE_MIN_DB
     slope_max_deg: float = SLOPE_MAX_DEG
     hand_max_m: float = HAND_MAX_M
+    sar_nominal_incidence_deg: float = SAR_NOMINAL_INCIDENCE_DEG
+    radar_shadow_min_incidence_deg: float = RADAR_SHADOW_MIN_INCIDENCE_DEG
+    sar_read_block_rows: int = SAR_READ_BLOCK_ROWS
     gsw_occurrence_min_pct: float = GSW_OCCURRENCE_MIN_PCT
     optical_mndwi_min: float = OPTICAL_MNDWI_MIN
     optical_aweish_min: float = OPTICAL_AWEISH_MIN
@@ -120,6 +130,9 @@ class HydroConfig:
             "double_bounce_vv_pre_min_db": self.double_bounce_vv_pre_min_db,
             "slope_max_deg": self.slope_max_deg,
             "hand_max_m": self.hand_max_m,
+            "sar_nominal_incidence_deg": self.sar_nominal_incidence_deg,
+            "radar_shadow_min_incidence_deg": self.radar_shadow_min_incidence_deg,
+            "sar_read_block_rows": self.sar_read_block_rows,
             "gsw_occurrence_min_pct": self.gsw_occurrence_min_pct,
             "optical_mndwi_min": self.optical_mndwi_min,
             "optical_aweish_min": self.optical_aweish_min,

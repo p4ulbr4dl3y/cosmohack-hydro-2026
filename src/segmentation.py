@@ -31,6 +31,7 @@ __all__ = [
     "speckle_filter",
     "compute_otsu_threshold",
     "load_aux_priors",
+    "radar_shadow_mask",
     "segment_optical",
     "apply_mmu",
     "detect_flooded_vegetation",
@@ -69,6 +70,8 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         "double_bounce_hand_max_m": 3.0,
         "slope_max_deg": 5.0,
         "hand_max_m": 25.0,
+        "sar_nominal_incidence_deg": 38.0,
+        "radar_shadow_min_incidence_deg": 90.0,
         "gsw_occurrence_min_pct": 80.0,
         "optical_mndwi_min": 0.1,
         "optical_aweish_min": 0.0,
@@ -174,7 +177,15 @@ def load_aux_priors(
     target_transform: rasterio.Affine,
     target_crs: Any,
 ) -> dict[str, np.ndarray]:
-    """Load and reproject AUX terrain and GSW layers to target grid."""
+    """Load and reproject AUX terrain and GSW layers to target grid.
+
+    Besides slope/HAND/GSW layers, a terrain ``aspect`` layer is derived from the HAND
+    relief grid: HAND increases monotonically upslope near the drainage network, so the
+    horizontal direction of its steepest ascent approximates the terrain upslope azimuth.
+    The dataset ships no DEM-derived aspect band, so this proxy is used only by the
+    orbit-aware radar-shadow guard (:func:`radar_shadow_mask`) and only acts on facets
+    steep enough to be geometrically shadowed (> 52 deg for the nominal 38 deg incidence).
+    """
     cfg = load_config()
     slope_max = float(cfg["slope_max_deg"])
     hand_max = float(cfg["hand_max_m"])
@@ -219,9 +230,19 @@ def load_aux_priors(
     topo_mask = valid_slope & valid_hand & (slope <= slope_max) & (hand <= hand_max)
     permanent_mask = (occurrence >= gsw_min) & np.isfinite(occurrence)
 
+    # Terrain aspect (downslope azimuth, degrees clockwise from north) from the HAND
+    # relief. HAND grows going upslope, so the direction of steepest descent is the
+    # terrain aspect used by the radar-shadow geometry.
+    dy = np.gradient(hand, axis=0)  # d(HAND)/d(row); rows increase southwards
+    dx = np.gradient(hand, axis=1)  # d(HAND)/d(col); cols increase eastwards
+    # Downslope vector in (north, east) = (dy, -dx) -> azimuth = atan2(east, north)
+    aspect = np.degrees(np.arctan2(-dx, dy)) % 360.0
+    aspect = np.where(np.isfinite(aspect), aspect, 0.0).astype(np.float32)
+
     return {
         "slope": slope,
         "hand": hand,
+        "aspect": aspect,
         "occurrence": occurrence,
         "builtup": builtup,
         "topo_mask": topo_mask,
@@ -307,6 +328,95 @@ def detect_flooded_vegetation(
     return cond
 
 
+def radar_shadow_mask(
+    slope: np.ndarray | None,
+    aspect: np.ndarray | None,
+    orbit_pass: str | None,
+    nominal_incidence_deg: float | None = None,
+    shadow_min_incidence_deg: float | None = None,
+) -> np.ndarray | None:
+    """Flag terrain facets that are geometrically in the Sentinel-1 radar shadow.
+
+    Geometry
+    --------
+    Sentinel-1 is a *right-looking* side-looking radar, so the side it illuminates
+    depends on the flight direction:
+
+      * descending pass (satellite flying N->S) -> looks **west**,  sensor azimuth ~270 deg
+      * ascending  pass (satellite flying S->N) -> looks **east**,  sensor azimuth ~90 deg
+
+    A facet of slope ``s`` whose steepest descent points to azimuth ``A`` is illuminated
+    at a *local* incidence angle that differs from the flat-terrain (nominal) incidence
+    ``theta_0`` by the projection of the range slope onto the sensor-target plane. With
+    ``L`` the target-to-sensor azimuth (the upslope unit vector is ``-(downslope)``),
+
+        cos(theta_local) = cos(s) * cos(theta_0) + sin(s) * sin(theta_0) * cos(A - L)
+
+    When the facet descends *towards* the sensor (``A -> L``) the local incidence shrinks
+    (foreshortening, the near-range slope is still imaged) and ``theta_local`` tends to
+    ``|s - theta_0|``. When it descends *away* from the sensor (``A -> L + 180 deg``) the
+    local incidence grows, ``theta_local -> s + theta_0``, and once ``theta_local >= 90 deg``
+    the surface normal points away from the line of sight: the beam grazes the crest and
+    never reaches that facet. Backscatter then collapses to system noise (sigma0 < -24 dB)
+    and a naive Otsu classifier calls it open water -- a systematic false positive.
+
+    This is exactly why ascending != descending: the shadowed aspect flips by 180 deg
+    between passes, so the same hillside is in shadow on one orbit and fully imaged on the
+    other. Orbit direction is therefore a physically meaningful input, not a label.
+
+    Assumptions (conservative by design)
+    ------------------------------------
+    * The dataset carries no per-pixel incidence-angle band, so the mid-swath nominal
+      incidence (``SAR_NOMINAL_INCIDENCE_DEG``, ~38 deg for S1 IW) is used as ``theta_0``.
+    * ``aspect`` is the downslope azimuth in degrees clockwise from north, derived from the
+      AUX HAND relief (see :func:`load_aux_priors`); it is a proxy, not a DEM aspect band.
+    * Only the strict self-shadow criterion is applied (``theta_local`` at/above
+      ``RADAR_SHADOW_MIN_INCIDENCE_DEG``, i.e. slope steeper than ``90 - theta_0`` ~ 52 deg
+      when facing perfectly away). Cast/self-shadow from neighbouring ridges needs a DEM
+      profile along the range direction and is deliberately NOT modelled here. Foreshortened
+      near-range slopes are never suppressed.
+
+    Returns:
+        Boolean array of shadowed pixels, or ``None`` when the guard cannot be evaluated
+        (missing slope/aspect layers or an unrecognised ``orbit_pass``). ``None`` means
+        "no suppression", so callers can treat it as a no-op.
+    """
+    if slope is None or aspect is None or orbit_pass is None:
+        return None
+
+    pass_norm = str(orbit_pass).strip().upper()
+    if pass_norm.startswith("D"):
+        look_azimuth_deg = 270.0  # descending, right-looking -> illuminates from the west
+    elif pass_norm.startswith("A"):
+        look_azimuth_deg = 90.0  # ascending, right-looking -> illuminates from the east
+    else:
+        return None
+
+    cfg = load_config()
+    theta0 = (
+        nominal_incidence_deg
+        if nominal_incidence_deg is not None
+        else float(cfg.get("sar_nominal_incidence_deg", 38.0))
+    )
+    shadow_min = (
+        shadow_min_incidence_deg
+        if shadow_min_incidence_deg is not None
+        else float(cfg.get("radar_shadow_min_incidence_deg", 90.0))
+    )
+
+    theta0_rad = np.radians(theta0)
+    slope_rad = np.radians(np.asarray(slope, dtype=np.float64))
+    psi = np.radians(look_azimuth_deg - np.asarray(aspect, dtype=np.float64))
+    # cos(theta_local) = cos(theta0)cos(s) + sin(theta0)sin(s)cos(L - A):
+    # downslope azimuth A == look azimuth L -> foreshortened near-range slope (theta_local
+    # shrinks); A == L + 180 -> back slope (theta_local grows towards s + theta0).
+    cos_incidence = np.cos(slope_rad) * np.cos(theta0_rad) + np.sin(slope_rad) * np.sin(theta0_rad) * np.cos(psi)
+    local_incidence_deg = np.degrees(np.arccos(np.clip(cos_incidence, -1.0, 1.0)))
+
+    finite = np.isfinite(local_incidence_deg) & np.isfinite(slope_rad)
+    return finite & (local_incidence_deg >= shadow_min)
+
+
 def segment_water(
     vv: np.ndarray,
     vh: np.ndarray | None = None,
@@ -320,6 +430,8 @@ def segment_water(
     slope: np.ndarray | None = None,
     builtup: np.ndarray | None = None,
     occurrence: np.ndarray | None = None,
+    aspect: np.ndarray | None = None,
+    orbit_pass: str | None = None,
     is_peak: bool = False,
     use_topo: bool = True,
     use_optical: bool = True,
@@ -329,7 +441,16 @@ def segment_water(
     filter_size: int = 7,
     mmu_min_size: int | None = None,
 ) -> np.ndarray:
-    """End-to-end water segmentation for a single acquisition date (pre or peak)."""
+    """End-to-end water segmentation for a single acquisition date (pre or peak).
+
+    The optional ``aspect`` (downslope azimuth, degrees from north) and ``orbit_pass``
+    arguments enable an orbit-aware radar-shadow guard: facets steeper than the local
+    incidence limit *and* facing away from the sensor look direction are suppressed
+    before the topographic priors, because they carry no radar signal and would
+    otherwise be misread as open water. The guard is inert (no-op) when either argument
+    is ``None``, so existing callers keep their previous behaviour. See
+    :func:`radar_shadow_mask` for the geometry and its stated assumptions.
+    """
     cfg = load_config()
     drop_thresh = float(cfg["sar_flood_drop_db"])
     vh_thresh = float(cfg["vh_threshold_db"])
@@ -376,6 +497,14 @@ def segment_water(
         # Sub-canopy flooded vegetation (double bounce) is intentionally NOT merged
         # into the open-water mirror (task spec section 5); see detect_flooded_vegetation().
         sar_water = (sar_water | drop_cond) & sar_valid
+
+    # 3b. Orbit-aware radar-shadow guard. Facets in geometric shadow (steep slope facing
+    #     away from the look direction) return only thermal noise, which the Otsu path
+    #     above misreads as open water. Suppress them on the SAR-derived mask only, so
+    #     independent evidence (optical water, GSW permanent prior) is preserved.
+    shadow = radar_shadow_mask(slope, aspect, orbit_pass)
+    if shadow is not None:
+        sar_water = sar_water & ~shadow
 
     # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries).
     # Explicit, config-driven heuristic: when SAR coverage is too sparse to be

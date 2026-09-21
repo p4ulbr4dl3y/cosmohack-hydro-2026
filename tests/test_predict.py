@@ -11,7 +11,8 @@ from rasterio.transform import from_origin
 from shapely.geometry import Polygon
 
 from src.predict import main as predict_main
-from src.predict import process_pair, run_prediction
+from src.predict import process_pair, read_sar_bands, run_prediction
+from src.predict import resolve_orbit_pass as predict_resolve_orbit_pass
 
 
 @pytest.fixture
@@ -347,3 +348,116 @@ def test_predict_main_module_execution(synthetic_pair_env, monkeypatch):
     )
     runpy.run_module("src.predict", run_name="__main__")
     assert sub_csv.exists()
+
+
+def test_read_sar_bands_is_bit_identical_to_whole_array_read(synthetic_pair_env):
+    """D9: windowed SAR reads must reproduce src.read() byte for byte, block-size agnostic."""
+    s1_pre_tif = synthetic_pair_env["data_dir"] / "rasters" / "pair1" / "S1_pre_20200101.tif"
+
+    with rasterio.open(s1_pre_tif) as src:
+        vv_ref = src.read(1)
+        vh_ref = src.read(2)
+
+    for block_rows in (1, 3, 7, 30, 1024):
+        vv, vh = read_sar_bands(s1_pre_tif, block_rows=block_rows)
+        assert vv.dtype == vv_ref.dtype
+        assert vh.dtype == vh_ref.dtype
+        assert np.array_equal(vv, vv_ref)
+        assert np.array_equal(vh, vh_ref)
+
+
+def test_read_sar_bands_streams_in_row_windows(synthetic_pair_env, monkeypatch):
+    """D9: the read path must issue one windowed read per row block, not one whole-array read."""
+    s1_pre_tif = synthetic_pair_env["data_dir"] / "rasters" / "pair1" / "S1_pre_20200101.tif"
+    windows: list[object] = []
+
+    real_read = rasterio.io.DatasetReader.read
+
+    def spy_read(self, indexes=None, out=None, window=None, **kwargs):
+        windows.append(window)
+        return real_read(self, indexes=indexes, out=out, window=window, **kwargs)
+
+    monkeypatch.setattr(rasterio.io.DatasetReader, "read", spy_read)
+    read_sar_bands(s1_pre_tif, block_rows=7)
+
+    # 30 rows / 7 per block -> 5 blocks (7,7,7,7,2), each read for 2 bands
+    assert len(windows) == 10
+    assert all(w is not None for w in windows)
+    # Every window is a partial strip; no window spans the whole scene (30 rows)
+    heights = [w.height for w in windows]
+    assert max(heights) == 7 and min(heights) == 2
+    assert {w.width for w in windows} == {30}
+
+
+def test_read_sar_bands_single_band_raster_has_no_vh(tmp_path):
+    """A single-band S1 scene yields vh=None, matching the previous src.count check."""
+    tif = tmp_path / "single_band.tif"
+    with rasterio.open(
+        tif,
+        "w",
+        driver="GTiff",
+        height=5,
+        width=5,
+        count=1,
+        dtype=np.float32,
+        crs="EPSG:32652",
+        transform=from_origin(127.0, 50.0, 10.0, 10.0),
+    ) as dst:
+        dst.write(np.full((1, 5, 5), -12.0, dtype=np.float32))
+
+    vv, vh = read_sar_bands(tif, block_rows=2)
+    assert vv.shape == (5, 5)
+    assert vh is None
+
+
+def test_resolve_orbit_pass_reads_pairs_row():
+    """D3: the pairs-row orbit_pass label is threaded to the segmentation guard."""
+    assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "DESCENDING"})) == "DESCENDING"
+    assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "ascending"})) == "ascending"
+    assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "  "})) is None
+    assert predict_resolve_orbit_pass(pd.Series({"pair_id": "x"})) is None
+
+
+def test_process_pair_threads_orbit_pass_into_segmentation(synthetic_pair_env, monkeypatch):
+    """D3: process_pair forwards the row's orbit_pass to segment_water for both dates."""
+    from src.predict import process_pair as real_process_pair
+    from src.segmentation import segment_water as real_segment_water
+
+    captured: list[str | None] = []
+
+    def spy_segment_water(*args, **kwargs):
+        captured.append(kwargs.get("orbit_pass"))
+        return real_segment_water(*args, **kwargs)
+
+    monkeypatch.setattr("src.predict.segment_water", spy_segment_water)
+
+    row = synthetic_pair_env["row"].copy()
+    row["orbit_pass"] = "DESCENDING"
+    row["pair_id"] = "orbit_threaded"
+
+    real_process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=4)
+
+    # Two calls: pre and peak acquisitions of the same pair
+    assert captured == ["DESCENDING", "DESCENDING"]
+
+
+def test_process_pair_without_orbit_pass_column_is_inert(synthetic_pair_env, monkeypatch):
+    """D3: a pairs row lacking orbit_pass disables the guard (no-op, default None)."""
+    from src.predict import process_pair as real_process_pair
+    from src.segmentation import segment_water as real_segment_water
+
+    captured: list[str | None] = []
+
+    def spy_segment_water(*args, **kwargs):
+        captured.append(kwargs.get("orbit_pass"))
+        return real_segment_water(*args, **kwargs)
+
+    monkeypatch.setattr("src.predict.segment_water", spy_segment_water)
+
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "no_orbit"
+    assert "orbit_pass" not in row.index
+
+    real_process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=1)
+
+    assert captured == [None, None]

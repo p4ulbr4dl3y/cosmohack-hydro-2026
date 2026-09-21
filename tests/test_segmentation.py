@@ -10,6 +10,7 @@ from src.segmentation import (
     detect_flooded_vegetation,
     load_aux_priors,
     load_config,
+    radar_shadow_mask,
     refined_lee_filter,
     segment_optical,
     segment_water,
@@ -393,6 +394,183 @@ def test_segment_water_comprehensive():
         use_mmu=False,
     )
     assert fused[2, 2] == 1
+
+
+def test_radar_shadow_mask_flat_and_facing_slopes_are_not_shadowed():
+    """Flat terrain and the radar-facing slope are never flagged as radar shadow."""
+    shape = (20, 20)
+    flat_slope = np.zeros(shape, dtype=np.float32)
+    # Even a wildly varying aspect cannot create shadow on a flat facet
+    noise_aspect = np.linspace(0.0, 359.0, shape[0] * shape[1]).reshape(shape).astype(np.float32)
+
+    assert not np.any(radar_shadow_mask(flat_slope, noise_aspect, orbit_pass="DESCENDING"))
+    assert not np.any(radar_shadow_mask(flat_slope, noise_aspect, orbit_pass="ASCENDING"))
+
+    # A steep slope, but facing the radar stays illuminated: the descending pass looks
+    # west (~270 deg), so a west-facing (downslope azimuth 270 deg) facet is lit.
+    steep_slope = np.full(shape, 70.0, dtype=np.float32)
+    facing_az = np.full(shape, 270.0, dtype=np.float32)
+    assert not np.any(radar_shadow_mask(steep_slope, facing_az, orbit_pass="DESCENDING"))
+
+    # Missing metadata (orbit_pass/slope/aspect) disables the guard entirely
+    assert radar_shadow_mask(steep_slope, None, orbit_pass="DESCENDING") is None
+    assert radar_shadow_mask(None, facing_az, orbit_pass="DESCENDING") is None
+    assert radar_shadow_mask(steep_slope, facing_az, orbit_pass=None) is None
+
+
+def test_radar_shadow_mask_follows_orbit_pass():
+    """A steep slope facing away from the look direction is shadowed; ascending flips it.
+
+    Right-looking Sentinel-1 descending looks west (~270 deg), ascending looks east
+    (~90 deg), so a steep east-facing (downslope azimuth 90 deg) facet is in shadow on
+    the descending pass and fully illuminated on the ascending one.
+    """
+    shape = (10, 10)
+    steep = np.full(shape, 70.0, dtype=np.float32)  # steeper than 90 - 38 = 52 deg
+    east_facing = np.full(shape, 90.0, dtype=np.float32)
+
+    desc = radar_shadow_mask(steep, east_facing, orbit_pass="DESCENDING")
+    assert desc is not None and np.all(desc)
+
+    asc = radar_shadow_mask(steep, east_facing, orbit_pass="ASCENDING")
+    assert asc is not None and not np.any(asc)
+
+    # Threshold is honoured: sub-grazing incidence angles are not rejected
+    gentle = np.full(shape, 30.0, dtype=np.float32)
+    assert not np.any(radar_shadow_mask(gentle, east_facing, orbit_pass="DESCENDING"))
+
+    # Flat facets are never shadowed, whatever the aspect says
+    assert not np.any(radar_shadow_mask(np.zeros(shape, dtype=np.float32), east_facing, orbit_pass="DESCENDING"))
+
+
+def test_segment_water_radar_shadow_guard_is_orbit_aware():
+    """Radar-shadow guard: inert without metadata, suppresses only the away-facing slope."""
+    shape = (40, 40)
+    vv = np.full(shape, -12.0, dtype=np.float32)
+    vv[10:30, 10:30] = -26.0  # dark backscatter, Otsu would call it open water
+    vh = vv - 6.0
+
+    slope = np.zeros(shape, dtype=np.float32)
+    aspect = np.full(shape, 90.0, dtype=np.float32)  # east-facing: away from the descending look (~270 deg)
+
+    # 1. No orbit_pass -> guard is a no-op, the dark patch is segmented as water
+    baseline = segment_water(
+        vv=vv,
+        vh=vh,
+        slope=slope,
+        aspect=aspect,
+        use_topo=False,
+        use_optical=False,
+        use_mmu=False,
+        use_permanent=False,
+    )
+    assert baseline[20, 20] == 1
+
+    # 2. Flat terrain + orbit_pass -> still no suppression (slope below the shadow limit)
+    flat_orbit = segment_water(
+        vv=vv,
+        vh=vh,
+        slope=slope,
+        aspect=aspect,
+        orbit_pass="DESCENDING",
+        use_topo=False,
+        use_optical=False,
+        use_mmu=False,
+        use_permanent=False,
+    )
+    assert np.array_equal(flat_orbit, baseline)
+
+    # 3. Steep shadow-facing slope + orbit_pass -> suppression
+    steep_slope = np.zeros(shape, dtype=np.float32)
+    steep_slope[10:30, 10:30] = 70.0
+    steep_aspect = np.zeros(shape, dtype=np.float32)
+    steep_aspect[10:30, 10:30] = 90.0
+
+    shadowed = segment_water(
+        vv=vv,
+        vh=vh,
+        slope=steep_slope,
+        aspect=steep_aspect,
+        orbit_pass="DESCENDING",
+        use_topo=False,
+        use_optical=False,
+        use_mmu=False,
+        use_permanent=False,
+    )
+    assert shadowed[20, 20] == 0
+    assert shadowed[0, 0] == baseline[0, 0]  # outside-patch pixels untouched
+
+    # 4. Same geometry under an ascending pass -> the away-facing slope is illuminated
+    ascended = segment_water(
+        vv=vv,
+        vh=vh,
+        slope=steep_slope,
+        aspect=steep_aspect,
+        orbit_pass="ASCENDING",
+        use_topo=False,
+        use_optical=False,
+        use_mmu=False,
+        use_permanent=False,
+    )
+    assert np.array_equal(ascended, baseline)
+
+
+def test_segment_water_radar_shadow_guard_keeps_near_range_slope():
+    """The near-range slope facing the radar is never suppressed, even when steep."""
+    shape = (40, 40)
+    vv = np.full(shape, -12.0, dtype=np.float32)
+    vv[10:30, 10:30] = -26.0
+    vh = vv - 6.0
+
+    slope = np.zeros(shape, dtype=np.float32)
+    slope[10:30, 10:30] = 70.0
+    aspect = np.zeros(shape, dtype=np.float32)
+    aspect[10:30, 10:30] = 270.0  # facing the descending pass look direction (west)
+
+    water = segment_water(
+        vv=vv,
+        vh=vh,
+        slope=slope,
+        aspect=aspect,
+        orbit_pass="DESCENDING",
+        use_topo=False,
+        use_optical=False,
+        use_mmu=False,
+        use_permanent=False,
+    )
+    assert water[20, 20] == 1
+
+
+def test_load_aux_priors_provides_aspect(tmp_path):
+    """AUX priors expose a terrain aspect layer for the orbit-aware shadow guard."""
+    aux_path = tmp_path / "aux_aspect.tif"
+    transform = from_origin(127.0, 50.0, 10.0, 10.0)
+    data = np.zeros((6, 20, 20), dtype=np.float32)
+    # HAND grows southwards (row index increases southwards), so the steepest descent
+    # points north -> downslope azimuth = 0 deg.
+    data[1, :, :] = np.arange(20, dtype=np.float32)[:, None]
+    data[0, :, :] = 2.0
+
+    with rasterio.open(
+        aux_path,
+        "w",
+        driver="GTiff",
+        height=20,
+        width=20,
+        count=6,
+        dtype=np.float32,
+        crs="EPSG:32652",
+        transform=transform,
+    ) as dst:
+        dst.write(data)
+
+    res = load_aux_priors(aux_path, target_shape=(20, 20), target_transform=transform, target_crs="EPSG:32652")
+    assert "aspect" in res
+    aspect = res["aspect"]
+    assert aspect.shape == (20, 20)
+    # HAND rises towards the south, so the steepest descent points north (0 deg)
+    assert np.allclose(aspect, 0.0, atol=1.0)
+    assert np.all(np.isfinite(aspect))
 
 
 def test_segment_optical_no_valid(tmp_path):
