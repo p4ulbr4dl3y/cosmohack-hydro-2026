@@ -1,0 +1,27 @@
+# HydroWatch Amur segmentation thresholds and hyperparameters
+
+# Otsu thresholding parameters
+otsu_min_db: -22.0
+otsu_max_db: -12.0
+otsu_bins: 64
+
+# SAR change detection and backscatter thresholds
+sar_flood_drop_db: 3.0
+vh_threshold_db: -16.5
+
+# Sub-canopy double bounce detection parameters
+double_bounce_delta_vh_db: 2.0
+double_bounce_hand_max_m: 3.0
+slope_max_deg: 5.0
+hand_max_m: 25.0
+
+# Global Surface Water prior
+gsw_occurrence_min_pct: 80.0
+
+# Optical Sentinel-2 index thresholds
+optical_mndwi_min: 0.1
+optical_aweish_min: 0.0
+optical_ndvi_max: 0.3
+
+# Minimum Mapping Unit (MMU) filtering (pixels)
+mmu_min_pixels: 25

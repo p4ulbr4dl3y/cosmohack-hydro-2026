@@ -84,11 +84,15 @@ def process_pair(
         topo_mask = aux_data["topo_mask"]
         perm_mask = aux_data["permanent_mask"] if ablation_mode == 4 else None
         hand_arr = aux_data["hand"]
+        slope_arr = aux_data["slope"]
+        builtup_arr = aux_data["builtup"]
         occ_arr = aux_data["occurrence"]
     else:
         topo_mask = None
         perm_mask = None
         hand_arr = None
+        slope_arr = None
+        builtup_arr = None
         occ_arr = None
 
     # 3. Load Optical Sentinel-2 where available
@@ -116,6 +120,8 @@ def process_pair(
         topo_mask=topo_mask,
         permanent_mask=perm_mask,
         hand=hand_arr,
+        slope=slope_arr,
+        builtup=builtup_arr,
         occurrence=occ_arr,
         is_peak=False,
         use_topo=use_topo,
@@ -135,6 +141,8 @@ def process_pair(
         topo_mask=topo_mask,
         permanent_mask=perm_mask,
         hand=hand_arr,
+        slope=slope_arr,
+        builtup=builtup_arr,
         occurrence=occ_arr,
         is_peak=True,
         use_topo=use_topo,
