@@ -39,7 +39,7 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
 
     defaults = {
         "otsu_min_db": -22.0,
-        "otsu_max_db": -12.0,
+        "otsu_max_db": -14.5,
         "otsu_bins": 64,
         "sar_flood_drop_db": 3.0,
         "vh_threshold_db": -16.5,

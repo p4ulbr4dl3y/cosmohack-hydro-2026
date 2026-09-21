@@ -364,6 +364,33 @@ class DataLoader:
                 json.dump(empty_fc, f, ensure_ascii=False)
             return empty_fc
 
+    def get_shapefile_zip(self, pair_id: str, layer: str = "flood") -> bytes | None:
+        """Export layer polygons as a zipped ESRI Shapefile archive."""
+        import io
+        import tempfile
+        import zipfile
+
+        geojson = self.get_geojson(pair_id, layer=layer)
+        if geojson is None:
+            return None
+
+        features = geojson.get("features", [])
+        if not features:
+            gdf = gpd.GeoDataFrame(columns=["area_ha", "pair_id", "layer", "geometry"], crs="EPSG:4326")
+        else:
+            gdf = gpd.GeoDataFrame.from_features(features, crs="EPSG:4326")
+
+        buf = io.BytesIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            shp_base = f"{pair_id}_{layer}"
+            shp_path = Path(tmpdir) / f"{shp_base}.shp"
+            gdf.to_file(shp_path, driver="ESRI Shapefile", encoding="utf-8")
+            with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for file_path in Path(tmpdir).iterdir():
+                    zf.write(file_path, arcname=file_path.name)
+
+        return buf.getvalue()
+
     def predict_spatial_temporal(
         self,
         pair_id: str | None = None,

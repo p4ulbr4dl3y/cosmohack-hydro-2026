@@ -670,6 +670,9 @@
           <button class="btn" id="btnExportGeoJSON">
             <i class="fa-solid fa-file-code"></i> GeoJSON
           </button>
+          <button class="btn" id="btnExportShapefile">
+            <i class="fa-solid fa-file-zipper"></i> Shapefile
+          </button>
           <button class="btn" id="btnExportCSV">
             <i class="fa-solid fa-file-csv"></i> Отчёт CSV
           </button>
@@ -1093,6 +1096,12 @@
       a.download = `${currentPairId}_flood.geojson`;
       a.click();
       URL.revokeObjectURL(url);
+    });
+
+    // Button: Export Shapefile
+    document.getElementById('btnExportShapefile').addEventListener('click', () => {
+      if (!currentPairId) return;
+      window.location.href = `/api/v1/shapefile/${currentPairId}?layer=flood`;
     });
 
     // Button: Export CSV

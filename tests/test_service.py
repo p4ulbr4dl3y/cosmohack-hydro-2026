@@ -187,3 +187,12 @@ def test_predict_endpoint_errors(monkeypatch):
     monkeypatch.setattr("src.service.app.data_loader.predict_spatial_temporal", mock_predict)
     resp500 = client.post("/api/v1/predict", json={"pair_id": "flood_2019_07_amur__blagoveshchensk"})
     assert resp500.status_code == 500
+
+
+def test_shapefile_endpoint():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.get(f"/api/v1/shapefile/{pair_id}?layer=flood")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/zip"
+    assert len(resp.content) > 0
+    assert client.get("/api/v1/shapefile/non_existent_pair").status_code == 404

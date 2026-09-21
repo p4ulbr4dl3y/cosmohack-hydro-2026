@@ -137,6 +137,22 @@ async def get_geojson(
     return geojson
 
 
+@app.get("/api/v1/shapefile/{pair_id}")
+async def get_shapefile(
+    pair_id: str,
+    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+) -> Response:
+    """Vector polygons exported as a zipped ESRI Shapefile archive (EPSG:4326)."""
+    shp_bytes = data_loader.get_shapefile_zip(pair_id, layer=layer)
+    if shp_bytes is None:
+        raise HTTPException(status_code=404, detail=f"Shapefile for pair '{pair_id}' (layer: {layer}) not found")
+    return Response(
+        content=shp_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={pair_id}_{layer}_shp.zip"},
+    )
+
+
 @app.post("/api/v1/predict")
 async def predict_flood(request: PredictRequest) -> dict[str, Any]:
     """Spatial-temporal inference endpoint accepting bounds / pair_id."""
