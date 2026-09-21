@@ -1,4 +1,4 @@
-"""Tests for HydroWatch Amur unified CLI."""
+"""Тесты унифицированного CLI HydroWatch Amur."""
 
 import json
 import sys
@@ -15,7 +15,7 @@ def test_cli_report_single_pair(capsys):
     run_report(pair_id=pair_id)
     captured = capsys.readouterr()
     assert f"REPORT: {pair_id}" in captured.out
-    # Flood area must match the shipped submission.csv (single source of truth)
+    # Площадь паводка должна совпадать с поставляемым submission.csv (единый источник истины)
     sub = pd.read_csv(Path("submission.csv"))
     expected = float(sub.loc[sub["pair_id"] == pair_id, "flood_ha"].iloc[0])
     assert f"Flood: {expected:.2f} ha" in captured.out
@@ -48,7 +48,7 @@ def test_cli_report_output_csv(tmp_path):
 
 
 def test_cli_subcommands_parser():
-    # Verify main doesn't crash on invalid args when called with --help
+    # Проверка, что main не падает на некорректных аргументах при вызове с --help
     with pytest.raises(SystemExit) as exc:
         sys.argv = ["hydrowatch-cli", "--help"]
         main()
@@ -56,17 +56,17 @@ def test_cli_subcommands_parser():
 
 
 def test_check_s1_data_missing(tmp_path):
-    # No data dir -> S1 scenes are absent -> check must fail without crash
+    # Отсутствует каталог данных -> снимки S1 отсутствуют -> проверка должна завершиться неудачей без падения
     assert check_s1_data_available(Path("hydrowatch_amur/pairs.csv"), Path("/nonexistent")) is False
 
 
 def test_predict_without_s1_prints_hint(tmp_path, capsys):
-    """predict on a repo without S1 scenes must fail with a readable download hint, not a raw traceback."""
+    """predict в репозитории без снимков S1 должен завершиться с понятной подсказкой о загрузке, а не с сырым traceback."""
     sys.argv = [
         "hydrowatch-cli",
         "predict",
         "--data-dir",
-        str(tmp_path),  # empty dir: no rasters at all
+        str(tmp_path),  # пустой каталог: растры полностью отсутствуют
     ]
     with pytest.raises(SystemExit) as exc:
         main()
@@ -75,7 +75,7 @@ def test_predict_without_s1_prints_hint(tmp_path, capsys):
     assert "Sentinel-1 scenes are required" in out
     assert "src.cli fetch" in out
     assert "docs/Ссылка на данные.txt" in out
-    # The one-time external download must be named explicitly (D1: honest offline story).
+    # Разовая внешняя загрузка должна быть указана явно (D1: честный офлайн-сценарий).
     assert "2.9 GB" in out
     assert "drive.google.com" in out
     assert "NOT reproducible offline" in out
@@ -95,11 +95,11 @@ def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
     dummy_csv = tmp_path / "pairs.csv"
     dummy_csv.write_text("pair_id\npair1\n", encoding="utf-8")
 
-    # Missing csv exits
+    # Отсутствующий csv приводит к выходу
     with pytest.raises(SystemExit):
         run_benchmark(tmp_path / "missing.csv", tmp_path, tmp_path)
 
-    # Valid run with mocked process_pair creating a file in predictions_dir
+    # Корректный запуск с замоканным process_pair, создающим файл в predictions_dir
     def mock_process_pair(predictions_dir, **kwargs):
         (predictions_dir / "bench_file.tif").write_text("data")
 
@@ -111,7 +111,7 @@ def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
 
 
 def test_run_benchmark_writes_json_summary(tmp_path, monkeypatch):
-    """Benchmark summary is persisted as a machine-readable artifact."""
+    """Сводка бенчмарка сохраняется как машиночитаемый артефакт."""
     from src.cli import run_benchmark
 
     dummy_csv = tmp_path / "pairs.csv"
@@ -173,7 +173,7 @@ def test_run_fetch_mocked(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("src.cli.missing_s1_pairs", lambda pairs, d: [])
 
     run_fetch(dummy_csv, tmp_path / "extracted", archive_output=archive, keep_archive=False)
-    assert not archive.exists()  # deleted because keep_archive=False
+    assert not archive.exists()  # удалён, так как keep_archive=False
     captured = capsys.readouterr()
     assert "Extracted 5 entries" in captured.err
 
@@ -210,7 +210,7 @@ def test_main_subcommand_dispatching(monkeypatch):
 
 
 def test_cli_evaluate_holdout_forwards_flag(monkeypatch):
-    """``evaluate --holdout`` must forward ``--holdout`` to src.evaluate.main."""
+    """``evaluate --holdout`` должен передавать ``--holdout`` в src.evaluate.main."""
     captured = {}
 
     def fake_evaluate_main():
@@ -222,7 +222,7 @@ def test_cli_evaluate_holdout_forwards_flag(monkeypatch):
     main()
     assert "--holdout" in captured["argv"]
 
-    # Without the flag the argument must NOT be injected (default path unchanged).
+    # Без флага аргумент НЕ должен добавляться (путь по умолчанию не меняется).
     captured.clear()
     monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "evaluate"])
     main()

@@ -1,4 +1,4 @@
-"""Unit tests for web raster visualization and PNG overlay rendering module."""
+"""Модульные тесты модуля визуализации веб-растров и рендеринга PNG-оверлеев."""
 
 from __future__ import annotations
 
@@ -34,15 +34,15 @@ def test_mask_to_rgba_and_png():
     rgba = mask_to_rgba(mask, color_rgb=(255, 0, 0), alpha=200)
 
     assert rgba.shape == (2, 2, 4)
-    # Check transparent pixel
+    # Проверка прозрачного пикселя
     assert rgba[0, 1, 3] == 0
-    # Check colored pixel
+    # Проверка окрашенного пикселя
     assert rgba[0, 0, 0] == 255
     assert rgba[0, 0, 3] == 200
 
     png_bytes = render_rgba_to_png(rgba)
     assert isinstance(png_bytes, bytes)
-    # Standard PNG magic header
+    # Стандартный магический заголовок PNG
     assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
 
 
@@ -53,9 +53,9 @@ def test_multi_water_to_rgba():
 
     rgba = multi_water_to_rgba(w_pre, w_peak, flood)
     assert rgba.shape == (2, 2, 4)
-    # [0, 0] is pre-water (blue)
+    # [0, 0] - вода до паводка (синий)
     assert rgba[0, 0, 0] == 30 and rgba[0, 0, 2] == 175
-    # [0, 1] is new flood (red)
+    # [0, 1] - новый паводок (красный)
     assert rgba[0, 1, 0] == 239 and rgba[0, 1, 1] == 68
 
 
@@ -64,7 +64,7 @@ def test_render_mask_png_and_geotiff_overlay(tmp_path: Path):
     png_bytes = render_mask_png(mask, layer_type="flood")
     assert png_bytes.startswith(b"\x89PNG\r\n\x1a\n")
 
-    # Create temporary GeoTIFF
+    # Создание временного GeoTIFF
     tif_path = tmp_path / "test_layer.tif"
     transform = from_origin(127.0, 50.2, 0.01, 0.01)
     with rasterio.open(
@@ -82,8 +82,8 @@ def test_render_mask_png_and_geotiff_overlay(tmp_path: Path):
 
     bounds = get_scene_wgs84_bounds(tif_path)
     assert len(bounds) == 2
-    assert bounds[0][0] < bounds[1][0]  # south < north
-    assert bounds[0][1] < bounds[1][1]  # west < east
+    assert bounds[0][0] < bounds[1][0]  # юг < север
+    assert bounds[0][1] < bounds[1][1]  # запад < восток
 
     png_overlay, overlay_bounds, meta = render_geotiff_overlay(tif_path, layer_type="flood")
     assert png_overlay.startswith(b"\x89PNG\r\n\x1a\n")
@@ -96,9 +96,9 @@ def test_render_gradient_mask_rgba():
     mask[5:25, 5:25] = 1
     rgba_flood = render_gradient_mask_rgba(mask, layer_type="flood")
     assert rgba_flood.shape == (30, 30, 4)
-    # Center pixel should have color and high alpha
+    # Центральный пиксель должен иметь цвет и высокую альфу
     assert rgba_flood[15, 15, 3] > 150
-    # Background pixel should be transparent
+    # Фоновый пиксель должен быть прозрачным
     assert rgba_flood[0, 0, 3] == 0
 
     png_bytes = render_mask_png(mask, layer_type="flood", gradient=True)

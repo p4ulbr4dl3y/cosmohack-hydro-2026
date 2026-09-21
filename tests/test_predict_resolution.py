@@ -1,8 +1,8 @@
-"""Tests for the temporal + polygon aware /api/v1/predict resolution.
+"""Тесты разрешения пары для /api/v1/predict с учётом времени и полигона.
 
-Covers audit finding 1.7: a bbox query with dates matching an existing pair
-(Blagoveshchensk has three pairs with identical bounds) must resolve to the
-date-matching pair instead of always returning the earliest baseline.
+Покрывает замечание аудита 1.7: bbox-запрос с датами, совпадающими с существующей
+парой (у Благовещенска три пары с идентичными границами), должен разрешаться в
+пару, совпадающую по датам, а не всегда возвращать самую раннюю базовую линию.
 """
 
 import shapely.geometry
@@ -28,7 +28,7 @@ BLAGOVESHCHENSK_POLYGON = {
 
 
 def test_predict_bounds_resolves_pair_by_dates():
-    """Dates that match the 2021 event must select the 2021 pair, not baseline_2018."""
+    """Даты, совпадающие с событием 2021 года, должны выбирать пару 2021, а не baseline_2018."""
     resp = client.post(
         "/api/v1/predict",
         json={"bounds": BLAGOVESHCHENSK_BOUNDS, "date_pre": "2021-05-14", "date_peak": "2021-07-01"},
@@ -73,10 +73,10 @@ def test_predict_polygon_dates_resolve_pair():
 
 
 def test_predict_polygon_area_uses_metric_projection():
-    """area_ha of clipped contours must be computed in UTM, not degrees.
+    """area_ha обрезанных контуров должна вычисляться в UTM, а не в градусах.
 
-    A clipped Blagoveshchensk flood contour must total a physically plausible
-    value (the old degree formula inflated areas by ~1/cos(lat) ~= 1.55x).
+    Обрезанный паводковый контур Благовещенска должен давать физически правдоподобное
+    значение (старая формула в градусах завышала площади примерно в 1/cos(lat) ~= 1.55 раза).
     """
     resp = client.post(
         "/api/v1/predict",
@@ -87,17 +87,17 @@ def test_predict_polygon_area_uses_metric_projection():
     assert feats, "expected clipped flood contours inside the query polygon"
 
     total = sum(f["properties"]["area_ha"] for f in feats)
-    # UTM area of the ~0.30 deg x 0.20 deg clip box near 50 degN is ~ 500-900 ha;
-    # the degree approximation would overstate it by ~1.55x (> 1300 ha).
+    # Площадь в UTM для рамки обрезки ~0.30 deg x 0.20 deg вблизи 50 degN составляет ~ 500-900 ha;
+    # приближение в градусах завысило бы её примерно в 1.55 раза (> 1300 ha).
     assert 100.0 < total < 1000.0
 
-    # Compare against a direct metric computation of the query polygon area.
+    # Сравнение с прямым метрическим расчётом площади запрашиваемого полигона.
     from src.service.data_loader import data_loader
 
     poly_area_ha = data_loader._metric_area_ha(
         shapely.geometry.shape(BLAGOVESHCHENSK_POLYGON), "flood_2021_06_amur__blagoveshchensk"
     )
-    # The clipped flood can never exceed the query polygon area by much
+    # Обрезанный паводок не может существенно превышать площадь запрашиваемого полигона
     assert total <= poly_area_ha * 1.05
 
 

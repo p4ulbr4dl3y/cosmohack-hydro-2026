@@ -1,4 +1,4 @@
-"""Unit tests for spatial uncertainty and confidence interval module."""
+"""Модульные тесты модуля пространственной неопределённости и доверительных интервалов."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from src.uncertainty import (
 
 
 def test_compute_flood_area_uncertainty_basic():
-    # 10,000 pixels at 0.01 ha/pixel = 100 ha
+    # 10 000 пикселей при 0.01 га/пиксель = 100 га
     mask = np.ones((100, 100), dtype=bool)
 
     res = compute_flood_area_uncertainty(
@@ -27,7 +27,7 @@ def test_compute_flood_area_uncertainty_basic():
     assert isinstance(res, FloodUncertaintyResult)
     assert res.area_ha == pytest.approx(100.0)
     assert res.total_valid_pixels == 10000
-    assert res.effective_n_pixels < 10000  # spatial correlation reduces effective samples
+    assert res.effective_n_pixels < 10000  # пространственная корреляция уменьшает эффективное число выборок
     assert res.lower_bound_ha < res.area_ha < res.upper_bound_ha
     assert res.margin_ha > 0.0
     assert res.relative_uncertainty_pct > 0.0
@@ -51,7 +51,7 @@ def test_simulate_flood_uncertainty_monte_carlo():
     assert 20.0 < sim["std"] < 30.0
     assert sim["p05"] < sim["p50"] < sim["p95"]
 
-    # Zero input handling
+    # Обработка нулевого входа
     zero_sim = simulate_flood_uncertainty_monte_carlo(0.0, 0.0)
     assert zero_sim["mean"] == 0.0
     assert zero_sim["std"] == 0.0

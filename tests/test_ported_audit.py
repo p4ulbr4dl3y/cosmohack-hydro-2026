@@ -1,4 +1,4 @@
-"""Unit tests for cryptographic Merkle audit trail and certificate module."""
+"""Модульные тесты модуля криптографического аудиторского журнала Merkle и сертификатов."""
 
 from __future__ import annotations
 
@@ -40,13 +40,13 @@ def test_merkle_tree_construction_and_verification():
     assert len(root) == 64
     assert len(levels) == 3
 
-    # Check pair hashing
+    # Проверка хеширования пар
     h01 = hash_pair(leaf_hashes[0], leaf_hashes[1])
     h23 = hash_pair(leaf_hashes[2], leaf_hashes[3])
     expected_root = hash_pair(h01, h23)
     assert root == expected_root
 
-    # Verify audit proofs for each leaf
+    # Проверка аудиторских доказательств для каждого листа
     for idx, leaf_h in enumerate(leaf_hashes):
         proof = generate_merkle_proof(idx, levels)
         assert verify_merkle_proof(leaf_h, proof, root) is True
