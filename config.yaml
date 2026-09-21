@@ -71,8 +71,8 @@ mmu_min_pixels: 25
 
 # Partial-SAR fallback (Poyarkovo-style track boundary gaps)
 sar_valid_frac_min: 0.1
-fallback_hand_max_m: 1.0
-fallback_occurrence_min_pct: 5.0
+fallback_hand_max_m: 1.5
+fallback_occurrence_min_pct: 1.0
 
 # GeoJSON contour export limits
 # geojson_max_contours: 0 disables truncation (preserves total mapped area)
