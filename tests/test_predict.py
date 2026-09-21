@@ -461,3 +461,75 @@ def test_process_pair_without_orbit_pass_column_is_inert(synthetic_pair_env, mon
     real_process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=1)
 
     assert captured == [None, None]
+
+
+def test_run_prediction_parallel_vs_sequential_identity(synthetic_pair_env, tmp_path):
+    """Parallel batch inference results must be strictly identical to sequential inference."""
+    data_dir = synthetic_pair_env["data_dir"]
+    base_row = synthetic_pair_env["row"].to_dict()
+
+    row1 = dict(base_row, pair_id="pair_par_1")
+    row2 = dict(base_row, pair_id="pair_par_2")
+
+    pairs_csv = tmp_path / "pairs_multi.csv"
+    pd.DataFrame([row1, row2]).to_csv(pairs_csv, index=False)
+
+    pred_seq_dir = tmp_path / "preds_seq"
+    pred_par_dir = tmp_path / "preds_par"
+    sub_seq_csv = tmp_path / "sub_seq.csv"
+    sub_par_csv = tmp_path / "sub_par.csv"
+
+    # Sequential run (1 worker)
+    df_seq = run_prediction(
+        pairs_csv_path=pairs_csv,
+        data_dir=data_dir,
+        output_csv_path=sub_seq_csv,
+        predictions_dir=pred_seq_dir,
+        ablation_mode=4,
+        workers=1,
+    )
+
+    # Parallel run (2 workers)
+    df_par = run_prediction(
+        pairs_csv_path=pairs_csv,
+        data_dir=data_dir,
+        output_csv_path=sub_par_csv,
+        predictions_dir=pred_par_dir,
+        ablation_mode=4,
+        workers=2,
+    )
+
+    pd.testing.assert_frame_equal(df_seq, df_par)
+    assert sub_seq_csv.read_text(encoding="utf-8") == sub_par_csv.read_text(encoding="utf-8")
+
+
+def test_predict_cli_workers_flag(synthetic_pair_env, tmp_path, monkeypatch):
+    """Test that --workers and --jobs flags are correctly handled by CLI main."""
+    data_dir = synthetic_pair_env["data_dir"]
+    row = synthetic_pair_env["row"]
+    pairs_csv = data_dir / "pairs.csv"
+    pd.DataFrame([row.to_dict()]).to_csv(pairs_csv, index=False)
+
+    for flag in ["--workers", "--jobs"]:
+        sub_csv = tmp_path / f"sub_{flag.strip('-')}.csv"
+        pred_dir = tmp_path / f"preds_{flag.strip('-')}"
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "predict.py",
+                "--pairs",
+                str(pairs_csv),
+                "--data_dir",
+                str(data_dir),
+                "--output_csv",
+                str(sub_csv),
+                "--predictions_dir",
+                str(pred_dir),
+                "--ablation_mode",
+                "1",
+                flag,
+                "2",
+            ],
+        )
+        predict_main()
+        assert sub_csv.exists()

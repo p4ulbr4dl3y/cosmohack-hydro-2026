@@ -6,9 +6,14 @@ import { MapContainer } from '../components/map/MapContainer';
 import { KpiCards } from '../components/analytics/KpiCards';
 import { LandcoverChart } from '../components/analytics/LandcoverChart';
 import { HydrographChart } from '../components/analytics/HydrographChart';
+import { AuditCard } from '../components/analytics/AuditCard';
+import { UncertaintyCard } from '../components/analytics/UncertaintyCard';
+import { SarAnalyticsCard } from '../components/analytics/SarAnalyticsCard';
+import { OfficialScoreCard } from '../components/analytics/OfficialScoreCard';
+import { CarbonMetricsCard } from '../components/analytics/CarbonMetricsCard';
 import { useUiStore } from '../store/uiStore';
 import { apiClient } from '../api/client';
-import type { Pair, ReportData } from '../types/domain';
+import type { Pair, ReportData, HydroAuditCertificate, FloodUncertainty, SARAnalytics } from '../types/domain';
 import {
   AlertTriangle,
   ArrowRight,
@@ -30,9 +35,13 @@ export const Dashboard: React.FC = () => {
 
   const [pairs, setPairs] = useState<Pair[]>([]);
   const [currentReport, setCurrentReport] = useState<ReportData | null>(null);
+  const [audit, setAudit] = useState<HydroAuditCertificate | null>(null);
+  const [uncertainty, setUncertainty] = useState<FloodUncertainty | null>(null);
+  const [sar, setSar] = useState<SARAnalytics | null>(null);
   const [loadingPairs, setLoadingPairs] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
   const [reportUnavailable, setReportUnavailable] = useState(false);
+  const [loadingExtra, setLoadingExtra] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -69,13 +78,14 @@ export const Dashboard: React.FC = () => {
     loadPairs();
   }, []);
 
-  // Load report when activePairId changes
+  // Load report and extra analytics when activePairId changes
   useEffect(() => {
     if (!activePairId) return;
 
     let isMounted = true;
     setLoadingReport(true);
     setReportUnavailable(false);
+    setLoadingExtra(true);
     apiClient
       .fetchReport(activePairId)
       .then((rep) => {
@@ -94,6 +104,23 @@ export const Dashboard: React.FC = () => {
         if (isMounted) setLoadingReport(false);
       });
 
+    Promise.all([
+      apiClient.fetchAudit(activePairId).catch(() => null),
+      apiClient.fetchUncertainty(activePairId).catch(() => null),
+      apiClient.fetchSarAnalytics(activePairId).catch(() => null),
+    ])
+      .then(([auditRes, uncertRes, sarRes]) => {
+        if (isMounted) {
+          setAudit(auditRes);
+          setUncertainty(uncertRes);
+          setSar(sarRes);
+        }
+      })
+      .catch(console.error)
+      .finally(() => {
+        if (isMounted) setLoadingExtra(false);
+      });
+
     return () => {
       isMounted = false;
     };
@@ -103,9 +130,17 @@ export const Dashboard: React.FC = () => {
     setIsRefreshing(true);
     await loadPairs();
     if (activePairId) {
-      const rep = await apiClient.fetchReport(activePairId);
+      const [rep, auditRes, uncertRes, sarRes] = await Promise.all([
+        apiClient.fetchReport(activePairId).catch(() => null),
+        apiClient.fetchAudit(activePairId).catch(() => null),
+        apiClient.fetchUncertainty(activePairId).catch(() => null),
+        apiClient.fetchSarAnalytics(activePairId).catch(() => null),
+      ]);
       setCurrentReport(rep);
       setReportUnavailable(rep === null);
+      setAudit(auditRes);
+      setUncertainty(uncertRes);
+      setSar(sarRes);
     }
     setIsRefreshing(false);
   };
@@ -322,6 +357,13 @@ export const Dashboard: React.FC = () => {
             waterPreHa={currentReport?.water_pre_ha}
             waterPeakHa={currentReport?.water_peak_ha}
           />
+
+          {/* Advanced Analytics & Official Competition Score */}
+          <OfficialScoreCard activePairId={activePairId} isLoading={loadingReport} />
+          <UncertaintyCard uncertainty={uncertainty} isLoading={loadingExtra} />
+          <SarAnalyticsCard sar={sar} isLoading={loadingExtra} />
+          <CarbonMetricsCard pairId={activePairId} isLoading={loadingReport} />
+          <AuditCard audit={audit} isLoading={loadingExtra} />
 
           {/* Action Buttons */}
           <div className="space-y-2 pt-1">

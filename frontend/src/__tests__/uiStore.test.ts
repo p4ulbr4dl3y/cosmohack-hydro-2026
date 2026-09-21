@@ -6,7 +6,7 @@ describe('uiStore state management', () => {
     // Reset to defaults
     const store = useUiStore.getState();
     store.setActivePairId('flood_2019_07_amur__blagoveshchensk');
-    store.setBasemap('sar_vv');
+    store.setBasemap('msi_true');
     store.setCompareMode('sar');
     store.setCompareSplitPosition(50);
     store.setMapCenter([50.28, 127.54]);
@@ -26,7 +26,7 @@ describe('uiStore state management', () => {
     expect(state.layers.water_peak).toBe(true);
     expect(state.layers.receded).toBe(false);
     expect(state.layers.opacity).toBe(0.6);
-    expect(state.basemap).toBe('sar_vv');
+    expect(state.basemap).toBe('msi_true');
     expect(state.showLegend).toBe(true);
   });
 

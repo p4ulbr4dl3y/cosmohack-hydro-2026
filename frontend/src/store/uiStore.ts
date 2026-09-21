@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { BasemapType, LayerState } from '../types/domain';
+import type { BasemapType, LayerState, GradientOverlayMode } from '../types/domain';
 
 export type CompareMode = 'sar' | 'msi' | 'masks';
 
@@ -10,6 +10,11 @@ interface UiState {
   layers: LayerState;
   toggleLayer: (layerName: keyof Omit<LayerState, 'opacity'>) => void;
   setLayerOpacity: (opacity: number) => void;
+
+  gradientMode: GradientOverlayMode;
+  setGradientMode: (mode: GradientOverlayMode) => void;
+  gradientOpacity: number;
+  setGradientOpacity: (opacity: number) => void;
 
   basemap: BasemapType;
   setBasemap: (basemap: BasemapType) => void;
@@ -70,7 +75,13 @@ export const useUiStore = create<UiState>((set) => ({
       },
     })),
 
-  basemap: 'sar_vv',
+  gradientMode: 'flood',
+  setGradientMode: (gradientMode) => set({ gradientMode }),
+  gradientOpacity: 0.75,
+  setGradientOpacity: (gradientOpacity) =>
+    set({ gradientOpacity: Math.max(0.1, Math.min(1, gradientOpacity)) }),
+
+  basemap: 'msi_true',
   setBasemap: (basemap) => set({ basemap }),
 
   compareMode: 'sar',

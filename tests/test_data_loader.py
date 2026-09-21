@@ -1,6 +1,6 @@
-"""Tests for DataLoader without pre-existing cache to exercise full raster processing."""
-
+import numpy as np
 import pytest
+import rasterio
 
 from src.service.data_loader import DataLoader
 
@@ -335,3 +335,46 @@ def test_data_loader_predict_default_first_pair(tmp_path):
     res = loader.predict_spatial_temporal()
     assert res["status"] == "success"
     assert res["pair_id"] == loader._pairs_cache[0]["pair_id"]
+
+
+def test_data_loader_morphological_micro_island_filtering(tmp_path):
+    """Micro-islands (single pixels and sub-threshold clusters) are filtered before shapes()."""
+    from rasterio.transform import from_origin
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    preds_dir = tmp_path / "preds"
+    preds_dir.mkdir(parents=True)
+    flood_tif = preds_dir / f"{pair_id}_flood.tif"
+
+    arr = np.zeros((50, 50), dtype=np.uint8)
+    # Real large flood feature (10x10 = 100 pixels = 10,000 sqm)
+    arr[10:20, 10:20] = 1
+    # Isolated single-pixel micro-islands (speckle noise)
+    arr[2, 2] = 1
+    arr[2, 40] = 1
+    arr[40, 2] = 1
+    arr[45, 45] = 1
+
+    transform = from_origin(127.0, 50.0, 10.0, 10.0)
+    with rasterio.open(
+        flood_tif,
+        "w",
+        driver="GTiff",
+        height=50,
+        width=50,
+        count=1,
+        dtype=np.uint8,
+        crs="EPSG:32652",
+        transform=transform,
+    ) as dst:
+        dst.write(arr, 1)
+
+    loader = DataLoader(
+        predictions_dir=preds_dir,
+        cache_dir=tmp_path / "cache",
+    )
+    gj = loader.get_geojson(pair_id, layer="flood")
+    assert gj is not None
+    # Only 1 feature (the large 10x10 blob), micro-islands were filtered out!
+    assert len(gj["features"]) == 1
+    assert gj["features"][0]["properties"]["area_ha"] == 1.0  # 100 px * 0.01 ha/px

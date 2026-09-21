@@ -227,10 +227,86 @@ export const Methodology: React.FC = () => {
           </div>
         </section>
 
-        {/* 3. ИСТОЧНИКИ ДАННЫХ */}
+        {/* 3. ОФИЦИАЛЬНАЯ МЕТРИКА И КРИТЕРИИ (id="metric") */}
+        <section id="metric" className="space-y-5 scroll-mt-20">
+          <div className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
+            3. ОФИЦИАЛЬНАЯ МЕТРИКА ОЦЕНКИ И САБМИТ (ТЗ И КРИТЕРИИ)
+          </div>
+
+          <div className="bg-white border border-[#BAE6FD] rounded-xl p-5 sm:p-6 shadow-2xs space-y-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                Формула Score КосмоХакатона 2026
+              </h2>
+              <p className="text-xs sm:text-sm text-text-secondary mt-1">
+                Интегральная оценка объединяет точность выделения площади нового затопления, двух дат водного зеркала и штраф за ложные тревоги на контрольной межени:
+              </p>
+            </div>
+
+            {/* Formula Block */}
+            <div className="bg-[#F0F9FF] border border-[#7DD3FC] rounded-xl p-4 font-mono text-xs sm:text-sm text-[#0369A1] font-bold text-center leading-relaxed">
+              Score = 0.45 · Q_flood + 0.25 · Q_water_peak + 0.15 · Q_water_pre + 0.15 · Spec_base
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#0284C7]" />
+                  <span>Сходимость по 8 парам паводков (q)</span>
+                </div>
+                <div className="font-mono bg-white p-2 rounded border border-slate-200 text-[11px]">
+                  q = max(0, 1 - |X_sub - X_ref| / max(X_ref, порог))
+                </div>
+                <ul className="list-disc list-inside text-text-secondary space-y-1">
+                  <li>Порог для зоны затопления: <strong>50 га</strong></li>
+                  <li>Порог для водного зеркала («до» и пик): <strong>200 га</strong></li>
+                  <li>Компоненты усредняются по всем 8 паводковым событиям</li>
+                </ul>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                  <span>Специфичность по 3 парам межени (Spec_base)</span>
+                </div>
+                <div className="font-mono bg-white p-2 rounded border border-slate-200 text-[11px]">
+                  Spec_base = mean(1 - min(1, excess_share / 0.005))
+                </div>
+                <ul className="list-disc list-inside text-text-secondary space-y-1">
+                  <li>Контроль ложных срабатываний при спаде воды</li>
+                  <li>Допуск на ложные тревоги: <strong>0.5% от площади AOI</strong></li>
+                  <li>Любое превышение жестко штрафует общий результат</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Mandatory Submission Criteria from CRITERIA.md */}
+            <div className="border-t border-slate-200 pt-3 space-y-2">
+              <h3 className="text-xs font-bold text-slate-900">
+                Обязательные технические правила валидности сабмита:
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                <div className="p-2.5 rounded bg-slate-50 border border-slate-200">
+                  <span className="font-semibold block text-slate-800">11 пар без пропусков</span>
+                  <span className="text-text-secondary">Перечень пар совпадает с sample_submission.csv, без NaN.</span>
+                </div>
+                <div className="p-2.5 rounded bg-slate-50 border border-slate-200">
+                  <span className="font-semibold block text-slate-800">Физические ограничения</span>
+                  <span className="text-text-secondary">Площади неотрицательны, и flood_ha ≤ water_peak_ha.</span>
+                </div>
+                <div className="p-2.5 rounded bg-slate-50 border border-slate-200">
+                  <span className="font-semibold block text-slate-800">Правило 2% растра</span>
+                  <span className="text-text-secondary">Расхождение площади растровой маски и CSV ≤ 2.0%.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 4. ИСТОЧНИКИ ДАННЫХ */}
         <section className="space-y-4">
           <div className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
-            3. ИСТОЧНИКИ ДАННЫХ
+            4. ИСТОЧНИКИ ДАННЫХ
           </div>
 
           <div className="border border-[#EAECF0] rounded-xl overflow-x-auto bg-white shadow-2xs">

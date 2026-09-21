@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { ChevronUp, ChevronDown, Droplets } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { apiClient } from '../../api/client';
 import { WATER_COLORS } from '../../lib/colors';
@@ -15,7 +16,44 @@ interface MapContainerProps {
   className?: string;
 }
 
-const geojsonCache = new Map<string, any>();
+export const geojsonCache = new Map<string, any>();
+
+const GRADIENT_CONFIGS: Record<
+  string,
+  {
+    title: string;
+    subtitle: string;
+    min: string;
+    mid: string;
+    max: string;
+    gradient: string;
+  }
+> = {
+  flood: {
+    title: 'Интенсивность затопления (SAR / Otsu)',
+    subtitle: 'Глубина зеркала воды',
+    min: '0.1 м (кромка)',
+    mid: '1.5 м',
+    max: '4.0+ м (стрежень)',
+    gradient: 'linear-gradient(to right, #fed7aa, #fb923c, #ef4444, #991b1b)',
+  },
+  water_peak: {
+    title: 'Зеркало воды на пик половодья',
+    subtitle: 'Sentinel-1 SAR пиковый паводок',
+    min: 'Мелководье',
+    mid: 'Средняя глубина',
+    max: 'Глубоководье',
+    gradient: 'linear-gradient(to right, #bae6fd, #38bdf8, #0ea5e9, #0284c7, #1e3a8a)',
+  },
+  water_pre: {
+    title: 'Базовый гидрологический створ',
+    subtitle: 'Меженное русло реки',
+    min: 'Берег',
+    mid: 'Русло',
+    max: 'Фарватер',
+    gradient: 'linear-gradient(to right, #cffafe, #38bdf8, #2563eb, #1e3a8a)',
+  },
+};
 
 export const MapContainer: React.FC<MapContainerProps> = ({
   currentPair,
@@ -25,6 +63,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMap = useRef<L.Map | null>(null);
+  const canvasRendererRef = useRef<L.Canvas | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
   // Layer groups
@@ -34,6 +73,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const waterPreLayerGroup = useRef<L.GeoJSON | null>(null);
   const osmHydroLayerGroup = useRef<L.GeoJSON | null>(null);
   const hydroshedsLayerGroup = useRef<L.GeoJSON | null>(null);
+  const gradientOverlayRef = useRef<L.ImageOverlay | null>(null);
+  const lastFittedPairIdRef = useRef<string | null>(null);
 
   const [mouseCoords, setMouseCoords] = useState<{ lat: number; lng: number }>({
     lat: 50.2899,
@@ -41,16 +82,29 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   });
   const [zoomLevel, setZoomLevel] = useState<number>(10);
   const [aoiFeatures, setAoiFeatures] = useState<any>(null);
+  const [showGradientBar, setShowGradientBar] = useState<boolean>(true);
 
-  const { layers, basemap, activePairId } = useUiStore();
+  const {
+    layers,
+    basemap,
+    activePairId,
+    gradientMode,
+    gradientOpacity,
+    setGradientOpacity,
+  } = useUiStore();
   const effectivePairId = currentPair?.pair_id || activePairId;
+  const activeGradientConfig = gradientMode !== 'none' ? GRADIENT_CONFIGS[gradientMode] : null;
 
   // Initialize Leaflet Map
   useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
 
+    const canvasRenderer = L.canvas({ padding: 0.5 });
+    canvasRendererRef.current = canvasRenderer;
+
     const map = L.map(mapRef.current, {
       preferCanvas: true,
+      renderer: canvasRenderer,
       center: [50.2899, 127.5378],
       zoom: 10,
       zoomControl: false,
@@ -83,6 +137,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     return () => {
       map.remove();
       leafletMap.current = null;
+      canvasRendererRef.current = null;
     };
   }, [interactive]);
 
@@ -152,7 +207,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (!layers.aoi_boundary) return;
 
     const layer = L.geoJSON(aoiFeatures, {
-      style: (feature) => {
+      renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
+      style: (feature: any) => {
         const isCurrent =
           currentPair?.aoi_id &&
           feature?.properties?.aoi_id === currentPair.aoi_id;
@@ -164,33 +220,39 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           fillOpacity: isCurrent ? 0.05 : 0.02,
         };
       },
-    }).addTo(map);
+    } as any).addTo(map);
 
     aoiLayerGroup.current = layer;
 
-    // Fit bounds to current AOI if found
-    if (currentPair?.aoi_id) {
-      const matchFeat = aoiFeatures.features?.find(
-        (f: any) => f.properties?.aoi_id === currentPair.aoi_id
-      );
-      if (matchFeat) {
-        const tempLayer = L.geoJSON(matchFeat);
-        const b = tempLayer.getBounds();
-        if (b.isValid()) {
-          map.fitBounds(b, { padding: [40, 40], maxZoom: 12 });
-        }
-      } else if (currentPair.bounds_4326) {
-        const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
-        map.fitBounds(
-          [
-            [minY, minX],
-            [maxY, maxX],
-          ],
-          { padding: [40, 40], maxZoom: 12 }
+    // Fit bounds only when pair actually changes to prevent jittering
+    const currentPairId = currentPair?.pair_id;
+    if (currentPairId && lastFittedPairIdRef.current !== currentPairId) {
+      lastFittedPairIdRef.current = currentPairId;
+      if (currentPair?.aoi_id) {
+        const matchFeat = aoiFeatures.features?.find(
+          (f: any) => f.properties?.aoi_id === currentPair.aoi_id
         );
+        if (matchFeat) {
+          const tempLayer = L.geoJSON(matchFeat, {
+            renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
+          } as any);
+          const b = tempLayer.getBounds();
+          if (b.isValid()) {
+            map.fitBounds(b, { padding: [40, 40], maxZoom: 12, animate: false });
+          }
+        } else if (currentPair.bounds_4326) {
+          const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
+          map.fitBounds(
+            [
+              [minY, minX],
+              [maxY, maxX],
+            ],
+            { padding: [40, 40], maxZoom: 12, animate: false }
+          );
+        }
       }
     }
-  }, [aoiFeatures, currentPair, layers.aoi_boundary]);
+  }, [aoiFeatures, currentPair?.pair_id, layers.aoi_boundary]);
 
   // Load and render OSM Hydrography
   useEffect(() => {
@@ -214,6 +276,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     const cachedOsm = geojsonCache.get('hydrography_osm');
     if (cachedOsm) {
       const layer = L.geoJSON(cachedOsm, {
+        renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
         style: {
           color: '#3B82F6',
           weight: 1.5,
@@ -221,7 +284,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           fillColor: '#60A5FA',
           fillOpacity: 0.3,
         },
-      }).addTo(map);
+      } as any).addTo(map);
       osmHydroLayerGroup.current = layer;
       return;
     }
@@ -230,6 +293,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       if (geo && leafletMap.current) {
         geojsonCache.set('hydrography_osm', geo);
         const layer = L.geoJSON(geo, {
+          renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
           style: {
             color: '#3B82F6',
             weight: 1.5,
@@ -237,7 +301,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             fillColor: '#60A5FA',
             fillOpacity: 0.3,
           },
-        }).addTo(leafletMap.current);
+        } as any).addTo(leafletMap.current);
         osmHydroLayerGroup.current = layer;
       }
     }).catch(() => {});
@@ -265,6 +329,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     const cachedBasins = geojsonCache.get('basins_hydrosheds');
     if (cachedBasins) {
       const layer = L.geoJSON(cachedBasins, {
+        renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
         style: {
           color: '#8B5CF6',
           weight: 1.5,
@@ -273,7 +338,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           fillColor: '#C4B5FD',
           fillOpacity: 0.08,
         },
-      }).addTo(map);
+      } as any).addTo(map);
       hydroshedsLayerGroup.current = layer;
       return;
     }
@@ -282,6 +347,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       if (geo && leafletMap.current) {
         geojsonCache.set('basins_hydrosheds', geo);
         const layer = L.geoJSON(geo, {
+          renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
           style: {
             color: '#8B5CF6',
             weight: 1.5,
@@ -290,7 +356,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             fillColor: '#C4B5FD',
             fillOpacity: 0.08,
           },
-        }).addTo(leafletMap.current);
+        } as any).addTo(leafletMap.current);
         hydroshedsLayerGroup.current = layer;
       }
     }).catch(() => {});
@@ -336,15 +402,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       if (!isMounted || !leafletMap.current || !geojson?.features?.length) return;
 
       const colorCfg = WATER_COLORS[layerName];
+      const targetFill = (colorCfg.fillOpacity || 0.5) * layers.opacity;
+      const targetStroke = (colorCfg.opacity || 0.8) * layers.opacity;
+
       const gjLayer = L.geoJSON(geojson, {
+        renderer: canvasRendererRef.current || L.canvas({ padding: 0.5 }),
         style: {
           color: colorCfg.color,
           weight: (colorCfg as any).weight || 1,
           fillColor: colorCfg.fillColor,
-          fillOpacity: (colorCfg.fillOpacity || 0.5) * layers.opacity,
-          opacity: (colorCfg.opacity || 0.8) * layers.opacity,
+          fillOpacity: 0,
+          opacity: 0,
         },
-      });
+      } as any);
 
       if (layerName === 'flood') {
         floodLayerGroup.current = gjLayer;
@@ -356,6 +426,21 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         waterPreLayerGroup.current = gjLayer;
         if (layers.water_pre) gjLayer.addTo(leafletMap.current);
       }
+
+      // Smooth animated fade-in for seamless visual appearance
+      const start = performance.now();
+      const duration = 250;
+      const animateFade = (now: number) => {
+        if (!isMounted) return;
+        const p = Math.min(1, (now - start) / duration);
+        const ease = 1 - Math.pow(1 - p, 3);
+        gjLayer.setStyle({
+          fillOpacity: targetFill * ease,
+          opacity: targetStroke * ease,
+        });
+        if (p < 1) requestAnimationFrame(animateFade);
+      };
+      requestAnimationFrame(animateFade);
     };
 
     loadMask('flood');
@@ -426,6 +511,84 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [layers.water_pre]);
 
+  // Continuous raster gradient overlay (L.imageOverlay)
+  useEffect(() => {
+    const map = leafletMap.current;
+    if (!map) return;
+
+    if (gradientOverlayRef.current) {
+      map.removeLayer(gradientOverlayRef.current);
+      gradientOverlayRef.current = null;
+    }
+
+    if (gradientMode === 'none' || !effectivePairId) return;
+
+    let isMounted = true;
+
+    const setupOverlay = async () => {
+      try {
+        const meta = await apiClient.fetchOverlayMeta(effectivePairId, gradientMode);
+        if (!isMounted || !leafletMap.current) return;
+
+        let imageBounds: L.LatLngBoundsExpression;
+        if (meta?.bounds && Array.isArray(meta.bounds) && meta.bounds.length === 2) {
+          imageBounds = meta.bounds;
+        } else if (currentPair?.bounds_4326) {
+          const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
+          imageBounds = [
+            [minY, minX],
+            [maxY, maxX],
+          ];
+        } else {
+          imageBounds = [
+            [50.0, 127.0],
+            [51.0, 128.0],
+          ];
+        }
+
+        const overlayUrl = apiClient.getOverlayUrl(effectivePairId, gradientMode, true);
+        const overlay = L.imageOverlay(overlayUrl, imageBounds, {
+          opacity: 0,
+          interactive: false,
+        }).addTo(leafletMap.current);
+
+        gradientOverlayRef.current = overlay;
+
+        // Smooth animated fade-in for overlay
+        const targetOpacity = gradientOpacity;
+        const start = performance.now();
+        const duration = 250;
+        const animateFade = (now: number) => {
+          if (!isMounted || !gradientOverlayRef.current) return;
+          const p = Math.min(1, (now - start) / duration);
+          const ease = 1 - Math.pow(1 - p, 3);
+          overlay.setOpacity(targetOpacity * ease);
+          if (p < 1) requestAnimationFrame(animateFade);
+        };
+        requestAnimationFrame(animateFade);
+      } catch (err) {
+        console.error('Failed to load raster gradient overlay', err);
+      }
+    };
+
+    setupOverlay();
+
+    return () => {
+      isMounted = false;
+      if (gradientOverlayRef.current && leafletMap.current) {
+        leafletMap.current.removeLayer(gradientOverlayRef.current);
+        gradientOverlayRef.current = null;
+      }
+    };
+  }, [effectivePairId, gradientMode, currentPair]);
+
+  // Fast opacity update for gradient overlay
+  useEffect(() => {
+    if (gradientOverlayRef.current) {
+      gradientOverlayRef.current.setOpacity(gradientOpacity);
+    }
+  }, [gradientOpacity]);
+
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
       {/* Map Root */}
@@ -457,6 +620,78 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <span className="text-text-secondary font-medium whitespace-nowrap">
             ПИК · {currentPair.date_peak_sar ? currentPair.date_peak_sar.slice(5) : '14.07'}
           </span>
+        </div>
+      )}
+
+      {/* Floating Gradient Legend Card with Opacity Slider */}
+      {showControls && activeGradientConfig && (
+        <div className="absolute bottom-11 left-4 z-[1000] select-none">
+          {showGradientBar ? (
+            <div className="bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-xl p-2.5 shadow-floating w-64 text-xs space-y-1.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-semibold text-text-primary text-[11px] truncate">
+                  <Droplets className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                  <span className="truncate" title={activeGradientConfig.title}>
+                    {activeGradientConfig.title}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] font-mono text-text-muted px-1.5 py-0.5 rounded bg-slate-100 font-semibold">
+                    {Math.round(gradientOpacity * 100)}%
+                  </span>
+                  <button
+                    onClick={() => setShowGradientBar(false)}
+                    className="p-0.5 text-text-muted hover:text-text-primary hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                    title="Свернуть панель градиента"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className="w-full h-2 rounded-full border border-black/10 shadow-inner"
+                style={{ background: activeGradientConfig.gradient }}
+              />
+
+              <div className="flex justify-between items-center text-[9px] text-text-muted font-mono">
+                <span>{activeGradientConfig.min}</span>
+                <span>{activeGradientConfig.mid}</span>
+                <span>{activeGradientConfig.max}</span>
+              </div>
+
+              {/* Inline opacity slider right inside the map card */}
+              <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-[10px] text-text-secondary">
+                <span className="shrink-0 text-text-muted text-[10px]">Прозрачность:</span>
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={Math.round(gradientOpacity * 100)}
+                  onChange={(e) => setGradientOpacity(Number(e.target.value) / 100)}
+                  className="w-full h-1 bg-slate-200 rounded appearance-none cursor-pointer accent-[#0EA5E9]"
+                  title={`Прозрачность: ${Math.round(gradientOpacity * 100)}%`}
+                />
+                <span className="font-mono text-[10px] w-6 text-right font-medium">
+                  {Math.round(gradientOpacity * 100)}%
+                </span>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowGradientBar(true)}
+              className="bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-xl px-2.5 py-1 shadow-floating text-xs font-medium text-text-secondary hover:text-text-primary flex items-center gap-1.5 transition-all hover:bg-white select-none hover:scale-105 cursor-pointer"
+              title="Развернуть шкалу градиента"
+            >
+              <Droplets className="w-3.5 h-3.5 text-sky-500" />
+              <span className="text-[11px] font-semibold text-text-primary">Градиент</span>
+              <span className="text-[10px] font-mono text-text-muted">
+                {Math.round(gradientOpacity * 100)}%
+              </span>
+              <ChevronUp className="w-3.5 h-3.5 text-text-muted ml-0.5" />
+            </button>
+          )}
         </div>
       )}
 

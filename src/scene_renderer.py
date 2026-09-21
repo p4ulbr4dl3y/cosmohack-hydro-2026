@@ -1,0 +1,226 @@
+"""Web Raster Visualization & Dynamic PNG Overlay Engine.
+
+Generates transparent RGBA PNG overlays and computes WGS84 Leaflet bounding boxes
+from raster GeoTIFF files or binary/classified numpy masks for immediate web display.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import rasterio
+from rasterio.io import MemoryFile
+from rasterio.warp import calculate_default_transform
+
+
+def get_scene_wgs84_bounds(tif_path: str | Path) -> list[list[float]]:
+    """Compute WGS84 geographical bounds in Leaflet format [[south, west], [north, east]]."""
+    with rasterio.open(tif_path) as src:
+        dst_transform, width, height = calculate_default_transform(
+            src.crs, "EPSG:4326", src.width, src.height, *src.bounds
+        )
+        west = float(dst_transform.c)
+        north = float(dst_transform.f)
+        east = float(west + width * dst_transform.a)
+        south = float(north + height * dst_transform.e)
+        return [
+            [round(south, 6), round(west, 6)],
+            [round(north, 6), round(east, 6)],
+        ]
+
+
+def normalize_band(
+    arr: np.ndarray,
+    p_low: float = 2.0,
+    p_high: float = 98.0,
+) -> np.ndarray:
+    """Normalize array values to 0..255 via percentile contrast stretching."""
+    valid = np.isfinite(arr)
+    out = np.zeros_like(arr, dtype=np.uint8)
+    if not np.any(valid):
+        return out
+    v = arr[valid]
+    p_lo, p_hi = np.percentile(v, (p_low, p_high))
+    if p_hi <= p_lo:
+        p_hi = p_lo + 1e-4
+    clipped = np.clip(v, p_lo, p_hi)
+    out[valid] = np.clip(np.round((clipped - p_lo) / (p_hi - p_lo) * 255.0), 0, 255).astype(np.uint8)
+    return out
+
+
+def mask_to_rgba(
+    mask: np.ndarray,
+    color_rgb: tuple[int, int, int] = (239, 68, 68),  # Default: red/orange flood
+    alpha: int = 190,
+) -> np.ndarray:
+    """Convert binary mask (0 or 1) into an RGBA image array.
+
+    Pixels with 0 are 100% transparent. Pixels with 1 have color_rgb with alpha.
+    """
+    h, w = mask.shape
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    bool_mask = mask.astype(bool)
+
+    rgba[bool_mask, 0] = color_rgb[0]
+    rgba[bool_mask, 1] = color_rgb[1]
+    rgba[bool_mask, 2] = color_rgb[2]
+    rgba[bool_mask, 3] = alpha
+    return rgba
+
+
+def multi_water_to_rgba(
+    water_pre: np.ndarray,
+    water_peak: np.ndarray,
+    flood: np.ndarray,
+) -> np.ndarray:
+    """Create comprehensive multi-category hydrological overlay:
+
+    - Pre-existing water (water_pre): Dark blue (30, 64, 175, 180)
+    - Peak flood expansion (flood): Bright vermilion/red (239, 68, 68, 210)
+    - Receded water: Yellow/amber (245, 158, 11, 160)
+    """
+    h, w = flood.shape
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+
+    pre_b = water_pre.astype(bool)
+    peak_b = water_peak.astype(bool)
+    flood_b = flood.astype(bool)
+    receded_b = pre_b & (~peak_b)
+
+    # 1. Pre-water
+    rgba[pre_b] = [30, 64, 175, 180]
+    # 2. Receded
+    rgba[receded_b] = [245, 158, 11, 160]
+    # 3. New flood (highest priority visual)
+    rgba[flood_b] = [239, 68, 68, 220]
+
+    return rgba
+
+
+def render_rgba_to_png(rgba: np.ndarray) -> bytes:
+    """Encode an (H, W, 4) uint8 RGBA array into standard PNG bytes via rasterio."""
+    h, w, c = rgba.shape
+    if c != 4:
+        raise ValueError(f"Expected 4 channels (RGBA), got {c}")
+
+    # rasterio expects (channels, height, width)
+    bands = np.transpose(rgba, (2, 0, 1))
+
+    with MemoryFile() as mem:
+        with mem.open(
+            driver="PNG",
+            height=h,
+            width=w,
+            count=4,
+            dtype="uint8",
+        ) as dst:
+            dst.write(bands)
+        return mem.read()
+
+
+def render_gradient_mask_rgba(
+    mask: np.ndarray,
+    layer_type: str = "flood",
+) -> np.ndarray:
+    """Render continuous bathymetric / intensity gradient overlay for hydrological masks.
+
+    Uses Euclidean distance transform to model water depth and flood intensity from edge to deep interior.
+    """
+    h, w = mask.shape
+    rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    bool_mask = mask.astype(bool)
+    if not np.any(bool_mask):
+        return rgba
+
+    from scipy.ndimage import distance_transform_edt
+
+    dist = distance_transform_edt(bool_mask)
+    valid_dist = dist[bool_mask]
+    max_d = float(np.percentile(valid_dist, 95)) if len(valid_dist) > 0 else 1.0
+    if max_d <= 0.0:
+        max_d = 1.0
+    norm = np.clip(dist / max_d, 0.0, 1.0)
+
+    # Gradients for different layers
+    norm_layer = layer_type.strip().lower()
+    if norm_layer == "flood":
+        # Shoreline / shallow (amber/orange) -> Mid (red) -> Deep (crimson)
+        c0 = np.array([254, 215, 170], dtype=float)
+        c1 = np.array([239, 68, 68], dtype=float)
+        c2 = np.array([153, 27, 27], dtype=float)
+    elif norm_layer == "water_peak":
+        # Inundation edge (light sky) -> Mid (cyan) -> Deep channel (navy)
+        c0 = np.array([186, 230, 253], dtype=float)
+        c1 = np.array([14, 165, 233], dtype=float)
+        c2 = np.array([30, 58, 138], dtype=float)
+    else:  # water_pre or others
+        # Edge (cyan) -> Mid (blue) -> Deep (dark blue)
+        c0 = np.array([165, 243, 252], dtype=float)
+        c1 = np.array([37, 99, 235], dtype=float)
+        c2 = np.array([30, 64, 175], dtype=float)
+
+    # Two-stage piecewise linear interpolation
+    t = norm[bool_mask]
+    rgb = np.zeros((len(t), 3), dtype=np.uint8)
+    first_half = t < 0.5
+    t1 = t[first_half] * 2.0
+    rgb[first_half] = np.round(c0 + (c1 - c0) * t1[:, None]).astype(np.uint8)
+
+    second_half = ~first_half
+    t2 = (t[second_half] - 0.5) * 2.0
+    rgb[second_half] = np.round(c1 + (c2 - c1) * t2[:, None]).astype(np.uint8)
+
+    # Alpha ramp from 150 at edge to 230 at depth
+    alpha = np.round(150 + 80 * t).astype(np.uint8)
+
+    rgba[bool_mask, 0:3] = rgb
+    rgba[bool_mask, 3] = alpha
+    return rgba
+
+
+def render_mask_png(
+    mask: np.ndarray,
+    layer_type: str = "flood",
+    gradient: bool = False,
+) -> bytes:
+    """Convenience helper to render a mask directly to PNG bytes.
+
+    Layer types: 'flood' (red), 'water_pre' (deep blue), 'water_peak' (cyan-blue).
+    If gradient=True, generates a continuous bathymetric/intensity color ramp.
+    """
+    if gradient:
+        rgba = render_gradient_mask_rgba(mask, layer_type=layer_type)
+    else:
+        colors = {
+            "flood": (239, 68, 68),
+            "water_pre": (30, 64, 175),
+            "water_peak": (14, 165, 233),
+        }
+        rgb = colors.get(layer_type.lower(), (239, 68, 68))
+        rgba = mask_to_rgba(mask, color_rgb=rgb, alpha=200)
+    return render_rgba_to_png(rgba)
+
+
+def render_geotiff_overlay(
+    tif_path: str | Path,
+    layer_type: str = "flood",
+) -> tuple[bytes, list[list[float]], dict[str, Any]]:
+    """Load GeoTIFF, render RGBA PNG, and calculate WGS84 Leaflet bounding box."""
+    p = Path(tif_path)
+    if not p.is_file():
+        raise FileNotFoundError(f"GeoTIFF file not found: {p}")
+
+    with rasterio.open(p) as src:
+        mask = src.read(1)
+        bounds = get_scene_wgs84_bounds(p)
+        meta = {
+            "width": src.width,
+            "height": src.height,
+            "crs": str(src.crs),
+            "bounds": bounds,
+        }
+
+    png_bytes = render_mask_png(mask, layer_type=layer_type)
+    return png_bytes, bounds, meta

@@ -300,3 +300,121 @@ class MchsDispatchResponse(BaseModel):
     depth_risk_breakdown: DepthRiskBreakdown = Field(description="Water depth risk breakdown")
     operational_summary: str = Field(description="Executive operational summary")
     recommended_actions: list[str] = Field(description="List of prioritized emergency response actions")
+
+
+class HydroAuditCertificateResponse(BaseModel):
+    """Cryptographic Merkle audit certificate response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    certificate_id: str = Field(description="Unique certificate identifier")
+    pair_id: str = Field(description="Pair identifier")
+    aoi_id: str = Field(description="AOI code")
+    issued_at: str = Field(description="ISO-8601 UTC timestamp of issue")
+    merkle_root: str = Field(description="Hexadecimal SHA-256 root of the Merkle tree")
+    leaf_count: int = Field(description="Total audited components/leaves in the tree")
+    status: str = Field(description="Verification status: 'VERIFIED'")
+    algorithm: str = Field(description="Auditing protocol version")
+    signature_hash: str = Field(description="Canonical SHA-256 integrity signature digest")
+    summary: dict[str, Any] = Field(description="Summary hydrological metrics")
+    leaves: list[dict[str, Any]] = Field(description="Audited Merkle leaf nodes")
+
+    # Aliases for frontend compatibility
+    merkle_root_sha256: str | None = Field(default=None, description="Alias for merkle_root")
+    inputs_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of input scenes")
+    parameters_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of processing parameters")
+    results_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of output flood masks")
+    timestamp: str | None = Field(default=None, description="Alias for issued_at")
+    verified: bool = Field(default=True, description="Verification status boolean")
+
+
+class FloodUncertaintyResponse(BaseModel):
+    """Spatial uncertainty and confidence intervals response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    area_ha: float = Field(description="Central flood area in hectares")
+    confidence_level: float = Field(description="Statistical confidence level (e.g. 0.95)")
+    lower_bound_ha: float = Field(description="Conservative lower bound L (ha)")
+    upper_bound_ha: float = Field(description="Upper bound U (ha)")
+    margin_ha: float = Field(description="Absolute uncertainty margin H (ha)")
+    relative_uncertainty_pct: float = Field(description="Relative uncertainty margin in percent")
+    sigma_effective_ha: float = Field(description="Effective standard error with spatial covariance (ha)")
+    effective_n_pixels: float = Field(description="Effective number of independent observations")
+    spatial_correlation: float = Field(description="Assumed spatial error autocorrelation rho")
+
+
+class SARAnalyticsResponse(BaseModel):
+    """Sentinel-1 radar analytics response schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    water_fraction: float = Field(description="Fraction of area with water specular reflection")
+    water_area_ha: float = Field(description="Water surface area estimated from SAR (ha)")
+    mean_vv_db: float = Field(description="Mean VV backscatter in dB")
+    mean_vh_db: float = Field(description="Mean VH backscatter in dB")
+    mean_vh_vv_ratio: float = Field(description="Mean cross-polarization ratio (VH - VV) in dB")
+    radar_contrast_db: float = Field(description="Radar contrast between water and land (dB)")
+    cloud_penetration_verified: bool = Field(description="Whether all-weather cloud penetration is confirmed")
+    double_bounce_fraction: float = Field(description="Fraction of suspected flooded vegetation signature")
+
+
+class OverlayMetadataResponse(BaseModel):
+    """Metadata response for raster PNG map overlay."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    layer: str = Field(description="Layer name: 'flood', 'water_pre', 'water_peak'")
+    bounds: list[list[float]] = Field(description="Leaflet WGS84 overlay coordinates [[south, west], [north, east]]")
+    width: int = Field(description="Image pixel width")
+    height: int = Field(description="Image pixel height")
+    crs: str = Field(description="Source Coordinate Reference System")
+    overlay_url: str = Field(description="Direct URL to fetch transparent PNG overlay")
+
+
+class OfficialMetricsResponse(BaseModel):
+    """Live official competition score breakdown (docs/TASK_SPEC.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    score: float = Field(description="Official Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base")
+    q_flood: float = Field(description="Mean flood area convergence score Q_flood")
+    q_water_peak: float = Field(description="Mean peak water area convergence score Q_water_peak")
+    q_water_pre: float = Field(description="Mean pre-flood water area convergence score Q_water_pre")
+    spec_base: float = Field(description="Baseline low-water specificity Spec_base")
+    num_events: int = Field(description="Number of evaluated flood events (8)")
+    num_baselines: int = Field(description="Number of evaluated baseline low-water pairs (3)")
+    technical_points: float = Field(description="Normalized points for technical evaluation criteria (0-7)")
+    details: list[dict[str, Any]] = Field(description="Detailed per-pair convergence stats")
+
+
+class SubmissionValidationResponse(BaseModel):
+    """Validation report for submission.csv and raster masks (docs/CRITERIA.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    is_valid: bool = Field(description="Whether submission meets all mandatory competition criteria")
+    num_pairs: int = Field(description="Total evaluated pairs in submission")
+    passed_checks: list[str] = Field(description="List of verified rule checks")
+    errors: list[str] = Field(description="Critical errors that disqualify submission")
+    warnings: list[str] = Field(description="Warnings or non-critical issues")
+    discrepancies: list[dict[str, Any]] = Field(description="Per-pair raster vs CSV divergence analysis (2% rule)")
+
+
+class FloodCarbonImpactResponse(BaseModel):
+    """Biomass and carbon stock loss assessment for flood events."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pair_id: str = Field(description="Pair identifier")
+    flood_ha: float = Field(description="Total inundated area in hectares")
+    biomass_loss_dry_matter_t: float = Field(description="Estimated dry biomass destroyed/washed out (tonnes)")
+    carbon_loss_tC: float = Field(description="Carbon stock loss (tonnes C, CF=0.47)")
+    emissions_equivalent_tCO2e: float = Field(description="Emissions equivalent (tonnes CO2e, ratio 44/12)")
+    cropland_loss_tC: float = Field(description="Carbon lost on agricultural lands (t C)")
+    forest_loss_tC: float = Field(description="Carbon lost in flooded forests/tree cover (t C)")
+    credit_potential: dict[str, Any] = Field(description="Mitigation carbon credits potential Q and valuations")
+    notes: str = Field(description="Methodological explanatory summary")

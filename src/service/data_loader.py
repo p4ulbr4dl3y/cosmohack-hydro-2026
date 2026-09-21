@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import glob
 import json
 import logging
@@ -18,6 +19,7 @@ import shapely.geometry
 from rasterio.enums import Resampling
 from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
+from scipy import ndimage
 from shapely.geometry import box, mapping, shape
 
 from hydrowatch_amur.tables.hydro_gauges import get_gauge_status
@@ -421,6 +423,8 @@ class DataLoader:
             if inside is not None:
                 perm_pts = perm_pts & inside
             permanent_ha = round(float(perm_pts.sum() * px_ha), 2)
+            del builtup, max_extent, hand, occurrence, cropland, flood_pts, perm_pts, flood_mask
+            gc.collect()
         else:
             permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2) if (water_pre_ha and flood_ha) else 0.0
 
@@ -454,6 +458,8 @@ class DataLoader:
                     if query_geom is not None:
                         inside_receded = self._query_inside_mask(pre_src, query_geom)
                         receded_ha = compute_receded_ha(pre_mask, peak_mask, px_ha, inside=inside_receded)
+                    del pre_mask, peak_mask
+                    gc.collect()
             except Exception:
                 logger.warning(f"[{pair_id}] Failed to compute receded_ha from own water masks; falling back to 0.0")
 
@@ -583,12 +589,34 @@ class DataLoader:
 
         with rasterio.open(src_tif) as src:
             arr = src.read(band_idx)
-            mask = arr == 1
-            poly_shapes = list(shapes(arr, mask=mask, transform=src.transform))
+            mask = (arr == 1).astype(bool)
+            del arr
+
+            # Morphological noise filtering of micro-islands before polygon vectorization
+            # (scipy.ndimage connected components / binary opening)
+            min_pixels = max(1, int(min_area_sqm / 100.0))
+            if min_pixels > 1:
+                labeled, num_features = ndimage.label(mask, structure=ndimage.generate_binary_structure(2, 1))
+                if num_features > 0:
+                    counts = np.bincount(labeled.ravel())
+                    keep_components = counts >= min_pixels
+                    keep_components[0] = False
+                    mask = keep_components[labeled]
+                    del labeled, counts, keep_components
+            else:
+                struct = ndimage.generate_binary_structure(2, 1)
+                mask = ndimage.binary_opening(mask, structure=struct)
+
+            # Compact uint8 array for polygon vectorization
+            clean_arr = mask.astype(np.uint8, copy=False)
+            poly_shapes = list(shapes(clean_arr, mask=mask, transform=src.transform))
+            del clean_arr, mask
 
             if poly_shapes:
                 geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
+                del poly_shapes
                 gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
+                del geoms
                 # Keep polygons >= min area to avoid sub-pixel noise while preserving real flood patches
                 gdf = gdf[gdf.geometry.area >= min_area_sqm].copy()
                 if not gdf.empty:
@@ -608,15 +636,19 @@ class DataLoader:
                     gdf["date_peak"] = pair_meta["date_peak_sar"]
 
                     gdf_4326 = gdf.to_crs(epsg=4326)
+                    del gdf
                     gdf_4326["geometry"] = gdf_4326.geometry.simplify(0.00015)
                     gdf_4326 = gdf_4326[~gdf_4326.geometry.is_empty & gdf_4326.geometry.is_valid]
 
                     geojson_dict = json.loads(gdf_4326.to_json())
+                    del gdf_4326
+                    gc.collect()
                     geojson_dict["name"] = f"{pair_id}_{layer}"
                     with open(cache_file, "w", encoding="utf-8") as f:
                         json.dump(geojson_dict, f, ensure_ascii=False)
                     return geojson_dict
 
+            gc.collect()
             empty_fc = {
                 "type": "FeatureCollection",
                 "name": f"{pair_id}_{layer}",
