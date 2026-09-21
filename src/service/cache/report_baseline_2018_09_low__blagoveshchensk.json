@@ -1,0 +1,49 @@
+{
+  "pair_id": "baseline_2018_09_low__blagoveshchensk",
+  "aoi_id": "blagoveshchensk",
+  "aoi_name": "Благовещенск — слияние Амура и Зеи",
+  "event_id": "baseline_2018_09_low",
+  "event_name": "Контрольный период межени, сентябрь 2018",
+  "event_kind": "baseline",
+  "year": 2018,
+  "date_pre_sar": "2018-07-29",
+  "date_peak_sar": "2018-09-15",
+  "date_pre_opt": "",
+  "date_peak_opt": "",
+  "bounds_4326": [
+    127.218519,
+    50.120525,
+    127.857226,
+    50.459458
+  ],
+  "center_4326": [
+    50.289991,
+    127.537872
+  ],
+  "aoi_ha": 158592.7,
+  "aoi_km2": 1585.927,
+  "flood_ha": 846.7,
+  "flood_km2": 8.467,
+  "water_pre_ha": 8736.05,
+  "water_pre_km2": 87.36,
+  "water_peak_ha": 8757.22,
+  "water_peak_km2": 87.572,
+  "permanent_ha": 7889.35,
+  "receded_ha": 0.0,
+  "water_gain_ha": 21.17,
+  "water_gain_pct": 0.24,
+  "share_of_aoi": 0.005339,
+  "flood_share_pct": 0.534,
+  "landcover": {
+    "builtup_ha": 0.0,
+    "builtup_pct": 0.0,
+    "natural_vegetation_ha": 846.7,
+    "natural_vegetation_pct": 100.0,
+    "historic_water_extent_ha": 504.44,
+    "historic_water_extent_pct": 59.58,
+    "new_flood_extent_ha": 342.26,
+    "new_flood_extent_pct": 40.42,
+    "mean_hand_m": 0.73,
+    "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
+  }
+}

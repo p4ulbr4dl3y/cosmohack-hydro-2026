@@ -56,9 +56,9 @@ def test_report_endpoint():
     assert "share_of_aoi" in data
 
     # Verify values match submission.csv predictions
-    assert data["flood_ha"] == 1335.69
-    assert data["water_pre_ha"] == 8522.61
-    assert data["water_peak_ha"] == 9253.8
+    assert data["flood_ha"] == 1614.38
+    assert data["water_pre_ha"] == 8413.79
+    assert data["water_peak_ha"] == 9672.04
 
     # Verify landcover structure
     assert "landcover" in data

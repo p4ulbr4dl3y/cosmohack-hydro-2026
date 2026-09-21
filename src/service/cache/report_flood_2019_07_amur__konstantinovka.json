@@ -1,0 +1,49 @@
+{
+  "pair_id": "flood_2019_07_amur__konstantinovka",
+  "aoi_id": "konstantinovka",
+  "aoi_name": "Константиновка — пойма Амура",
+  "event_id": "flood_2019_07_amur",
+  "event_name": "Паводок в Приамурье, июль 2019",
+  "event_kind": "rain_flood",
+  "year": 2019,
+  "date_pre_sar": "2019-06-13",
+  "date_peak_sar": "2019-07-25",
+  "date_pre_opt": "",
+  "date_peak_opt": "",
+  "bounds_4326": [
+    127.695404,
+    49.480305,
+    128.261484,
+    49.759716
+  ],
+  "center_4326": [
+    49.62001,
+    127.978444
+  ],
+  "aoi_ha": 123545.0,
+  "aoi_km2": 1235.45,
+  "flood_ha": 1026.65,
+  "flood_km2": 10.267,
+  "water_pre_ha": 6083.44,
+  "water_pre_km2": 60.834,
+  "water_peak_ha": 6940.81,
+  "water_peak_km2": 69.408,
+  "permanent_ha": 5056.79,
+  "receded_ha": 0.0,
+  "water_gain_ha": 857.37,
+  "water_gain_pct": 14.09,
+  "share_of_aoi": 0.00831,
+  "flood_share_pct": 0.831,
+  "landcover": {
+    "builtup_ha": 0.0,
+    "builtup_pct": 0.0,
+    "natural_vegetation_ha": 1026.65,
+    "natural_vegetation_pct": 100.0,
+    "historic_water_extent_ha": 845.19,
+    "historic_water_extent_pct": 82.33,
+    "new_flood_extent_ha": 181.46,
+    "new_flood_extent_pct": 17.67,
+    "mean_hand_m": 1.01,
+    "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
+  }
+}

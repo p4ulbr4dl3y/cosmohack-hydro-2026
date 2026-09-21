@@ -1,0 +1,49 @@
+{
+  "pair_id": "flood_2021_06_amur__poyarkovo",
+  "aoi_id": "poyarkovo",
+  "aoi_name": "Поярково — Михайловский район, Амур",
+  "event_id": "flood_2021_06_amur",
+  "event_name": "Рекордный подъём Амура у Благовещенска, июнь 2021",
+  "event_kind": "rain_flood",
+  "year": 2021,
+  "date_pre_sar": "2021-05-14",
+  "date_peak_sar": "2021-07-01",
+  "date_pre_opt": "2021-05-18",
+  "date_peak_opt": "2021-06-27",
+  "bounds_4326": [
+    128.407059,
+    49.483738,
+    128.910119,
+    49.756214
+  ],
+  "center_4326": [
+    49.619976,
+    128.658589
+  ],
+  "aoi_ha": 109070.6,
+  "aoi_km2": 1090.706,
+  "flood_ha": 2100.47,
+  "flood_km2": 21.005,
+  "water_pre_ha": 4807.68,
+  "water_pre_km2": 48.077,
+  "water_peak_ha": 6912.56,
+  "water_peak_km2": 69.126,
+  "permanent_ha": 2707.21,
+  "receded_ha": 0.0,
+  "water_gain_ha": 2104.88,
+  "water_gain_pct": 43.78,
+  "share_of_aoi": 0.019258,
+  "flood_share_pct": 1.926,
+  "landcover": {
+    "builtup_ha": 0.0,
+    "builtup_pct": 0.0,
+    "natural_vegetation_ha": 2100.47,
+    "natural_vegetation_pct": 100.0,
+    "historic_water_extent_ha": 2100.47,
+    "historic_water_extent_pct": 100.0,
+    "new_flood_extent_ha": 0.0,
+    "new_flood_extent_pct": 0.0,
+    "mean_hand_m": 0.22,
+    "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
+  }
+}

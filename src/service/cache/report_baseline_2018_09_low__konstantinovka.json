@@ -1,0 +1,49 @@
+{
+  "pair_id": "baseline_2018_09_low__konstantinovka",
+  "aoi_id": "konstantinovka",
+  "aoi_name": "Константиновка — пойма Амура",
+  "event_id": "baseline_2018_09_low",
+  "event_name": "Контрольный период межени, сентябрь 2018",
+  "event_kind": "baseline",
+  "year": 2018,
+  "date_pre_sar": "2018-07-29",
+  "date_peak_sar": "2018-09-15",
+  "date_pre_opt": "",
+  "date_peak_opt": "",
+  "bounds_4326": [
+    127.695404,
+    49.480305,
+    128.261484,
+    49.759716
+  ],
+  "center_4326": [
+    49.62001,
+    127.978444
+  ],
+  "aoi_ha": 120122.4,
+  "aoi_km2": 1201.224,
+  "flood_ha": 1739.12,
+  "flood_km2": 17.391,
+  "water_pre_ha": 7146.72,
+  "water_pre_km2": 71.467,
+  "water_peak_ha": 7663.83,
+  "water_peak_km2": 76.638,
+  "permanent_ha": 5407.6,
+  "receded_ha": 0.0,
+  "water_gain_ha": 517.11,
+  "water_gain_pct": 7.24,
+  "share_of_aoi": 0.014478,
+  "flood_share_pct": 1.448,
+  "landcover": {
+    "builtup_ha": 0.0,
+    "builtup_pct": 0.0,
+    "natural_vegetation_ha": 1739.12,
+    "natural_vegetation_pct": 100.0,
+    "historic_water_extent_ha": 1443.3,
+    "historic_water_extent_pct": 82.99,
+    "new_flood_extent_ha": 295.82,
+    "new_flood_extent_pct": 17.01,
+    "mean_hand_m": 0.8,
+    "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
+  }
+}
