@@ -7,9 +7,12 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Working directory
 WORKDIR /app
 
-# Install basic runtime dependencies (curl for container healthcheck)
+# Install basic runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libexpat1 \
+    libgomp1 \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Environment settings
