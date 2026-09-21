@@ -5,11 +5,11 @@ from __future__ import annotations
 import csv
 import io
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -35,26 +35,26 @@ app.add_middleware(
 
 
 class PredictRequest(BaseModel):
-    pair_id: Optional[str] = Field(default=None, description="Pair identifier, e.g. flood_2019_07_amur__blagoveshchensk")
-    bounds: Optional[List[float]] = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
-    date_pre: Optional[str] = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
-    date_peak: Optional[str] = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
+    pair_id: str | None = Field(default=None, description="Pair identifier, e.g. flood_2019_07_amur__blagoveshchensk")
+    bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
+    date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
+    date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
 
 
 @app.get("/api/v1/health")
-async def health_check() -> Dict[str, str]:
+async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "ok"}
 
 
 @app.get("/api/v1/pairs")
-async def list_pairs() -> List[Dict[str, Any]]:
+async def list_pairs() -> list[dict[str, Any]]:
     """Lists all 11 pairs with AOI metadata, dates, and areas."""
     return data_loader.get_pairs()
 
 
 @app.get("/api/v1/report/{pair_id}")
-async def get_report(pair_id: str) -> Dict[str, Any]:
+async def get_report(pair_id: str) -> dict[str, Any]:
     """Automated summary report with flood areas, metrics, and landcover distribution."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -124,7 +124,7 @@ async def get_report_csv(pair_id: str) -> Response:
 async def get_geojson(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Vector polygons of flood zone in GeoJSON format (EPSG:4326 for web maps)."""
     geojson = data_loader.get_geojson(pair_id, layer=layer)
     if geojson is None:
@@ -133,7 +133,7 @@ async def get_geojson(
 
 
 @app.post("/api/v1/predict")
-async def predict_flood(request: PredictRequest) -> Dict[str, Any]:
+async def predict_flood(request: PredictRequest) -> dict[str, Any]:
     """Spatial-temporal inference endpoint accepting bounds / pair_id."""
     try:
         result = data_loader.predict_spatial_temporal(
@@ -146,7 +146,7 @@ async def predict_flood(request: PredictRequest) -> Dict[str, Any]:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal prediction error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal prediction error: {e!s}")
 
 
 # Mount static assets

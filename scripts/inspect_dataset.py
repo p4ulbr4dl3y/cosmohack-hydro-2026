@@ -1,7 +1,8 @@
 import os
-import json
+
 import pandas as pd
 import rasterio
+
 
 def inspect():
     base_dir = "hydrowatch_amur"
@@ -9,7 +10,7 @@ def inspect():
     print(f"Total pairs: {len(pairs)}")
     print(pairs[["pair_id", "aoi_id", "event_id", "date_pre_sar", "date_peak_sar", "aoi_km2"]])
 
-    ref_dir = os.path.join(base_dir, "reference_masks")
+    os.path.join(base_dir, "reference_masks")
     print("\n--- Inspecting Reference Masks ---")
     for row in pairs.itertuples():
         ref_tif = os.path.join(base_dir, row.reference_mask)
@@ -25,7 +26,7 @@ def inspect():
         if os.path.exists(aux_tif):
             with rasterio.open(aux_tif) as src:
                 print(f"{row.pair_id} AUX: shape={src.shape}, count={src.count}, crs={src.crs}, res={src.res}")
-                tags = src.tags()
+                src.tags()
                 descriptions = [src.descriptions[i] for i in range(src.count)]
                 print(f"  bands descriptions: {descriptions}")
                 break

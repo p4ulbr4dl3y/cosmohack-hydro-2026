@@ -6,29 +6,27 @@ and receded water between paired acquisitions.
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
-
 import numpy as np
 
 
 def compute_temporal_dynamics(
     water_pre: np.ndarray,
     water_peak: np.ndarray,
-    permanent: Optional[np.ndarray] = None,
+    permanent: np.ndarray | None = None,
     pixel_size_m: float = 10.0,
-) -> Dict[str, np.ndarray | float]:
+) -> dict[str, np.ndarray | float]:
     """Compute temporal flood and water mirror dynamics.
-    
+
     Formulas:
       flood   = (water_peak == 1) & (water_pre == 0) & (permanent == 0)
       receded = (water_pre == 1) & (water_peak == 0)
-      
+
     Args:
         water_pre: Binary mask of water on pre-event date (uint8, 0/1).
         water_peak: Binary mask of water on peak date (uint8, 0/1).
         permanent: Optional binary mask of permanent water (GSW >= 80%).
         pixel_size_m: Pixel resolution in meters (default 10.0m = 0.01 ha/px).
-        
+
     Returns:
         Dict containing:
           'water_pre': uint8 array
@@ -43,10 +41,7 @@ def compute_temporal_dynamics(
           'permanent_ha': float
     """
     height, width = water_pre.shape
-    if permanent is None:
-        perm_mask = np.zeros((height, width), dtype=bool)
-    else:
-        perm_mask = permanent.astype(bool)
+    perm_mask = np.zeros((height, width), dtype=bool) if permanent is None else permanent.astype(bool)
 
     pre_bool = water_pre.astype(bool)
     peak_bool = water_peak.astype(bool)

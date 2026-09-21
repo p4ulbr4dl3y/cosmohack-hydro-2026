@@ -18,15 +18,13 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
 # Ensure repository root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from typing import Any, Dict, List, Optional
-
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -47,7 +45,7 @@ def load_reference_stats(pairs_df: pd.DataFrame, data_dir: Path) -> pd.DataFrame
         if not ref_json_path.exists():
             raise FileNotFoundError(f"Reference JSON not found: {ref_json_path}")
 
-        with open(ref_json_path, "r", encoding="utf-8") as fp:
+        with open(ref_json_path, encoding="utf-8") as fp:
             meta = json.load(fp)
 
         stats = meta["stats"]
@@ -67,14 +65,14 @@ def load_reference_stats(pairs_df: pd.DataFrame, data_dir: Path) -> pd.DataFrame
 def compute_official_score(
     submission_df: pd.DataFrame,
     ref_df: pd.DataFrame,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Compute official HydroWatch Amur metric score.
-    
+
     Formula:
       Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
       q = max(0, 1 - |X_sub - X_ref| / max(X_ref, threshold))
       threshold: flood=50 ha, water=200 ha
-      
+
       Spec_base = mean(1 - min(1, excess / 0.005))
       excess = max(0, flood_sub - flood_ref) / aoi_ha
     """
@@ -151,7 +149,7 @@ def compute_raster_metrics(
     predictions_dir: Path,
     pairs_df: pd.DataFrame,
     data_dir: Path,
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Compute pixel-level IoU, Precision, Recall, F1 against reference masks."""
     ious, precisions, recalls, f1s = [], [], [], []
 
@@ -193,7 +191,7 @@ def run_ablation_study(
     pairs_csv_path: Path = Path("hydrowatch_amur/pairs.csv"),
     data_dir: Path = Path("hydrowatch_amur"),
     output_json_path: Path = Path("data/ablation_results.json"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Execute ablation experiments across 4 pipeline configurations."""
     pairs_df = pd.read_csv(pairs_csv_path)
     ref_df = load_reference_stats(pairs_df, data_dir)

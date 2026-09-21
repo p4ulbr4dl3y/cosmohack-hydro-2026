@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+import shapely.geometry
 from rasterio.enums import Resampling
 from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
-import shapely.geometry
 from shapely.geometry import box, shape
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -37,9 +36,9 @@ class DataLoader:
         self.submission_csv = submission_csv
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.pairs_df: Optional[pd.DataFrame] = None
-        self._pairs_cache: List[Dict[str, Any]] = []
-        self._reports_cache: Dict[str, Dict[str, Any]] = {}
+        self.pairs_df: pd.DataFrame | None = None
+        self._pairs_cache: list[dict[str, Any]] = []
+        self._reports_cache: dict[str, dict[str, Any]] = {}
         self.init_data()
 
     def init_data(self) -> None:
@@ -90,22 +89,22 @@ class DataLoader:
 
         self._pairs_cache = pairs_list
 
-    def get_pairs(self) -> List[Dict[str, Any]]:
+    def get_pairs(self) -> list[dict[str, Any]]:
         return self._pairs_cache
 
-    def get_pair_meta(self, pair_id: str) -> Optional[Dict[str, Any]]:
+    def get_pair_meta(self, pair_id: str) -> dict[str, Any] | None:
         for p in self._pairs_cache:
             if p["pair_id"] == pair_id:
                 return p
         return None
 
-    def get_report(self, pair_id: str) -> Optional[Dict[str, Any]]:
+    def get_report(self, pair_id: str) -> dict[str, Any] | None:
         if pair_id in self._reports_cache:
             return self._reports_cache[pair_id]
 
         cache_file = self.cache_dir / f"report_{pair_id}.json"
         if cache_file.exists():
-            with open(cache_file, "r", encoding="utf-8") as f:
+            with open(cache_file, encoding="utf-8") as f:
                 data = json.load(f)
                 self._reports_cache[pair_id] = data
                 return data
@@ -275,14 +274,14 @@ class DataLoader:
         self._reports_cache[pair_id] = report_data
         return report_data
 
-    def get_geojson(self, pair_id: str, layer: str = "flood") -> Optional[Dict[str, Any]]:
+    def get_geojson(self, pair_id: str, layer: str = "flood") -> dict[str, Any] | None:
         layer = layer.lower()
         if layer not in ("flood", "water_pre", "water_peak"):
             layer = "flood"
 
         cache_file = self.cache_dir / f"{pair_id}_{layer}.geojson"
         if cache_file.exists():
-            with open(cache_file, "r", encoding="utf-8") as f:
+            with open(cache_file, encoding="utf-8") as f:
                 return json.load(f)
 
         pair_meta = self.get_pair_meta(pair_id)
@@ -343,11 +342,11 @@ class DataLoader:
 
     def predict_spatial_temporal(
         self,
-        pair_id: Optional[str] = None,
-        bounds: Optional[List[float]] = None,
-        date_pre: Optional[str] = None,
-        date_peak: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        pair_id: str | None = None,
+        bounds: list[float] | None = None,
+        date_pre: str | None = None,
+        date_peak: str | None = None,
+    ) -> dict[str, Any]:
         """Predict / evaluate flood summary and geojson given pair_id or bounding box."""
         target_pair_id = pair_id
 

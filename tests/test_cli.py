@@ -1,9 +1,9 @@
 """Tests for HydroWatch Amur unified CLI."""
 
 import json
-from pathlib import Path
-import pytest
+
 import pandas as pd
+import pytest
 
 from src.cli import main, run_report
 
@@ -21,7 +21,7 @@ def test_cli_report_output_json(tmp_path):
     out_json = tmp_path / "report.json"
     run_report(pair_id="flood_2019_07_amur__blagoveshchensk", output=out_json)
     assert out_json.exists()
-    with open(out_json, "r", encoding="utf-8") as f:
+    with open(out_json, encoding="utf-8") as f:
         data = json.load(f)
     assert data["pair_id"] == "flood_2019_07_amur__blagoveshchensk"
     assert data["flood_ha"] == 1335.69
@@ -38,8 +38,6 @@ def test_cli_report_output_csv(tmp_path):
 
 
 def test_cli_subcommands_parser():
-    import argparse
-    from src.cli import main
     # Verify main doesn't crash on invalid args when called with --help
     with pytest.raises(SystemExit) as exc:
         import sys

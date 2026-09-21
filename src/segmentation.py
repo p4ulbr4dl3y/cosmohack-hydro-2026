@@ -9,34 +9,30 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import rasterio
+import yaml
 from rasterio.warp import Resampling, reproject
 from scipy.ndimage import label, median_filter, uniform_filter
-import yaml
 
 logger = logging.getLogger(__name__)
 
 # Default config cache
-_CONFIG_CACHE: Optional[Dict[str, Any]] = None
+_CONFIG_CACHE: dict[str, Any] | None = None
 
 
-def load_config(config_path: Optional[str | Path] = None) -> Dict[str, Any]:
+def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
     """Load configuration dictionary from config.yaml."""
     global _CONFIG_CACHE
     if _CONFIG_CACHE is not None and config_path is None:
         return _CONFIG_CACHE
 
-    if config_path is None:
-        # Resolve config.yaml at project root
-        config_path = Path(__file__).resolve().parent.parent / "config.yaml"
-    else:
-        config_path = Path(config_path)
+    config_path = Path(__file__).resolve().parent.parent / "config.yaml" if config_path is None else Path(config_path)
 
     if config_path.exists():
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or {}
     else:
         cfg = {}
@@ -70,16 +66,16 @@ def refined_lee_filter(
     n_looks: float = 4.4,
 ) -> np.ndarray:
     """Apply genuine Refined Lee filter using local mean and variance.
-    
+
     Formula:
         W = (Var(I) - mean(I)^2 / n_looks) / Var(I)
         I_hat = mean(I) + W * (I - mean(I))
-    
+
     Args:
         data: 2D array of SAR backscatter in dB.
         size: Window aperture size (default 7 for 7x7 filter).
         n_looks: Equivalent number of looks (4.4 for Sentinel-1 IW GRD).
-        
+
     Returns:
         Filtered 2D array in dB.
     """
@@ -117,12 +113,12 @@ def speckle_filter(
     size: int = 7,
 ) -> np.ndarray:
     """Apply speckle noise filtering on radar backscatter data.
-    
+
     Args:
         data: 2D array of SAR backscatter in dB.
         method: Filtering method, 'lee' (default 7x7 Refined Lee), 'uniform', or 'median'.
         size: Kernel window size (e.g. 5 or 7).
-        
+
     Returns:
         Filtered 2D array.
     """
@@ -138,10 +134,7 @@ def speckle_filter(
     fill_val = float(np.nanmedian(data[valid_mask]))
     data_clean = np.where(valid_mask, data, fill_val)
 
-    if method == "median":
-        filtered = median_filter(data_clean, size=size)
-    else:
-        filtered = uniform_filter(data_clean, size=size)
+    filtered = median_filter(data_clean, size=size) if method == "median" else uniform_filter(data_clean, size=size)
 
     filtered[~valid_mask] = data[~valid_mask]
     return filtered.astype(np.float32)
@@ -149,10 +142,10 @@ def speckle_filter(
 
 def compute_otsu_threshold(
     vv_data: np.ndarray,
-    mask: Optional[np.ndarray] = None,
-    min_db: Optional[float] = None,
-    max_db: Optional[float] = None,
-    bins: Optional[int] = None,
+    mask: np.ndarray | None = None,
+    min_db: float | None = None,
+    max_db: float | None = None,
+    bins: int | None = None,
 ) -> float:
     """Compute Otsu threshold on VV radar backscatter, constrained to [min_db, max_db]."""
     cfg = load_config()
@@ -186,10 +179,10 @@ def compute_otsu_threshold(
 
 def load_aux_priors(
     aux_path: str | Path,
-    target_shape: Tuple[int, int],
+    target_shape: tuple[int, int],
     target_transform: rasterio.Affine,
     target_crs: Any,
-) -> Dict[str, np.ndarray]:
+) -> dict[str, np.ndarray]:
     """Load and reproject AUX terrain and GSW layers to target grid."""
     cfg = load_config()
     slope_max = float(cfg["slope_max_deg"])
@@ -254,11 +247,11 @@ def load_aux_priors(
 
 
 def segment_optical(
-    s2_path: Optional[str | Path],
-    target_shape: Tuple[int, int],
-) -> Tuple[Optional[np.ndarray], np.ndarray]:
+    s2_path: str | Path | None,
+    target_shape: tuple[int, int],
+) -> tuple[np.ndarray | None, np.ndarray]:
     """Segment water using Sentinel-2 MSI indices where available.
-    
+
     Turbid flood water has negative NDWI, so NDWI is not required.
     Uses: (MNDWI > 0.1 or AWEIsh > 0.0) & (NDVI <= 0.3).
     """
@@ -301,7 +294,7 @@ def segment_optical(
 
 def apply_mmu(
     mask: np.ndarray,
-    min_size: Optional[int] = None,
+    min_size: int | None = None,
 ) -> np.ndarray:
     """Remove isolated noise clusters smaller than min_size pixels."""
     if min_size is None:
@@ -324,17 +317,17 @@ def apply_mmu(
 
 def segment_water(
     vv: np.ndarray,
-    vh: Optional[np.ndarray] = None,
-    vv_ref: Optional[np.ndarray] = None,
-    vh_ref: Optional[np.ndarray] = None,
-    optical_water: Optional[np.ndarray] = None,
-    optical_valid: Optional[np.ndarray] = None,
-    topo_mask: Optional[np.ndarray] = None,
-    permanent_mask: Optional[np.ndarray] = None,
-    hand: Optional[np.ndarray] = None,
-    slope: Optional[np.ndarray] = None,
-    builtup: Optional[np.ndarray] = None,
-    occurrence: Optional[np.ndarray] = None,
+    vh: np.ndarray | None = None,
+    vv_ref: np.ndarray | None = None,
+    vh_ref: np.ndarray | None = None,
+    optical_water: np.ndarray | None = None,
+    optical_valid: np.ndarray | None = None,
+    topo_mask: np.ndarray | None = None,
+    permanent_mask: np.ndarray | None = None,
+    hand: np.ndarray | None = None,
+    slope: np.ndarray | None = None,
+    builtup: np.ndarray | None = None,
+    occurrence: np.ndarray | None = None,
     is_peak: bool = False,
     use_topo: bool = True,
     use_optical: bool = True,
@@ -342,7 +335,7 @@ def segment_water(
     use_permanent: bool = True,
     filter_method: str = "lee",
     filter_size: int = 7,
-    mmu_min_size: Optional[int] = None,
+    mmu_min_size: int | None = None,
 ) -> np.ndarray:
     """End-to-end water segmentation for a single acquisition date (pre or peak)."""
     cfg = load_config()
@@ -399,13 +392,12 @@ def segment_water(
             sar_water = (sar_water | db_cond) & sar_valid
 
     # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries)
-    if sar_valid.mean() < 0.1:
-        if permanent_mask is not None:
-            if is_peak and topo_mask is not None and hand is not None and occurrence is not None:
-                flood_expansion = topo_mask & (hand <= 1.0) & (occurrence >= 5.0) & (~permanent_mask)
-                sar_water = permanent_mask | flood_expansion
-            else:
-                sar_water = permanent_mask.copy()
+    if sar_valid.mean() < 0.1 and permanent_mask is not None:
+        if is_peak and topo_mask is not None and hand is not None and occurrence is not None:
+            flood_expansion = topo_mask & (hand <= 1.0) & (occurrence >= 5.0) & (~permanent_mask)
+            sar_water = permanent_mask | flood_expansion
+        else:
+            sar_water = permanent_mask.copy()
 
     # 4. Optical fusion where available
     if use_optical and optical_water is not None and optical_valid is not None and np.any(optical_valid):

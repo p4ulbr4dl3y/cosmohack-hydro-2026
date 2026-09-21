@@ -1,8 +1,10 @@
 import os
+
 import numpy as np
-import pytest
+
+from src.segmentation import apply_mmu
 from src.temporal import compute_temporal_dynamics
-from src.segmentation import apply_mmu, speckle_filter
+
 
 def test_temporal_dynamics_logic():
     # Shape 10x10
@@ -36,10 +38,10 @@ def test_mmu_filter():
     # Single isolated pixel < min_size=25 should be zeroed
     mask = np.zeros((20, 20), dtype=np.uint8)
     mask[2, 2] = 1  # 1 pixel component
-    
+
     # 5x5 block = 25 pixels -> should be preserved
     mask[5:10, 5:10] = 1
-    
+
     cleaned = apply_mmu(mask, min_size=25)
     assert cleaned[2, 2] == 0
     assert np.sum(cleaned[5:10, 5:10]) == 25

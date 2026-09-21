@@ -3,23 +3,24 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from src.predict import main as predict_main, process_pair
 from src.evaluate import main as evaluate_main
+from src.predict import main as predict_main
+from src.predict import process_pair
 from src.service.data_loader import DataLoader
 
 logger = logging.getLogger(__name__)
 
 
-def run_report(pair_id: Optional[str] = None, output: Optional[Path] = None) -> None:
+def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
     """Generate summary report for one or all pairs."""
     loader = DataLoader()
     pairs = loader.get_pairs()
@@ -96,7 +97,7 @@ def run_benchmark(
     tmp_out = predictions_dir / "_benchmark_tmp"
     tmp_out.mkdir(parents=True, exist_ok=True)
 
-    for i in range(iterations):
+    for _i in range(iterations):
         for idx, row in pairs_df.iterrows():
             t0 = time.perf_counter()
             process_pair(
@@ -111,14 +112,10 @@ def run_benchmark(
 
     # Clean up benchmark temp files
     for f in tmp_out.glob("*"):
-        try:
+        with contextlib.suppress(OSError):
             f.unlink()
-        except OSError:
-            pass
-    try:
+    with contextlib.suppress(OSError):
         tmp_out.rmdir()
-    except OSError:
-        pass
 
     avg_time = sum(times) / len(times)
     total_time = sum(times)

@@ -1,6 +1,5 @@
 """Integration tests for HydroWatch Amur FastAPI service."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.service.app import app

@@ -11,15 +11,13 @@ from __future__ import annotations
 import argparse
 import glob
 import logging
-import os
 import sys
 from pathlib import Path
 
 # Ensure repository root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from typing import Dict, List, Optional
-
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -41,9 +39,9 @@ def process_pair(
     data_dir: Path,
     predictions_dir: Path,
     ablation_mode: int = 4,
-) -> Dict[str, float | str]:
+) -> dict[str, float | str]:
     """Process a single AOI pair through the segmentation pipeline.
-    
+
     Ablation modes:
       1: Naive SAR Otsu alone (no priors, no optical, no MMU, no permanent).
       2: SAR Otsu + HAND/Slope filter.
@@ -218,7 +216,7 @@ def run_prediction(
     pairs_df = pd.read_csv(pairs_csv_path)
     logger.info(f"Loaded {len(pairs_df)} pairs from {pairs_csv_path}")
 
-    records: List[Dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
     for idx, row in pairs_df.iterrows():
         logger.info(f"Processing [{idx+1}/{len(pairs_df)}]: {row['pair_id']}")
         rec = process_pair(

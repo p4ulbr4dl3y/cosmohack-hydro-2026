@@ -1,14 +1,15 @@
 import os
-import sys
+from datetime import datetime, timedelta
+
 import numpy as np
 import pandas as pd
-import rasterio
-from rasterio.windows import from_bounds
-from rasterio.warp import reproject, Resampling
-from pyproj import Transformer
-from datetime import datetime, timedelta
-import pystac_client
 import planetary_computer as pc
+import pystac_client
+import rasterio
+from pyproj import Transformer
+from rasterio.warp import Resampling, reproject
+from rasterio.windows import from_bounds
+
 
 def get_stac_catalog():
     return pystac_client.Client.open(
@@ -24,9 +25,9 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
     height, width = target_shape
     vv_mosaic = np.full((height, width), np.nan, dtype=np.float32)
     vh_mosaic = np.full((height, width), np.nan, dtype=np.float32)
-    
+
     left, bottom, right, top = target_bounds
-    
+
     for item in items:
         # VV
         if "vv" in item.assets:
@@ -40,7 +41,7 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
                     nodata = src.nodata if src.nodata is not None else -32768.0
                     mask = (data != nodata) & (~np.isnan(data)) & (data > 0)
                     vv_mosaic[mask] = data[mask]
-                    
+
         # VH
         if "vh" in item.assets:
             vh_href = item.assets["vh"].href
@@ -56,11 +57,11 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
     # Convert linear power to dB
     vv_db = 10.0 * np.log10(np.maximum(vv_mosaic, 1e-6))
     vh_db = 10.0 * np.log10(np.maximum(vh_mosaic, 1e-6))
-    
+
     # Missing values fill with plausible values / nan
     vv_db[np.isnan(vv_mosaic)] = -999.0
     vh_db[np.isnan(vh_mosaic)] = -999.0
-    
+
     ratio_db = np.where((vv_db > -900) & (vh_db > -900), vv_db - vh_db, -999.0).astype(np.float32)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -83,7 +84,7 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
         dst.set_band_description(1, 'VV')
         dst.set_band_description(2, 'VH')
         dst.set_band_description(3, 'VV_VH_ratio')
-        
+
     print(f"  -> Saved {out_path} ({height}x{width}, 3 bands: VV, VH, ratio)")
 
 def download_s2_raster(catalog, items, target_bounds, target_shape, target_transform, out_path):
@@ -92,14 +93,14 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     """
     height, width = target_shape
     left, bottom, right, top = target_bounds
-    
+
     bands_data = {
         'B03': np.full((height, width), np.nan, dtype=np.float32),
         'B04': np.full((height, width), np.nan, dtype=np.float32),
         'B08': np.full((height, width), np.nan, dtype=np.float32),
         'B11': np.full((height, width), np.nan, dtype=np.float32),
     }
-    
+
     for item in items:
         for b_name in ['B03', 'B04', 'B08', 'B11']:
             asset_key = b_name.lower()
@@ -125,20 +126,20 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     b4 = bands_data['B04']
     b8 = bands_data['B08']
     b11 = bands_data['B11']
-    
+
     # Compute indices
     denom_ndwi = np.maximum(b3 + b8, 1e-6)
     ndwi = np.where(~np.isnan(b3) & ~np.isnan(b8), (b3 - b8) / denom_ndwi, -999.0).astype(np.float32)
-    
+
     denom_mndwi = np.maximum(b3 + b11, 1e-6)
     mndwi = np.where(~np.isnan(b3) & ~np.isnan(b11), (b3 - b11) / denom_mndwi, -999.0).astype(np.float32)
-    
+
     denom_ndvi = np.maximum(b8 + b4, 1e-6)
     ndvi = np.where(~np.isnan(b8) & ~np.isnan(b4), (b8 - b4) / denom_ndvi, -999.0).astype(np.float32)
-    
+
     # AWEIsh = B03 + 2.5*B02 - 1.5*(B08 + B11) - 0.25*B12 (approx with B03, B04, B08, B11)
     # Standard AWEIsh: 4*(Green - SWIR1) - (0.25*NIR + 2.75*SWIR2)
-    aweish = np.where(~np.isnan(b3) & ~np.isnan(b11) & ~np.isnan(b8), 
+    aweish = np.where(~np.isnan(b3) & ~np.isnan(b11) & ~np.isnan(b8),
                       (b3 - b11) - 0.25 * b8, -999.0).astype(np.float32)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -171,29 +172,29 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
         dst.set_band_description(6, 'MNDWI')
         dst.set_band_description(7, 'NDVI')
         dst.set_band_description(8, 'AWEIsh')
-        
+
     print(f"  -> Saved {out_path} (8 bands)")
 
 def process_all():
     catalog = get_stac_catalog()
     pairs = pd.read_csv("hydrowatch_amur/pairs.csv")
     transformer = Transformer.from_crs("EPSG:32652", "EPSG:4326", always_xy=True)
-    
+
     for idx, row in pairs.iterrows():
         ref_tif = os.path.join("hydrowatch_amur", row.reference_mask)
         with rasterio.open(ref_tif) as src:
             target_bounds = src.bounds
             target_shape = src.shape
             target_transform = src.transform
-            
+
         minx, miny = transformer.transform(target_bounds.left, target_bounds.bottom)
         maxx, maxy = transformer.transform(target_bounds.right, target_bounds.top)
         bbox = [minx, miny, maxx, maxy]
-        
+
         rasters_dir = os.path.join("hydrowatch_amur", row.rasters_dir)
-        print(f"\n==========================================")
+        print("\n==========================================")
         print(f"[{idx+1}/{len(pairs)}] Processing {row.pair_id}...")
-        
+
         # 1. S1 Pre
         s1_pre_path = os.path.join(rasters_dir, f"S1_pre_{row.date_pre_sar}.tif")
         if not os.path.exists(s1_pre_path):
