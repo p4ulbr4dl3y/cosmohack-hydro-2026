@@ -152,3 +152,19 @@ def apply_hydrological_connectivity(
 
     keep_mask = np.isin(labeled, seed_labels)
     return (binary_flood & keep_mask).astype(flood_mask.dtype)
+
+
+def apply_morphological_closing(
+    mask: np.ndarray,
+    kernel_size: int = 5,
+) -> np.ndarray:
+    """Close small speckle holes and wave gaps inside water bodies using a disk kernel."""
+    if not np.any(mask):
+        return mask.copy()
+
+    from scipy.ndimage import binary_closing
+
+    y, x = np.ogrid[-(kernel_size // 2) : (kernel_size // 2) + 1, -(kernel_size // 2) : (kernel_size // 2) + 1]
+    kernel = (x**2 + y**2) <= (kernel_size // 2) ** 2
+    closed = binary_closing(mask > 0, structure=kernel)
+    return closed.astype(mask.dtype)

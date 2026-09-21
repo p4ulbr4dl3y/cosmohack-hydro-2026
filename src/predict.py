@@ -26,7 +26,11 @@ import rasterio
 from rasterio.windows import Window
 
 from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M, SAR_READ_BLOCK_ROWS
-from src.filters import apply_hydrological_connectivity, apply_mmu
+from src.filters import (
+    apply_hydrological_connectivity,
+    apply_mmu,
+    apply_morphological_closing,
+)
 from src.geo_utils import clip_by_aoi
 from src.indices import segment_optical
 from src.segmentation import (
@@ -214,6 +218,11 @@ def process_pair(
         use_permanent=use_permanent,
     )
 
+    # 5c. Morphological closing on water mirrors (fills internal speckle holes and wave gaps)
+    if ablation_mode >= 2:
+        water_pre = apply_morphological_closing(water_pre, kernel_size=5)
+        water_peak = apply_morphological_closing(water_peak, kernel_size=5)
+
     # 6. Compute temporal dynamics
     temporal = compute_temporal_dynamics(
         water_pre=water_pre,
@@ -257,11 +266,19 @@ def process_pair(
         except Exception as e:
             logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
 
-    # 6c. Hydrological connectivity filter and MMU in full pipeline mode (Mode 4)
+    # 6c. Multi-Seed Hydrological connectivity filter and MMU in full pipeline mode (Mode 4)
     if ablation_mode == 4:
-        # Filter flood clusters by hydrological connectivity to the permanent river network
+        # Seed network: permanent river water (GSW >= 80%) plus seasonal channels (GSW occurrence >= 70%)
+        seed_mask = None
         if perm_mask is not None and np.any(perm_mask):
-            flood_mask = apply_hydrological_connectivity(flood_mask, perm_mask)
+            seed_mask = perm_mask.copy()
+            if occ_arr is not None:
+                seed_mask = seed_mask | ((occ_arr >= 70.0) & np.isfinite(occ_arr))
+        elif occ_arr is not None:
+            seed_mask = (occ_arr >= 70.0) & np.isfinite(occ_arr)
+
+        if seed_mask is not None and np.any(seed_mask):
+            flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 

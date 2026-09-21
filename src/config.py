@@ -29,8 +29,12 @@ DOUBLE_BOUNCE_DELTA_VH_DB: float = 2.5
 DOUBLE_BOUNCE_HAND_MAX_M: float = 3.0
 DOUBLE_BOUNCE_SLOPE_MAX_DEG: float = 3.0
 DOUBLE_BOUNCE_VV_PRE_MIN_DB: float = -14.0
+SAR_USE_DUAL_POL: bool = True
+SAR_DUAL_POL_VV_WEIGHT: float = 0.7
+SAR_DUAL_POL_VH_WEIGHT: float = 0.3
 SLOPE_MAX_DEG: float = 3.0
 HAND_MAX_M: float = 10.0
+
 
 # Radar-shadow geometry (orbit/aspect-aware guard). Sentinel-1 IW carries no per-pixel
 # incidence-angle band in this dataset, so the nominal mid-swath look angle is used
@@ -72,8 +76,12 @@ class HydroConfig:
     double_bounce_hand_max_m: float = DOUBLE_BOUNCE_HAND_MAX_M
     double_bounce_slope_max_deg: float = DOUBLE_BOUNCE_SLOPE_MAX_DEG
     double_bounce_vv_pre_min_db: float = DOUBLE_BOUNCE_VV_PRE_MIN_DB
+    sar_use_dual_pol: bool = SAR_USE_DUAL_POL
+    sar_dual_pol_vv_weight: float = SAR_DUAL_POL_VV_WEIGHT
+    sar_dual_pol_vh_weight: float = SAR_DUAL_POL_VH_WEIGHT
     slope_max_deg: float = SLOPE_MAX_DEG
     hand_max_m: float = HAND_MAX_M
+
     sar_nominal_incidence_deg: float = SAR_NOMINAL_INCIDENCE_DEG
     radar_shadow_min_incidence_deg: float = RADAR_SHADOW_MIN_INCIDENCE_DEG
     sar_read_block_rows: int = SAR_READ_BLOCK_ROWS
@@ -129,6 +137,9 @@ class HydroConfig:
             "double_bounce_hand_max_m": self.double_bounce_hand_max_m,
             "double_bounce_slope_max_deg": self.double_bounce_slope_max_deg,
             "double_bounce_vv_pre_min_db": self.double_bounce_vv_pre_min_db,
+            "sar_use_dual_pol": self.sar_use_dual_pol,
+            "sar_dual_pol_vv_weight": self.sar_dual_pol_vv_weight,
+            "sar_dual_pol_vh_weight": self.sar_dual_pol_vh_weight,
             "slope_max_deg": self.slope_max_deg,
             "hand_max_m": self.hand_max_m,
             "sar_nominal_incidence_deg": self.sar_nominal_incidence_deg,

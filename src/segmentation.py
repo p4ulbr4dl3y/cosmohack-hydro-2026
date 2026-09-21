@@ -18,6 +18,7 @@ from rasterio.warp import Resampling
 from src.config import HydroConfig
 from src.filters import apply_hydrological_connectivity as _filters_apply_hydrological_connectivity
 from src.filters import apply_mmu as _filters_apply_mmu
+from src.filters import apply_morphological_closing as _filters_apply_morphological_closing
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
 from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
@@ -35,6 +36,7 @@ __all__ = [
     "radar_shadow_mask",
     "segment_optical",
     "apply_mmu",
+    "apply_morphological_closing",
     "apply_hydrological_connectivity",
     "detect_flooded_vegetation",
     "segment_water",
@@ -290,6 +292,14 @@ def apply_hydrological_connectivity(
     return _filters_apply_hydrological_connectivity(flood_mask=flood_mask, seed_mask=seed_mask)
 
 
+def apply_morphological_closing(
+    mask: np.ndarray,
+    kernel_size: int = 5,
+) -> np.ndarray:
+    """Close small speckle holes and wave gaps inside water bodies."""
+    return _filters_apply_morphological_closing(mask=mask, kernel_size=kernel_size)
+
+
 def detect_flooded_vegetation(
     vv: np.ndarray,
     vh: np.ndarray | None,
@@ -488,15 +498,23 @@ def segment_water(
     vv_filt = speckle_filter(vv, method=filter_method, size=filter_size)
     vh_filt = speckle_filter(vh, method=filter_method, size=filter_size) if vh is not None else None
 
+    use_dual_pol = bool(cfg.get("sar_use_dual_pol", True))
+    vv_w = float(cfg.get("sar_dual_pol_vv_weight", 0.7))
+    vh_w = float(cfg.get("sar_dual_pol_vh_weight", 0.3))
+
     # 2. SAR Otsu thresholding within floodplain
     mask_for_otsu = topo_mask if (use_topo and topo_mask is not None) else None
-    th_vv = compute_otsu_threshold(vv_filt, mask=mask_for_otsu)
-
-    # Open water by constrained Otsu within floodplain (exclude dry built-up asphalt)
-    builtup_clean = (builtup < builtup_max) if builtup is not None else True
-    otsu_water = (vv_filt < th_vv) & sar_valid & builtup_clean
-    if vh_filt is not None:
-        otsu_water = otsu_water & (vh_filt < vh_thresh)
+    if use_dual_pol and vh_filt is not None:
+        sar_feature = vv_w * vv_filt + vh_w * vh_filt
+        th_feature = compute_otsu_threshold(sar_feature, mask=mask_for_otsu)
+        builtup_clean = (builtup < builtup_max) if builtup is not None else True
+        otsu_water = (sar_feature < th_feature) & sar_valid & builtup_clean & (vh_filt < vh_thresh)
+    else:
+        th_vv = compute_otsu_threshold(vv_filt, mask=mask_for_otsu)
+        builtup_clean = (builtup < builtup_max) if builtup is not None else True
+        otsu_water = (vv_filt < th_vv) & sar_valid & builtup_clean
+        if vh_filt is not None:
+            otsu_water = otsu_water & (vh_filt < vh_thresh)
 
     sar_water = otsu_water
 
