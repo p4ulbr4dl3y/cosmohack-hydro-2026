@@ -77,39 +77,95 @@ def compute_official_score(
 
       Spec_base = mean(1 - min(1, excess / 0.005))
       excess = max(0, flood_sub - flood_ref) / aoi_ha
+
+    Scoring is driven by the official reference pair list (``ref_df``): every
+    reference pair is scored, even when it is absent from ``submission_df``.
+    A missing pair scores **0 for its own objective** (official rule):
+
+      * A missing *event* pair contributes ``q_flood = q_water_peak =
+        q_water_pre = 0.0`` explicitly. The threshold formula is *not* applied
+        to an absent pair, because a zero area could otherwise yield a non-zero
+        ``q`` whenever ``ref < threshold``.
+      * A missing *baseline* pair contributes ``spec = 0.0`` explicitly: an
+        absent baseline is a *missed* specificity contribution, so it scores 0
+        (not 1.0). Otherwise deleting the baseline pair that carries a false
+        alarm would delete its penalty and raise the score.
+
+    Submission rows whose ``pair_id`` is not present in ``ref_df`` are extra
+    unknown pairs and are ignored (never scored).
     """
-    merged = pd.merge(submission_df, ref_df, on="pair_id")
+    sub = submission_df.copy()
+    sub["pair_id"] = sub["pair_id"].astype(str)
+    ref = ref_df.copy()
+    ref["pair_id"] = ref["pair_id"].astype(str)
+
+    # Left join onto the official pair list so missing reference pairs are kept
+    # and unknown submission pairs are dropped.
+    merged = pd.merge(ref, sub, on="pair_id", how="left")
+
+    # Record which reference pairs are actually present in the submission BEFORE
+    # filling missing areas, so absent pairs can be scored 0 for their own
+    # objective rather than letting the threshold formula leak a non-zero value.
+    present_ids = set(sub["pair_id"])
+    merged["present"] = merged["pair_id"].isin(present_ids)
+
+    for col in ("flood_ha", "water_pre_ha", "water_peak_ha"):
+        if col not in merged.columns:
+            merged[col] = 0.0
+        merged[col] = merged[col].fillna(0.0)
 
     # Split into event pairs and baseline pairs
     events = merged[merged["event_kind"] != "baseline"].copy()
     baselines = merged[merged["event_kind"] == "baseline"].copy()
 
-    # 1. Event pairs convergence
-    events["q_flood"] = np.maximum(
+    # 1. Event pairs convergence. A reference event pair absent from the
+    # submission scores 0 for its own objective (the threshold formula is NOT
+    # applied, since a zero area would otherwise yield q > 0 when ref < threshold).
+    events["q_flood"] = np.where(
+        events["present"],
+        np.maximum(
+            0.0,
+            1.0 - np.abs(events["flood_ha"] - events["ref_flood_ha"]) / np.maximum(events["ref_flood_ha"], 50.0),
+        ),
         0.0,
-        1.0 - np.abs(events["flood_ha"] - events["ref_flood_ha"]) / np.maximum(events["ref_flood_ha"], 50.0),
     )
-    events["q_water_peak"] = np.maximum(
+    events["q_water_peak"] = np.where(
+        events["present"],
+        np.maximum(
+            0.0,
+            1.0
+            - np.abs(events["water_peak_ha"] - events["ref_water_peak_ha"])
+            / np.maximum(events["ref_water_peak_ha"], 200.0),
+        ),
         0.0,
-        1.0
-        - np.abs(events["water_peak_ha"] - events["ref_water_peak_ha"])
-        / np.maximum(events["ref_water_peak_ha"], 200.0),
     )
-    events["q_water_pre"] = np.maximum(
+    events["q_water_pre"] = np.where(
+        events["present"],
+        np.maximum(
+            0.0,
+            1.0
+            - np.abs(events["water_pre_ha"] - events["ref_water_pre_ha"])
+            / np.maximum(events["ref_water_pre_ha"], 200.0),
+        ),
         0.0,
-        1.0
-        - np.abs(events["water_pre_ha"] - events["ref_water_pre_ha"]) / np.maximum(events["ref_water_pre_ha"], 200.0),
     )
 
     q_flood = float(events["q_flood"].mean()) if len(events) > 0 else 0.0
     q_water_peak = float(events["q_water_peak"].mean()) if len(events) > 0 else 0.0
     q_water_pre = float(events["q_water_pre"].mean()) if len(events) > 0 else 0.0
 
-    # 2. Baseline pairs specificity (false alarm penalty)
+    # 2. Baseline pairs specificity (false alarm penalty). A reference baseline
+    # pair absent from the submission is a *missed* specificity contribution and
+    # scores 0 (not 1.0): otherwise deleting a baseline false alarm would delete
+    # its penalty and inflate the score.
     if len(baselines) > 0:
         excess = np.maximum(0.0, baselines["flood_ha"] - baselines["ref_flood_ha"])
         excess_share = excess / baselines["aoi_ha"]
-        baselines["spec"] = 1.0 - np.minimum(1.0, excess_share / 0.005)
+        baselines["spec"] = np.where(
+            baselines["present"],
+            1.0 - np.minimum(1.0, excess_share / 0.005),
+            0.0,
+        )
         spec_base = float(baselines["spec"].mean())
     else:
         spec_base = 1.0
