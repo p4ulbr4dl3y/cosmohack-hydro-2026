@@ -60,6 +60,12 @@ vi.mock('../api/client', () => ({
       date_peak_sar: '2019-07-25',
     }),
     recompute: vi.fn().mockResolvedValue({ status: 'success' }),
+    fetchAudit: vi.fn().mockResolvedValue(null),
+    fetchUncertainty: vi.fn().mockResolvedValue(null),
+    fetchSarAnalytics: vi.fn().mockResolvedValue(null),
+    fetchOfficialMetrics: vi.fn().mockResolvedValue(null),
+    validateSubmission: vi.fn().mockResolvedValue(null),
+    fetchCarbonImpact: vi.fn().mockResolvedValue(null),
   },
 }));
 

@@ -14,7 +14,7 @@ describe('Legend component', () => {
   it('renders open legend with all water categories by default', () => {
     render(<Legend aoiKm2={1500} />);
 
-    expect(screen.getByText('Легенда')).toBeDefined();
+    expect(screen.getByText('Легенда карты')).toBeDefined();
     expect(screen.getByText('Новое затопление (flood)')).toBeDefined();
     expect(screen.getByText('Вода на пик')).toBeDefined();
     expect(screen.getByText('Вода на до')).toBeDefined();
