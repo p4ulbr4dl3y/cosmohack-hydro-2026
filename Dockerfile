@@ -1,8 +1,4 @@
-# Multi-stage production Dockerfile using Python 3.13-slim and uv
-FROM python:3.13-slim
-
-# Install uv from official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 
 # Working directory
 WORKDIR /app
