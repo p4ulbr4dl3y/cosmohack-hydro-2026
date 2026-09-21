@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import glob
 import json
 import logging
 import sys
@@ -13,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.data_fetch import DATA_URL, missing_s1_pairs, safe_extract
 from src.evaluate import main as evaluate_main
 from src.predict import main as predict_main
 from src.predict import process_pair
@@ -26,12 +26,12 @@ DATA_DOWNLOAD_HINT = """\
 Sentinel-1 scenes are required to run prediction, but they are NOT in this
 git repository (see .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
 
-Download and unpack the case dataset from Google Drive:
+Fetch the full case dataset first:
 
-    uv run gdown "https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing"
-    unzip <archive>.zip
+    uv run python -m src.cli fetch
 
-The link is also documented in docs/Ссылка на данные.txt.
+(Downloads the archive from Google Drive and unpacks it; requires no external
+``unzip`` binary. The link is also documented in docs/Ссылка на данные.txt.)
 After unpacking, hydrowatch_amur/rasters/ must contain the S1_pre_*.tif /
 S1_peak_*.tif scenes referenced by hydrowatch_amur/pairs.csv.
 """
@@ -154,21 +154,43 @@ def run_benchmark(
 
 def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
     """Return True when all S1 pre/peak scenes referenced by pairs.csv exist."""
-    try:
-        pairs_df = pd.read_csv(pairs_csv_path)
-    except FileNotFoundError:
-        return False
-    missing: list[str] = []
-    for row in pairs_df.itertuples(index=False):
-        rasters_dir = data_dir / str(row.rasters_dir)
-        if not glob.glob(str(rasters_dir / "S1_pre_*.tif")) or not glob.glob(
-            str(rasters_dir / "S1_peak_*.tif")
-        ):
-            missing.append(str(row.pair_id))
+    missing = missing_s1_pairs(pairs_csv_path, data_dir)
     if missing:
-        logger.warning(f"S1 scenes missing for {len(missing)}/{len(pairs_df)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else ""))
+        logger.warning(f"S1 scenes missing for {len(missing)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else ""))
         return False
     return True
+
+
+def run_fetch(
+    pairs_csv_path: Path,
+    data_dir: Path,
+    archive_output: Path | None = None,
+    keep_archive: bool = True,
+) -> None:
+    """Download the case dataset from Google Drive and unpack it."""
+    import gdown
+
+    archive_path = archive_output or data_dir.parent / "hydrowatch_amur_dataset.zip"
+    if archive_path.exists():
+        print(f"Archive already present: {archive_path} (skip download)", file=sys.stderr)
+    else:
+        print(f"Downloading dataset ({DATA_URL}) ...", file=sys.stderr)
+        gdown.download(DATA_URL, str(archive_path), quiet=False)
+
+    print(f"Unpacking to {data_dir} ...", file=sys.stderr)
+    count = safe_extract(archive_path, data_dir)
+    print(f"Extracted {count} entries into {data_dir}", file=sys.stderr)
+
+    missing = missing_s1_pairs(pairs_csv_path, data_dir)
+    if missing:
+        print(
+            f"Warning: S1 scenes still missing for {len(missing)} pairs: {', '.join(missing)}",
+            file=sys.stderr,
+        )
+
+    if not keep_archive:
+        archive_path.unlink(missing_ok=True)
+        print(f"Removed archive {archive_path}", file=sys.stderr)
 
 
 def main() -> None:
@@ -202,6 +224,24 @@ def main() -> None:
     report_parser = subparsers.add_parser("report", help="Generate hydrological report for a pair or all pairs")
     report_parser.add_argument("--pair-id", type=str, default=None, help="Target pair identifier")
     report_parser.add_argument("--output", type=Path, default=None, help="Output file path (.json or .csv)")
+
+    # fetch sub-command
+    fetch_parser = subparsers.add_parser(
+        "fetch", help="Download the case dataset from Google Drive and unpack it"
+    )
+    fetch_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
+    fetch_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
+    fetch_parser.add_argument(
+        "--archive-output",
+        type=Path,
+        default=None,
+        help="Local path for the downloaded zip (default: ./hydrowatch_amur_dataset.zip)",
+    )
+    fetch_parser.add_argument(
+        "--no-keep-archive",
+        action="store_true",
+        help="Delete the downloaded archive after extraction",
+    )
 
     # benchmark sub-command
     bench_parser = subparsers.add_parser("benchmark", help="Benchmark pipeline latency and throughput")
@@ -243,6 +283,13 @@ def main() -> None:
         evaluate_main()
     elif args.command == "report":
         run_report(pair_id=args.pair_id, output=args.output)
+    elif args.command == "fetch":
+        run_fetch(
+            pairs_csv_path=args.pairs,
+            data_dir=args.data_dir,
+            archive_output=args.archive_output,
+            keep_archive=not args.no_keep_archive,
+        )
     elif args.command == "benchmark":
         run_benchmark(
             pairs_csv_path=args.pairs,

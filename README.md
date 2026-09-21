@@ -418,19 +418,22 @@ curl -X POST "http://localhost:8000/api/v1/predict" \
 https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing
 ```
 
-Скачивание и распаковка (нужен пакет `gdown`, есть в `pyproject.toml`):
+Скачивание и распаковка (одна команда, `gdown` + stdlib `zipfile`, системный `unzip` не нужен):
 
 ```bash
-# 1. Скачивание архива данных (полный набор кейса включая rasters/)
-uv run gdown "https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing"
-
-# 2. Распаковка архива в корень репозитория
-unzip <имя_архива>.zip
+uv run python -m src.cli fetch
 ```
+
+Что делает команда:
+1. Скачивает архив полного набора кейса (включая `rasters/` с S1) через `gdown` в `./hydrowatch_amur_dataset.zip`;
+2. Распаковывает его в корень репозитория (безопасно, `../../`-пути в архиве блокируются);
+3. Предупреждает, если какие-то пары всё ещё без S1.
+
+Полезные флаги: `--archive-output <путь>` — куда сохранять архив (по умолчанию `./hydrowatch_amur_dataset.zip`); `--no-keep-archive` — удалить архив после распаковки (экономит ~3 ГБ). Повторный запуск при уже скачанном архиве пропускает загрузку.
 
 После распаковки структура `hydrowatch_amur/rasters/` должна соответствовать путям в `hydrowatch_amur/pairs.csv`.
 
-> ⚠️ **Без S1 полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары `S1_pre_*.tif`/`S1_peak_*.tif` из `hydrowatch_amur/rasters/`; при их отсутствии CLI завершится с понятным сообщением и командой для скачивания данных (не голым `FileNotFoundError`). Всё остальное (эталоны, AUX, S2-индексы) уже в репозитории. В `src/service/cache/` — готовые отчёты и GeoJSON для всех 11 пар, в `predictions/` — финальные маски сабмита.
+> ⚠️ **Без S1 полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары `S1_pre_*.tif`/`S1_peak_*.tif` из `hydrowatch_amur/rasters/`; при их отсутствии CLI завершится с понятным сообщением «запустите `fetch`» (не голым `FileNotFoundError`). Всё остальное (эталоны, AUX, S2-индексы) уже в репозитории. В `src/service/cache/` — готовые отчёты и GeoJSON для всех 11 пар, в `predictions/` — финальные маски сабмита.
 
 ---
 

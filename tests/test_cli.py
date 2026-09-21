@@ -65,5 +65,5 @@ def test_predict_without_s1_prints_hint(tmp_path, capsys):
     assert exc.value.code == 1
     out = capsys.readouterr().err
     assert "Sentinel-1 scenes are required" in out
-    assert "gdown" in out
+    assert "src.cli fetch" in out
     assert "docs/Ссылка на данные.txt" in out
