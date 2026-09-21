@@ -4,9 +4,11 @@ rasters/
 vectors/
 reference_masks/
 predictions/
+hydrowatch_amur/rasters/
+hydrowatch_amur/reference_masks/
+*.zip
 *.tif
 *.tiff
-*.zip
 *.tar
 *.tar.gz
 *.nc

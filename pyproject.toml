@@ -1,0 +1,17 @@
+[project]
+name = "cosmohack-hydro-2026"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "gdown>=6.4.0",
+    "geopandas>=1.1.4",
+    "numpy>=2.5.3",
+    "pandas>=3.0.6",
+    "planetary-computer>=1.0.0",
+    "pystac-client>=0.9.0",
+    "rasterio>=1.5.1",
+    "scipy>=1.18.1",
+    "shapely>=2.1.2",
+]
