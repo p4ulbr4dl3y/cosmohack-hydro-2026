@@ -406,4 +406,3 @@ def compute_coverage_stats(
         return 0.0, covered_area_ha, 100.0
     pct = (covered_area_ha / requested_area_ha) * 100.0
     return requested_area_ha, covered_area_ha, float(np.clip(pct, 0.0, 100.0))
-

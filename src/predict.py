@@ -406,10 +406,7 @@ def run_prediction(
     records: list[dict[str, Any]] = []
     if effective_workers > 1:
         logger.info(f"Running parallel inference across {effective_workers} worker processes")
-        tasks = [
-            (idx, total_pairs, row, data_dir, predictions_dir, ablation_mode)
-            for idx, row in pairs_df.iterrows()
-        ]
+        tasks = [(idx, total_pairs, row, data_dir, predictions_dir, ablation_mode) for idx, row in pairs_df.iterrows()]
         with ProcessPoolExecutor(max_workers=effective_workers) as executor:
             records = list(executor.map(_process_pair_worker, tasks))
     else:

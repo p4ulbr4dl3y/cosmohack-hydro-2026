@@ -308,7 +308,11 @@ def run_benchmark(
             _k32 = ctypes.WinDLL("kernel32")
             _k32.GetCurrentProcess.restype = wintypes.HANDLE
             _psapi = ctypes.WinDLL("psapi")
-            _psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+            _psapi.GetProcessMemoryInfo.argtypes = [
+                wintypes.HANDLE,
+                ctypes.POINTER(_PROCESS_MEMORY_COUNTERS),
+                wintypes.DWORD,
+            ]
             _psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
             if _psapi.GetProcessMemoryInfo(_k32.GetCurrentProcess(), ctypes.byref(_pmc), _pmc.cb):
                 peak_mb = _pmc.PeakWorkingSetSize / (1024.0 * 1024.0)

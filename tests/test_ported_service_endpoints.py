@@ -144,4 +144,3 @@ def test_api_carbon_metrics_endpoint():
 def test_api_carbon_metrics_404():
     res = client.get("/api/v1/carbon-metrics/non_existent_pair_123")
     assert res.status_code == 404
-

@@ -251,12 +251,7 @@ def compute_live_official_score(
         spec_base_mean = 1.0
 
     # Composite Score
-    total_score = (
-        0.45 * q_flood_mean
-        + 0.25 * q_peak_mean
-        + 0.15 * q_pre_mean
-        + 0.15 * spec_base_mean
-    )
+    total_score = 0.45 * q_flood_mean + 0.25 * q_peak_mean + 0.15 * q_pre_mean + 0.15 * spec_base_mean
 
     # Technical Criteria points: 0 to 7 based on score
     # Score 0.403 -> ~4.5 points; Score 1.0 -> 7.0 points

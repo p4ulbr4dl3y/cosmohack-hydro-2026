@@ -20,9 +20,9 @@ builtup_max_fraction: 0.5
 # SAR change detection and backscatter thresholds
 sar_flood_drop_db: 4.5
 vh_threshold_db: -16.5
-sar_drop_vv_max_db: -14.0
+sar_drop_vv_max_db: -16.5
 sar_drop_vh_min_db: 1.5
-sar_drop_vh_max_db: -17.0
+sar_drop_vh_max_db: -20.0
 sar_use_dual_pol: true
 sar_dual_pol_vv_weight: 0.7
 sar_dual_pol_vh_weight: 0.3

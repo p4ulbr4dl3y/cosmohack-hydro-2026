@@ -75,12 +75,7 @@ def test_official_score_live_computation():
     assert len(res.details) == 11
 
     # Check official formula components
-    expected_score = (
-        0.45 * res.q_flood
-        + 0.25 * res.q_water_peak
-        + 0.15 * res.q_water_pre
-        + 0.15 * res.spec_base
-    )
+    expected_score = 0.45 * res.q_flood + 0.25 * res.q_water_peak + 0.15 * res.q_water_pre + 0.15 * res.spec_base
     assert math.isclose(res.score, expected_score, abs_tol=1e-3)
 
 
@@ -100,9 +95,7 @@ def test_submission_validation(tmp_path):
     # Test corrupted submission (missing pair, flood > peak)
     bad_csv = tmp_path / "bad_submission.csv"
     bad_df = pd.DataFrame(
-        [
-            {"pair_id": "flood_2019_07_amur__belogorsk", "flood_ha": 999.0, "water_pre_ha": 10.0, "water_peak_ha": 50.0}
-        ]
+        [{"pair_id": "flood_2019_07_amur__belogorsk", "flood_ha": 999.0, "water_pre_ha": 10.0, "water_peak_ha": 50.0}]
     )
     bad_df.to_csv(bad_csv, index=False)
 

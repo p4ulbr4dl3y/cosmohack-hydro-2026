@@ -23,10 +23,13 @@ from src.remote_sensing import (
 
 def test_scl_classes_and_masking():
     # Construct SCL array with vegetation (4), water (6), clouds (9), shadows (3)
-    scl = np.array([
-        [SCLClass.VEGETATION, SCLClass.WATER],
-        [SCLClass.CLOUD_HIGH_PROBABILITY, SCLClass.CLOUD_SHADOWS],
-    ], dtype=np.uint8)
+    scl = np.array(
+        [
+            [SCLClass.VEGETATION, SCLClass.WATER],
+            [SCLClass.CLOUD_HIGH_PROBABILITY, SCLClass.CLOUD_SHADOWS],
+        ],
+        dtype=np.uint8,
+    )
 
     valid_mask = create_scl_valid_mask(scl)
     assert valid_mask.shape == (2, 2)

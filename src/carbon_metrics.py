@@ -38,11 +38,11 @@ DEFAULT_PRICES_RUB: tuple[int, int, int] = (500, 1500, 4000)
 
 # Typical biomass density by landcover for Amur basin (t dry matter / ha)
 BIOMASS_DENSITY_MAP: dict[str, float] = {
-    "cropland": 7.5,      # Agricultural cropland
-    "forest": 45.0,       # Mixed temperate forest
-    "wetland": 12.0,      # Shrubland and wetland
-    "open_soil": 2.0,     # Fallow / bare soil
-    "settlement": 1.0,    # Urban / built-up
+    "cropland": 7.5,  # Agricultural cropland
+    "forest": 45.0,  # Mixed temperate forest
+    "wetland": 12.0,  # Shrubland and wetland
+    "open_soil": 2.0,  # Fallow / bare soil
+    "settlement": 1.0,  # Urban / built-up
 }
 
 

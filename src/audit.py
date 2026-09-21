@@ -111,10 +111,12 @@ def generate_merkle_proof(leaf_index: int, levels: list[list[str]]) -> list[dict
         if sibling_idx >= len(level):
             sibling_idx = idx
 
-        proof.append({
-            "position": "left" if is_right_child else "right",
-            "hash": level[sibling_idx],
-        })
+        proof.append(
+            {
+                "position": "left" if is_right_child else "right",
+                "hash": level[sibling_idx],
+            }
+        )
         idx //= 2
 
     return proof

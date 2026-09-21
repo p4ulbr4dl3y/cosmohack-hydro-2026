@@ -13,12 +13,15 @@ from src.super_resolution import (
 
 def test_super_resolve_raster_mass_conservation():
     # Coarse raster 4x4 with varying positive values
-    coarse = np.array([
-        [10.0, 20.0, 0.0, 50.0],
-        [30.0, 40.0, 60.0, 10.0],
-        [5.0, 15.0, 25.0, 35.0],
-        [0.0, 10.0, 20.0, 30.0],
-    ], dtype=np.float64)
+    coarse = np.array(
+        [
+            [10.0, 20.0, 0.0, 50.0],
+            [30.0, 40.0, 60.0, 10.0],
+            [5.0, 15.0, 25.0, 35.0],
+            [0.0, 10.0, 20.0, 30.0],
+        ],
+        dtype=np.float64,
+    )
 
     # High-resolution guide (factor 3 downscaling -> 12x12 grid)
     guide = np.random.default_rng(42).uniform(0.1, 1.0, size=(12, 12))

@@ -573,7 +573,6 @@ async def export_vectors(
     if geojson is None:
         raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
 
-
     return Response(
         content=json.dumps(geojson, indent=2),
         media_type="application/geo+json",

@@ -380,7 +380,9 @@ class OfficialMetricsResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    score: float = Field(description="Official Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base")
+    score: float = Field(
+        description="Official Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base"
+    )
     q_flood: float = Field(description="Mean flood area convergence score Q_flood")
     q_water_peak: float = Field(description="Mean peak water area convergence score Q_water_peak")
     q_water_pre: float = Field(description="Mean pre-flood water area convergence score Q_water_pre")
