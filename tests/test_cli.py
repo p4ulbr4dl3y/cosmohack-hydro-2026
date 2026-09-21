@@ -41,6 +41,7 @@ def test_cli_subcommands_parser():
     # Verify main doesn't crash on invalid args when called with --help
     with pytest.raises(SystemExit) as exc:
         import sys
+
         sys.argv = ["hydrowatch-cli", "--help"]
         main()
     assert exc.value.code == 0

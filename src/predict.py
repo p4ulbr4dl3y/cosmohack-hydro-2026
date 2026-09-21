@@ -149,7 +149,6 @@ def process_pair(
         use_permanent=use_permanent,
     )
 
-
     # 6. Compute temporal dynamics
     temporal = compute_temporal_dynamics(
         water_pre=water_pre,
@@ -188,9 +187,7 @@ def process_pair(
     denom = max(raster_flood_ha, 1.0)
     diff_pct = (diff / denom) * 100.0
     if diff_pct >= 2.0:
-        logger.warning(
-            f"[{pair_id}] Area mismatch: CSV={flood_ha} ha, Raster={raster_flood_ha} ha ({diff_pct:.2f}%)"
-        )
+        logger.warning(f"[{pair_id}] Area mismatch: CSV={flood_ha} ha, Raster={raster_flood_ha} ha ({diff_pct:.2f}%)")
     assert diff_pct < 2.0, f"Area verification failed for {pair_id}: {diff_pct:.2f}% >= 2.0%"
 
     logger.info(
@@ -218,7 +215,7 @@ def run_prediction(
 
     records: list[dict[str, Any]] = []
     for idx, row in pairs_df.iterrows():
-        logger.info(f"Processing [{idx+1}/{len(pairs_df)}]: {row['pair_id']}")
+        logger.info(f"Processing [{idx + 1}/{len(pairs_df)}]: {row['pair_id']}")
         rec = process_pair(
             row=row,
             data_dir=data_dir,

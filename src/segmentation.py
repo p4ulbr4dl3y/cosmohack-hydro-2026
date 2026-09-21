@@ -91,11 +91,11 @@ def refined_lee_filter(
 
     # Compute local mean and variance over size x size window
     mean_linear = uniform_filter(linear, size=size)
-    mean_sq_linear = uniform_filter(linear ** 2, size=size)
-    var_linear = np.maximum(mean_sq_linear - mean_linear ** 2, 0.0)
+    mean_sq_linear = uniform_filter(linear**2, size=size)
+    var_linear = np.maximum(mean_sq_linear - mean_linear**2, 0.0)
 
     # Lee weighting factor
-    theoretical_var = (mean_linear ** 2) / n_looks
+    theoretical_var = (mean_linear**2) / n_looks
     var_clean = np.maximum(var_linear, 1e-10)
     w = np.clip((var_linear - theoretical_var) / var_clean, 0.0, 1.0)
 
@@ -274,20 +274,19 @@ def segment_optical(
         aweish = src.read(8)
 
     valid_mask = (
-        np.isfinite(mndwi) & (mndwi != -999.0) &
-        np.isfinite(ndvi) & (ndvi != -999.0) &
-        np.isfinite(aweish) & (aweish != -999.0)
+        np.isfinite(mndwi)
+        & (mndwi != -999.0)
+        & np.isfinite(ndvi)
+        & (ndvi != -999.0)
+        & np.isfinite(aweish)
+        & (aweish != -999.0)
     )
 
     if not np.any(valid_mask):
         return None, np.zeros((height, width), dtype=bool)
 
     # Turbid water fix: MNDWI > 0.1 or AWEIsh > 0, NDVI <= 0.3
-    optical_water = (
-        ((mndwi > mndwi_min) | (aweish > aweish_min)) &
-        (ndvi <= ndvi_max) &
-        valid_mask
-    )
+    optical_water = ((mndwi > mndwi_min) | (aweish > aweish_min)) & (ndvi <= ndvi_max) & valid_mask
 
     return optical_water, valid_mask
 
@@ -382,12 +381,12 @@ def segment_water(
             delta_vh = vh_filt - vh_ref_filt
             builtup_clean = builtup < 0.5 if builtup is not None else True
             db_cond = (
-                (delta_vh >= db_delta) &
-                (hand <= db_hand_max) &
-                (slope <= 3.0) &
-                builtup_clean &
-                sar_valid &
-                (vv_ref_filt < -14.0)
+                (delta_vh >= db_delta)
+                & (hand <= db_hand_max)
+                & (slope <= 3.0)
+                & builtup_clean
+                & sar_valid
+                & (vv_ref_filt < -14.0)
             )
             sar_water = (sar_water | db_cond) & sar_valid
 

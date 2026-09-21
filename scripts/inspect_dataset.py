@@ -16,7 +16,9 @@ def inspect():
         ref_tif = os.path.join(base_dir, row.reference_mask)
         if os.path.exists(ref_tif):
             with rasterio.open(ref_tif) as src:
-                print(f"{row.pair_id}: shape={src.shape}, count={src.count}, crs={src.crs}, bounds={src.bounds}, res={src.res}")
+                print(
+                    f"{row.pair_id}: shape={src.shape}, count={src.count}, crs={src.crs}, bounds={src.bounds}, res={src.res}"
+                )
         else:
             print(f"Missing: {ref_tif}")
 
@@ -30,6 +32,7 @@ def inspect():
                 descriptions = [src.descriptions[i] for i in range(src.count)]
                 print(f"  bands descriptions: {descriptions}")
                 break
+
 
 if __name__ == "__main__":
     inspect()

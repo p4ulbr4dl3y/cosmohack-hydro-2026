@@ -71,47 +71,51 @@ async def get_report_csv(pair_id: str) -> Response:
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "pair_id",
-        "aoi_id",
-        "aoi_name",
-        "event_id",
-        "event_name",
-        "date_pre_sar",
-        "date_peak_sar",
-        "flood_ha",
-        "flood_km2",
-        "water_pre_ha",
-        "water_peak_ha",
-        "water_gain_ha",
-        "water_gain_pct",
-        "share_of_aoi",
-        "builtup_flood_ha",
-        "builtup_flood_pct",
-        "natural_flood_ha",
-        "natural_flood_pct",
-    ])
+    writer.writerow(
+        [
+            "pair_id",
+            "aoi_id",
+            "aoi_name",
+            "event_id",
+            "event_name",
+            "date_pre_sar",
+            "date_peak_sar",
+            "flood_ha",
+            "flood_km2",
+            "water_pre_ha",
+            "water_peak_ha",
+            "water_gain_ha",
+            "water_gain_pct",
+            "share_of_aoi",
+            "builtup_flood_ha",
+            "builtup_flood_pct",
+            "natural_flood_ha",
+            "natural_flood_pct",
+        ]
+    )
     lc = report.get("landcover", {})
-    writer.writerow([
-        report["pair_id"],
-        report["aoi_id"],
-        report["aoi_name"],
-        report["event_id"],
-        report["event_name"],
-        report["date_pre_sar"],
-        report["date_peak_sar"],
-        report["flood_ha"],
-        report["flood_km2"],
-        report["water_pre_ha"],
-        report["water_peak_ha"],
-        report["water_gain_ha"],
-        report["water_gain_pct"],
-        report["share_of_aoi"],
-        lc.get("builtup_ha", 0.0),
-        lc.get("builtup_pct", 0.0),
-        lc.get("natural_vegetation_ha", 0.0),
-        lc.get("natural_vegetation_pct", 0.0),
-    ])
+    writer.writerow(
+        [
+            report["pair_id"],
+            report["aoi_id"],
+            report["aoi_name"],
+            report["event_id"],
+            report["event_name"],
+            report["date_pre_sar"],
+            report["date_peak_sar"],
+            report["flood_ha"],
+            report["flood_km2"],
+            report["water_pre_ha"],
+            report["water_peak_ha"],
+            report["water_gain_ha"],
+            report["water_gain_pct"],
+            report["share_of_aoi"],
+            lc.get("builtup_ha", 0.0),
+            lc.get("builtup_pct", 0.0),
+            lc.get("natural_vegetation_ha", 0.0),
+            lc.get("natural_vegetation_pct", 0.0),
+        ]
+    )
 
     return Response(
         content=output.getvalue(),

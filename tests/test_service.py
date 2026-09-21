@@ -23,9 +23,17 @@ def test_pairs_endpoint():
     # Check fields of first pair
     first = pairs[0]
     required_keys = [
-        "pair_id", "aoi_id", "aoi_name", "event_id", "event_name",
-        "date_pre_sar", "date_peak_sar", "aoi_km2", "aoi_ha",
-        "bounds_4326", "center_4326"
+        "pair_id",
+        "aoi_id",
+        "aoi_name",
+        "event_id",
+        "event_name",
+        "date_pre_sar",
+        "date_peak_sar",
+        "aoi_km2",
+        "aoi_ha",
+        "bounds_4326",
+        "center_4326",
     ]
     for key in required_keys:
         assert key in first, f"Missing key '{key}' in pair metadata"

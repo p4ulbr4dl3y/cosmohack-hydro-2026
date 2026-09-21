@@ -49,15 +49,17 @@ def load_reference_stats(pairs_df: pd.DataFrame, data_dir: Path) -> pd.DataFrame
             meta = json.load(fp)
 
         stats = meta["stats"]
-        rows.append({
-            "pair_id": pair_id,
-            "event_kind": str(row["event_kind"]),
-            "aoi_ha": float(stats["aoi_ha"]),
-            "ref_flood_ha": float(stats["flood_ha"]),
-            "ref_water_pre_ha": float(stats["water_pre_ha"]),
-            "ref_water_peak_ha": float(stats["water_peak_ha"]),
-            "ref_permanent_ha": float(stats.get("permanent_ha", 0.0)),
-        })
+        rows.append(
+            {
+                "pair_id": pair_id,
+                "event_kind": str(row["event_kind"]),
+                "aoi_ha": float(stats["aoi_ha"]),
+                "ref_flood_ha": float(stats["flood_ha"]),
+                "ref_water_pre_ha": float(stats["water_pre_ha"]),
+                "ref_water_peak_ha": float(stats["water_peak_ha"]),
+                "ref_permanent_ha": float(stats.get("permanent_ha", 0.0)),
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -85,18 +87,18 @@ def compute_official_score(
     # 1. Event pairs convergence
     events["q_flood"] = np.maximum(
         0.0,
-        1.0 - np.abs(events["flood_ha"] - events["ref_flood_ha"]) /
-        np.maximum(events["ref_flood_ha"], 50.0),
+        1.0 - np.abs(events["flood_ha"] - events["ref_flood_ha"]) / np.maximum(events["ref_flood_ha"], 50.0),
     )
     events["q_water_peak"] = np.maximum(
         0.0,
-        1.0 - np.abs(events["water_peak_ha"] - events["ref_water_peak_ha"]) /
-        np.maximum(events["ref_water_peak_ha"], 200.0),
+        1.0
+        - np.abs(events["water_peak_ha"] - events["ref_water_peak_ha"])
+        / np.maximum(events["ref_water_peak_ha"], 200.0),
     )
     events["q_water_pre"] = np.maximum(
         0.0,
-        1.0 - np.abs(events["water_pre_ha"] - events["ref_water_pre_ha"]) /
-        np.maximum(events["ref_water_pre_ha"], 200.0),
+        1.0
+        - np.abs(events["water_pre_ha"] - events["ref_water_pre_ha"]) / np.maximum(events["ref_water_pre_ha"], 200.0),
     )
 
     q_flood = float(events["q_flood"].mean()) if len(events) > 0 else 0.0
@@ -113,25 +115,22 @@ def compute_official_score(
         spec_base = 1.0
 
     # 3. Overall official composite score
-    total_score = (
-        0.45 * q_flood +
-        0.25 * q_water_peak +
-        0.15 * q_water_pre +
-        0.15 * spec_base
-    )
+    total_score = 0.45 * q_flood + 0.25 * q_water_peak + 0.15 * q_water_pre + 0.15 * spec_base
 
     per_pair_details = []
     for _, r in merged.iterrows():
-        per_pair_details.append({
-            "pair_id": r["pair_id"],
-            "event_kind": r["event_kind"],
-            "flood_sub_ha": float(r["flood_ha"]),
-            "flood_ref_ha": float(r["ref_flood_ha"]),
-            "water_peak_sub_ha": float(r["water_peak_ha"]),
-            "water_peak_ref_ha": float(r["ref_water_peak_ha"]),
-            "water_pre_sub_ha": float(r["water_pre_ha"]),
-            "water_pre_ref_ha": float(r["ref_water_pre_ha"]),
-        })
+        per_pair_details.append(
+            {
+                "pair_id": r["pair_id"],
+                "event_kind": r["event_kind"],
+                "flood_sub_ha": float(r["flood_ha"]),
+                "flood_ref_ha": float(r["ref_flood_ha"]),
+                "water_peak_sub_ha": float(r["water_peak_ha"]),
+                "water_peak_ref_ha": float(r["ref_water_peak_ha"]),
+                "water_pre_sub_ha": float(r["water_pre_ha"]),
+                "water_pre_ref_ha": float(r["ref_water_pre_ha"]),
+            }
+        )
 
     return {
         "score": round(float(total_score), 4),
@@ -208,7 +207,7 @@ def run_ablation_study(
 
     for mode in [1, 2, 3, 4]:
         name = ablation_descriptions[mode]
-        logger.info(f"\n{'='*60}\nRunning {name}\n{'='*60}")
+        logger.info(f"\n{'=' * 60}\nRunning {name}\n{'=' * 60}")
         pred_dir = tmp_pred_base / f"mode_{mode}"
         sub_csv = tmp_pred_base / f"sub_mode_{mode}.csv"
 

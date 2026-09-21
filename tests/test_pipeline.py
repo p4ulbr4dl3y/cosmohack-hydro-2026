@@ -34,6 +34,7 @@ def test_temporal_dynamics_logic():
     assert receded[2, 2] == 0
     assert receded[4, 4] == 0
 
+
 def test_mmu_filter():
     # Single isolated pixel < min_size=25 should be zeroed
     mask = np.zeros((20, 20), dtype=np.uint8)
@@ -46,9 +47,11 @@ def test_mmu_filter():
     assert cleaned[2, 2] == 0
     assert np.sum(cleaned[5:10, 5:10]) == 25
 
+
 def test_submission_exists_and_valid():
     assert os.path.exists("submission.csv")
     import pandas as pd
+
     df = pd.read_csv("submission.csv")
     assert len(df) == 11
     assert list(df.columns) == ["pair_id", "flood_ha", "water_pre_ha", "water_peak_ha"]

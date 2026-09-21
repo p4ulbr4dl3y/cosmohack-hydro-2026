@@ -191,7 +191,7 @@ class DataLoader:
                     resampling=Resampling.bilinear,
                 )
 
-            flood_pts = (flood_mask == 1)
+            flood_pts = flood_mask == 1
             tot_pix = int(flood_pts.sum())
             if tot_pix > 0:
                 b_built = int((builtup[flood_pts] == 1).sum())

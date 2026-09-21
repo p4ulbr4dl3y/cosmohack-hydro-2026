@@ -17,6 +17,7 @@ def get_stac_catalog():
         modifier=pc.sign_inplace,
     )
 
+
 def download_s1_raster(catalog, items, target_bounds, target_shape, target_transform, out_path):
     """
     Downloads and mosaics VV and VH from items, converts to dB, computes VV/VH ratio,
@@ -67,25 +68,26 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with rasterio.open(
         out_path,
-        'w',
-        driver='GTiff',
+        "w",
+        driver="GTiff",
         height=height,
         width=width,
         count=3,
         dtype=np.float32,
-        crs='EPSG:32652',
+        crs="EPSG:32652",
         transform=target_transform,
         nodata=-999.0,
-        compress='deflate',
+        compress="deflate",
     ) as dst:
         dst.write(vv_db.astype(np.float32), 1)
         dst.write(vh_db.astype(np.float32), 2)
         dst.write(ratio_db, 3)
-        dst.set_band_description(1, 'VV')
-        dst.set_band_description(2, 'VH')
-        dst.set_band_description(3, 'VV_VH_ratio')
+        dst.set_band_description(1, "VV")
+        dst.set_band_description(2, "VH")
+        dst.set_band_description(3, "VV_VH_ratio")
 
     print(f"  -> Saved {out_path} ({height}x{width}, 3 bands: VV, VH, ratio)")
+
 
 def download_s2_raster(catalog, items, target_bounds, target_shape, target_transform, out_path):
     """
@@ -95,14 +97,14 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     left, bottom, right, top = target_bounds
 
     bands_data = {
-        'B03': np.full((height, width), np.nan, dtype=np.float32),
-        'B04': np.full((height, width), np.nan, dtype=np.float32),
-        'B08': np.full((height, width), np.nan, dtype=np.float32),
-        'B11': np.full((height, width), np.nan, dtype=np.float32),
+        "B03": np.full((height, width), np.nan, dtype=np.float32),
+        "B04": np.full((height, width), np.nan, dtype=np.float32),
+        "B08": np.full((height, width), np.nan, dtype=np.float32),
+        "B11": np.full((height, width), np.nan, dtype=np.float32),
     }
 
     for item in items:
-        for b_name in ['B03', 'B04', 'B08', 'B11']:
+        for b_name in ["B03", "B04", "B08", "B11"]:
             asset_key = b_name.lower()
             if asset_key in item.assets:
                 href = item.assets[asset_key].href
@@ -115,17 +117,17 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
                         src_transform=src.transform,
                         src_crs=src.crs,
                         dst_transform=target_transform,
-                        dst_crs='EPSG:32652',
+                        dst_crs="EPSG:32652",
                         resampling=Resampling.bilinear,
                         dst_nodata=np.nan,
                     )
                     mask = (~np.isnan(data)) & (data > 0)
                     bands_data[b_name][mask] = data[mask] / 10000.0  # Surface reflectance [0, 1]
 
-    b3 = bands_data['B03']
-    b4 = bands_data['B04']
-    b8 = bands_data['B08']
-    b11 = bands_data['B11']
+    b3 = bands_data["B03"]
+    b4 = bands_data["B04"]
+    b8 = bands_data["B08"]
+    b11 = bands_data["B11"]
 
     # Compute indices
     denom_ndwi = np.maximum(b3 + b8, 1e-6)
@@ -139,22 +141,21 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
 
     # AWEIsh = B03 + 2.5*B02 - 1.5*(B08 + B11) - 0.25*B12 (approx with B03, B04, B08, B11)
     # Standard AWEIsh: 4*(Green - SWIR1) - (0.25*NIR + 2.75*SWIR2)
-    aweish = np.where(~np.isnan(b3) & ~np.isnan(b11) & ~np.isnan(b8),
-                      (b3 - b11) - 0.25 * b8, -999.0).astype(np.float32)
+    aweish = np.where(~np.isnan(b3) & ~np.isnan(b11) & ~np.isnan(b8), (b3 - b11) - 0.25 * b8, -999.0).astype(np.float32)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     with rasterio.open(
         out_path,
-        'w',
-        driver='GTiff',
+        "w",
+        driver="GTiff",
         height=height,
         width=width,
         count=8,
         dtype=np.float32,
-        crs='EPSG:32652',
+        crs="EPSG:32652",
         transform=target_transform,
         nodata=-999.0,
-        compress='deflate',
+        compress="deflate",
     ) as dst:
         dst.write(np.nan_to_num(b3, nan=-999.0).astype(np.float32), 1)
         dst.write(np.nan_to_num(b4, nan=-999.0).astype(np.float32), 2)
@@ -164,16 +165,17 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
         dst.write(mndwi, 6)
         dst.write(ndvi, 7)
         dst.write(aweish, 8)
-        dst.set_band_description(1, 'B3')
-        dst.set_band_description(2, 'B4')
-        dst.set_band_description(3, 'B8')
-        dst.set_band_description(4, 'B11')
-        dst.set_band_description(5, 'NDWI')
-        dst.set_band_description(6, 'MNDWI')
-        dst.set_band_description(7, 'NDVI')
-        dst.set_band_description(8, 'AWEIsh')
+        dst.set_band_description(1, "B3")
+        dst.set_band_description(2, "B4")
+        dst.set_band_description(3, "B8")
+        dst.set_band_description(4, "B11")
+        dst.set_band_description(5, "NDWI")
+        dst.set_band_description(6, "MNDWI")
+        dst.set_band_description(7, "NDVI")
+        dst.set_band_description(8, "AWEIsh")
 
     print(f"  -> Saved {out_path} (8 bands)")
+
 
 def process_all():
     catalog = get_stac_catalog()
@@ -193,18 +195,24 @@ def process_all():
 
         rasters_dir = os.path.join("hydrowatch_amur", row.rasters_dir)
         print("\n==========================================")
-        print(f"[{idx+1}/{len(pairs)}] Processing {row.pair_id}...")
+        print(f"[{idx + 1}/{len(pairs)}] Processing {row.pair_id}...")
 
         # 1. S1 Pre
         s1_pre_path = os.path.join(rasters_dir, f"S1_pre_{row.date_pre_sar}.tif")
         if not os.path.exists(s1_pre_path):
             d_pre = datetime.strptime(row.date_pre_sar, "%Y-%m-%d")
-            dt_str = f"{(d_pre - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_pre + timedelta(days=1)).strftime('%Y-%m-%d')}"
-            items = [item for item in catalog.search(
-                collections=["sentinel-1-rtc"],
-                bbox=bbox,
-                datetime=dt_str,
-            ).items() if item.properties.get("sat:relative_orbit") == int(row.relative_orbit)]
+            dt_str = (
+                f"{(d_pre - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_pre + timedelta(days=1)).strftime('%Y-%m-%d')}"
+            )
+            items = [
+                item
+                for item in catalog.search(
+                    collections=["sentinel-1-rtc"],
+                    bbox=bbox,
+                    datetime=dt_str,
+                ).items()
+                if item.properties.get("sat:relative_orbit") == int(row.relative_orbit)
+            ]
             print(f"Fetching S1 Pre ({row.date_pre_sar}, orbit {row.relative_orbit}): {len(items)} items")
             if items:
                 download_s1_raster(catalog, items, target_bounds, target_shape, target_transform, s1_pre_path)
@@ -216,11 +224,15 @@ def process_all():
         if not os.path.exists(s1_peak_path):
             d_peak = datetime.strptime(row.date_peak_sar, "%Y-%m-%d")
             dt_str = f"{(d_peak - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_peak + timedelta(days=1)).strftime('%Y-%m-%d')}"
-            items = [item for item in catalog.search(
-                collections=["sentinel-1-rtc"],
-                bbox=bbox,
-                datetime=dt_str,
-            ).items() if item.properties.get("sat:relative_orbit") == int(row.relative_orbit)]
+            items = [
+                item
+                for item in catalog.search(
+                    collections=["sentinel-1-rtc"],
+                    bbox=bbox,
+                    datetime=dt_str,
+                ).items()
+                if item.properties.get("sat:relative_orbit") == int(row.relative_orbit)
+            ]
             print(f"Fetching S1 Peak ({row.date_peak_sar}, orbit {row.relative_orbit}): {len(items)} items")
             if items:
                 download_s1_raster(catalog, items, target_bounds, target_shape, target_transform, s1_peak_path)
@@ -233,11 +245,13 @@ def process_all():
             if not os.path.exists(s2_pre_path):
                 d_opt_pre = datetime.strptime(row.date_pre_opt, "%Y-%m-%d")
                 dt_str = f"{(d_opt_pre - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_opt_pre + timedelta(days=1)).strftime('%Y-%m-%d')}"
-                items = list(catalog.search(
-                    collections=["sentinel-2-l2a"],
-                    bbox=bbox,
-                    datetime=dt_str,
-                ).items())
+                items = list(
+                    catalog.search(
+                        collections=["sentinel-2-l2a"],
+                        bbox=bbox,
+                        datetime=dt_str,
+                    ).items()
+                )
                 print(f"Fetching S2 Pre ({row.date_pre_opt}): {len(items)} items")
                 if items:
                     download_s2_raster(catalog, items, target_bounds, target_shape, target_transform, s2_pre_path)
@@ -249,11 +263,13 @@ def process_all():
             if not os.path.exists(s2_peak_path):
                 d_opt_peak = datetime.strptime(row.date_peak_opt, "%Y-%m-%d")
                 dt_str = f"{(d_opt_peak - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_opt_peak + timedelta(days=1)).strftime('%Y-%m-%d')}"
-                items = list(catalog.search(
-                    collections=["sentinel-2-l2a"],
-                    bbox=bbox,
-                    datetime=dt_str,
-                ).items())
+                items = list(
+                    catalog.search(
+                        collections=["sentinel-2-l2a"],
+                        bbox=bbox,
+                        datetime=dt_str,
+                    ).items()
+                )
                 print(f"Fetching S2 Peak ({row.date_peak_opt}): {len(items)} items")
                 if items:
                     download_s2_raster(catalog, items, target_bounds, target_shape, target_transform, s2_peak_path)
@@ -261,6 +277,7 @@ def process_all():
                 print(f"S2 Peak already exists: {s2_peak_path}")
 
     print("\nAll scenes processed successfully!")
+
 
 if __name__ == "__main__":
     process_all()

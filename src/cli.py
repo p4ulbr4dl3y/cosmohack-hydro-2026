@@ -42,21 +42,23 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
             rows = []
             for r in reports:
                 lc = r.get("landcover", {})
-                rows.append({
-                    "pair_id": r["pair_id"],
-                    "aoi_id": r["aoi_id"],
-                    "aoi_name": r["aoi_name"],
-                    "event_id": r["event_id"],
-                    "event_name": r["event_name"],
-                    "flood_ha": r["flood_ha"],
-                    "flood_km2": r["flood_km2"],
-                    "water_pre_ha": r["water_pre_ha"],
-                    "water_peak_ha": r["water_peak_ha"],
-                    "water_gain_ha": r["water_gain_ha"],
-                    "water_gain_pct": r["water_gain_pct"],
-                    "builtup_ha": lc.get("builtup_ha", 0.0),
-                    "natural_vegetation_ha": lc.get("natural_vegetation_ha", 0.0),
-                })
+                rows.append(
+                    {
+                        "pair_id": r["pair_id"],
+                        "aoi_id": r["aoi_id"],
+                        "aoi_name": r["aoi_name"],
+                        "event_id": r["event_id"],
+                        "event_name": r["event_name"],
+                        "flood_ha": r["flood_ha"],
+                        "flood_km2": r["flood_km2"],
+                        "water_pre_ha": r["water_pre_ha"],
+                        "water_peak_ha": r["water_peak_ha"],
+                        "water_gain_ha": r["water_gain_ha"],
+                        "water_gain_pct": r["water_gain_pct"],
+                        "builtup_ha": lc.get("builtup_ha", 0.0),
+                        "natural_vegetation_ha": lc.get("natural_vegetation_ha", 0.0),
+                    }
+                )
             pd.DataFrame(rows).to_csv(output, index=False)
             print(f"Report CSV saved to {output}")
         else:
@@ -73,7 +75,9 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
             print(f"  Water Gain: {r['water_gain_ha']:.2f} ha ({r['water_gain_pct']:.2f}%)")
             lc = r.get("landcover", {})
             print(f"  Builtup flood: {lc.get('builtup_ha', 0.0):.2f} ha ({lc.get('builtup_pct', 0.0):.1f}%)")
-            print(f"  Natural flood: {lc.get('natural_vegetation_ha', 0.0):.2f} ha ({lc.get('natural_vegetation_pct', 0.0):.1f}%)")
+            print(
+                f"  Natural flood: {lc.get('natural_vegetation_ha', 0.0):.2f} ha ({lc.get('natural_vegetation_pct', 0.0):.1f}%)"
+            )
             print(f"  Mean HAND: {lc.get('mean_hand_m', 0.0):.2f} m")
         print("=" * 60)
 
@@ -108,7 +112,7 @@ def run_benchmark(
             )
             elapsed = time.perf_counter() - t0
             times.append(elapsed)
-            print(f"  [{idx+1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f}s")
+            print(f"  [{idx + 1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f}s")
 
     # Clean up benchmark temp files
     for f in tmp_out.glob("*"):
@@ -139,7 +143,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # predict sub-command
-    predict_parser = subparsers.add_parser("predict", help="Run batch prediction on all pairs and generate submission.csv")
+    predict_parser = subparsers.add_parser(
+        "predict", help="Run batch prediction on all pairs and generate submission.csv"
+    )
     predict_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     predict_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     predict_parser.add_argument("--output-csv", type=Path, default=Path("submission.csv"))
@@ -147,7 +153,9 @@ def main() -> None:
     predict_parser.add_argument("--ablation-mode", type=int, default=4, choices=[1, 2, 3, 4])
 
     # evaluate sub-command
-    eval_parser = subparsers.add_parser("evaluate", help="Compute official score and raster metrics against reference masks")
+    eval_parser = subparsers.add_parser(
+        "evaluate", help="Compute official score and raster metrics against reference masks"
+    )
     eval_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     eval_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     eval_parser.add_argument("--submission-csv", type=Path, default=Path("submission.csv"))
