@@ -404,16 +404,22 @@ def radar_shadow_mask(
         else float(cfg.get("radar_shadow_min_incidence_deg", 90.0))
     )
 
+    slope_arr = np.asarray(slope, dtype=np.float64)
+    aspect_arr = np.asarray(aspect, dtype=np.float64)
+    # Some AOIs carry NaN/inf in the slope/aspect bands; the libm cos/sin below would
+    # raise on them. Substitute a neutral 0 deg for those pixels and let `finite` keep
+    # them out of the returned mask (non-finite pixels stay unshadowed, as before).
+    finite = np.isfinite(slope_arr) & np.isfinite(aspect_arr)
+
     theta0_rad = np.radians(theta0)
-    slope_rad = np.radians(np.asarray(slope, dtype=np.float64))
-    psi = np.radians(look_azimuth_deg - np.asarray(aspect, dtype=np.float64))
+    slope_rad = np.radians(np.where(finite, slope_arr, 0.0))
+    psi = np.radians(look_azimuth_deg - np.where(finite, aspect_arr, look_azimuth_deg))
     # cos(theta_local) = cos(theta0)cos(s) + sin(theta0)sin(s)cos(L - A):
     # downslope azimuth A == look azimuth L -> foreshortened near-range slope (theta_local
     # shrinks); A == L + 180 -> back slope (theta_local grows towards s + theta0).
     cos_incidence = np.cos(slope_rad) * np.cos(theta0_rad) + np.sin(slope_rad) * np.sin(theta0_rad) * np.cos(psi)
     local_incidence_deg = np.degrees(np.arccos(np.clip(cos_incidence, -1.0, 1.0)))
 
-    finite = np.isfinite(local_incidence_deg) & np.isfinite(slope_rad)
     return finite & (local_incidence_deg >= shadow_min)
 
 

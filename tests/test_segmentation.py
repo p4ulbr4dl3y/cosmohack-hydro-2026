@@ -1,5 +1,7 @@
 """Tests for multimodal water segmentation and speckle filtering."""
 
+import warnings
+
 import numpy as np
 import rasterio
 from rasterio.transform import from_origin
@@ -441,6 +443,33 @@ def test_radar_shadow_mask_follows_orbit_pass():
 
     # Flat facets are never shadowed, whatever the aspect says
     assert not np.any(radar_shadow_mask(np.zeros(shape, dtype=np.float32), east_facing, orbit_pass="DESCENDING"))
+
+
+def test_radar_shadow_mask_non_finite_bands_are_not_shadowed():
+    """NaN/inf slope or aspect pixels stay unshadowed and emit no numpy warning.
+
+    Real AOIs (e.g. flood_2021_08_zeya__svobodny) carry non-finite values in the slope
+    band, which used to make the incidence trig raise RuntimeWarning even though the
+    pixel was already excluded by the finiteness guard.
+    """
+    shape = (8, 8)
+    steep = np.full(shape, 70.0, dtype=np.float32)  # would shadow an east-facing facet
+    east_facing = np.full(shape, 90.0, dtype=np.float32)
+    steep[0, 0] = np.nan
+    steep[0, 1] = np.inf
+    east_facing[1, 0] = np.nan
+    east_facing[1, 1] = np.inf
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        mask = radar_shadow_mask(steep, east_facing, orbit_pass="DESCENDING")
+
+    assert mask is not None
+    # Non-finite pixels are never flagged as shadow ...
+    assert not mask[0, 0] and not mask[0, 1]
+    assert not mask[1, 0] and not mask[1, 1]
+    # ... while the remaining finite, away-facing facets still are.
+    assert mask[2:, :].all()
 
 
 def test_segment_water_radar_shadow_guard_is_orbit_aware():
