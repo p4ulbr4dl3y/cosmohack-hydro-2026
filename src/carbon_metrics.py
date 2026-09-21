@@ -1,27 +1,27 @@
-"""Carbon and ESG impact evaluation module for flood damage assessment.
+"""Модуль оценки углеродного и ESG-воздействия для оценки ущерба от паводков.
 
-Implements standard IPCC and Verra VM0047 methodologies for biomass and carbon stock calculation:
-1. Stock difference method:
-   - c_i = b_i * CF (CF = 0.47 t C / t dry matter, IPCC default)
-   - C_t = sum(a_i * c_i) (t C)
-   - delta_C = C_t1 - C_t0 (t C)
-   - E = -delta_C * (44 / 12) (t CO2e)
-   - e = E / (A * delta_t) (t CO2e / ha / year)
+Реализует стандартные методики IPCC и Verra VM0047 для расчёта биомассы и запасов углерода:
+1. Метод разницы запасов:
+   - c_i = b_i * CF (CF = 0.47 т C / т сухого вещества, значение IPCC по умолчанию)
+   - C_t = sum(a_i * c_i) (т C)
+   - delta_C = C_t1 - C_t0 (т C)
+   - E = -delta_C * (44 / 12) (т CO2-экв.)
+   - e = E / (A * delta_t) (т CO2-экв. / га / год)
 
-2. Carbon credit issuance potential Q:
+2. Потенциал выпуска углеродных единиц Q:
    - R = E_base - E_proj - LK (LK = 0)
    - H = max(|E_proj - L|, |U - E_proj|)
    - If R <= 0 or H/R >= 1.0 => Q = 0
-   - If R > 0 and H/R < 1.0:
+   - Если R > 0 и H/R < 1.0:
      - UNC = min(1.0, max(0.0, H/R - 0.10))
      - R_adj = R * (1 - UNC)
-     - B = 0.15 * R_adj (15% risk buffer reserve)
-     - Q = floor(R_adj * 0.85) (integer carbon credit units)
-     - Valuations V = Q * p for p in [500, 1500, 4000] RUB/credit
+     - B = 0.15 * R_adj (15% рисковой буферный резерв)
+     - Q = floor(R_adj * 0.85) (целые единицы углеродных кредитов)
+     - Оценки V = Q * p для p в [500, 1500, 4000] руб./кредит
 
-3. Flood vegetation carbon loss footprint:
-   - Cropland biomass washout: ~5.0-10.0 t dry matter/ha
-   - Forest understory / flooded vegetation loss: ~15.0-30.0 t dry matter/ha
+3. Углеродный след потерь растительности при затоплении:
+   - Смыв биомассы пашни: ~5.0-10.0 т сухого вещества/га
+   - Потери подлеска леса и затопленной растительности: ~15.0-30.0 т сухого вещества/га
 """
 
 from __future__ import annotations
@@ -29,26 +29,26 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-# IPCC Default constants
-CF_AGB: float = 0.47  # Carbon fraction of above-ground dry biomass (t C / t dry matter)
-CO2_PER_C: float = 44.0 / 12.0  # Molar ratio of CO2 to Carbon (44/12)
-DEFAULT_BUFFER_RATE: float = 0.15  # 15% risk buffer reserve
-DEFAULT_UNCERTAINTY_THRESHOLD: float = 0.10  # 10% tolerance without deduction
+# Константы IPCC по умолчанию
+CF_AGB: float = 0.47  # Доля углерода в надземной сухой биомассе (т C / т сухого вещества)
+CO2_PER_C: float = 44.0 / 12.0  # Молярное отношение CO2 к углероду (44/12)
+DEFAULT_BUFFER_RATE: float = 0.15  # 15% рисковой буферный резерв
+DEFAULT_UNCERTAINTY_THRESHOLD: float = 0.10  # 10% допуск без вычета
 DEFAULT_PRICES_RUB: tuple[int, int, int] = (500, 1500, 4000)
 
-# Typical biomass density by landcover for Amur basin (t dry matter / ha)
+# Типичная плотность биомассы по типам покрова для бассейна Амура (т сухого вещества / га)
 BIOMASS_DENSITY_MAP: dict[str, float] = {
-    "cropland": 7.5,  # Agricultural cropland
-    "forest": 45.0,  # Mixed temperate forest
-    "wetland": 12.0,  # Shrubland and wetland
-    "open_soil": 2.0,  # Fallow / bare soil
-    "settlement": 1.0,  # Urban / built-up
+    "cropland": 7.5,  # Сельскохозяйственная пашня
+    "forest": 45.0,  # Смешанный лес умеренной зоны
+    "wetland": 12.0,  # Кустарник и водно-болотные угодья
+    "open_soil": 2.0,  # Залежь и открытый грунт
+    "settlement": 1.0,  # Городская застройка
 }
 
 
 @dataclass(frozen=True)
 class CarbonCreditResult:
-    """Carbon credit calculation result under baseline scenario."""
+    """Результат расчёта углеродных кредитов по базовому сценарию."""
 
     is_available: bool
     status: str
@@ -71,7 +71,7 @@ class CarbonCreditResult:
 
 @dataclass(frozen=True)
 class FloodCarbonImpact:
-    """Flood damage carbon footprint and ESG impact analysis."""
+    """Анализ углеродного следа ущерба от паводка и ESG-воздействия."""
 
     pair_id: str
     flood_ha: float
@@ -92,7 +92,7 @@ def calculate_stock_difference(
     cf: float = CF_AGB,
     co2_per_c: float = CO2_PER_C,
 ) -> dict[str, float]:
-    """Calculate stock difference and emissions between two time steps."""
+    """Вычисляет разницу запасов и выбросы между двумя моментами времени."""
     if area_ha <= 0 or delta_t_years <= 0:
         raise ValueError("Area and delta_t must be positive")
 
@@ -127,14 +127,14 @@ def calculate_carbon_credits(
     buffer_rate: float = DEFAULT_BUFFER_RATE,
     unc_threshold: float = DEFAULT_UNCERTAINTY_THRESHOLD,
 ) -> CarbonCreditResult:
-    """Calculate potential carbon credits Q following official competition methodology.
+    """Вычисляет потенциальные углеродные кредиты Q по официальной методике соревнования.
 
-    Rules:
+    Правила:
     - R = E_base - E_proj - LK
-    - If area <= 0, delta_t <= 0, or H < 0: invalid
-    - If R <= 0: Q = 0 (no net reduction)
-    - If H/R >= 1.0: Q = 0 (uncertainty too high)
-    - If R > 0 and H/R < 1.0:
+    - Если area <= 0, delta_t <= 0 или H < 0: недопустимо
+    - Если R <= 0: Q = 0 (нет чистого сокращения)
+    - Если H/R >= 1.0: Q = 0 (неопределённость слишком высока)
+    - Если R > 0 и H/R < 1.0:
       - UNC = min(1.0, max(0.0, H/R - unc_threshold))
       - R_adj = R * (1.0 - UNC)
       - B = R_adj * buffer_rate
@@ -245,14 +245,14 @@ def compute_flood_carbon_impact(
     flood_ha: float,
     landcover_ha: dict[str, float] | None = None,
 ) -> FloodCarbonImpact:
-    """Calculate carbon stock loss and emissions equivalent from flood inundation."""
+    """Вычисляет потери запаса углерода и эквивалент выбросов от затопления."""
     lc = landcover_ha or {}
     crop_ha = float(lc.get("cropland", lc.get("сельхоз", flood_ha * 0.45)))
     forest_ha = float(lc.get("forest", lc.get("лес", flood_ha * 0.15)))
     wetland_ha = float(lc.get("wetland", flood_ha * 0.30))
     other_ha = max(0.0, flood_ha - (crop_ha + forest_ha + wetland_ha))
 
-    # Biomass loss assumptions: 80% loss in crop, 20% loss in forest (understory), 10% in wetland
+    # Допущения по потерям биомассы: 80% потерь на пашне, 20% в лесу (подлесок), 10% на водно-болотных угодьях
     crop_biomass_loss = crop_ha * (BIOMASS_DENSITY_MAP["cropland"] * 0.80)
     forest_biomass_loss = forest_ha * (BIOMASS_DENSITY_MAP["forest"] * 0.20)
     wetland_biomass_loss = wetland_ha * (BIOMASS_DENSITY_MAP["wetland"] * 0.10)
@@ -265,11 +265,11 @@ def compute_flood_carbon_impact(
 
     emissions_equivalent_tCO2e = total_carbon_loss_tC * CO2_PER_C
 
-    # Credit potential scenario: preventing flood damage yields credits against baseline
-    # Scenario: baseline with flood vs mitigation project avoiding flood
-    E_proj = 0.0  # Zero flood in mitigation scenario
-    E_base = emissions_equivalent_tCO2e  # Emissions under actual flood event
-    H_uncertainty = emissions_equivalent_tCO2e * 0.18  # 18% spatial uncertainty
+    # Сценарий потенциала кредитов: предотвращение ущерба от паводка даёт кредиты относительно базовой линии
+    # Сценарий: базовая линия с паводком против проекта предотвращения паводка
+    E_proj = 0.0  # Нулевое затопление в сценарии предотвращения
+    E_base = emissions_equivalent_tCO2e  # Выбросы при фактическом событии паводка
+    H_uncertainty = emissions_equivalent_tCO2e * 0.18  # 18% пространственная неопределённость
 
     credit_res = calculate_carbon_credits(
         E_proj_tCO2e=E_proj,

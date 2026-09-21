@@ -1,30 +1,30 @@
-"""Official competition metrics and submission verification module for HydroWatch Amur.
+"""Модуль официальных метрик соревнования и проверки сабмита для HydroWatch Amur.
 
-Implements all evaluation metrics and constraints specified in:
+Реализует все метрики оценки и ограничения, заданные в:
 - docs/TASK_SPEC.md (Section 8: Официальная метрика оценки, Section 7: Формат сабмита)
 - docs/CRITERIA.md (Раздел 2: Значение метрики, Корректность сабмита)
 
-Official Formula:
+Официальная формула:
   Score = 0.45 * Q_flood + 0.25 * Q_water_peak + 0.15 * Q_water_pre + 0.15 * Spec_base
 
-Components:
-  1. Event pairs convergence:
+Компоненты:
+  1. Сходимость событийных пар:
      q = max(0, 1 - |X_sub - X_ref| / max(X_ref, threshold))
-     threshold = 50.0 ha for flood
-     threshold = 200.0 ha for water mirror (pre & peak)
+     threshold = 50.0 га для затопления
+     threshold = 200.0 га для водного зеркала (pre и peak)
 
-  2. Baseline pairs specificity:
+  2. Специфичность базовых пар:
      excess = max(0, flood_sub - flood_ref)
      share = excess / aoi_ha
-     Spec_base = mean(1 - min(1, share / 0.005))  # 0.5% AOI allowance
+     Spec_base = mean(1 - min(1, share / 0.005))  # допуск 0.5% AOI
 
-  3. Submission correctness rules:
-     - exactly 11 pairs matching sample_submission.csv
-     - areas non-negative and <= aoi_ha
+  3. Правила корректности сабмита:
+     - ровно 11 пар, соответствующих sample_submission.csv
+     - площади неотрицательны и <= aoi_ha
      - flood_ha <= water_peak_ha
-     - no missing values or NaN
-     - GeoTIFF raster <pair_id>_flood.tif matching CRS (EPSG:32652) and dimensions
-     - raster area vs CSV area discrepancy <= 2.0%
+     - нет пропущенных значений или NaN
+     - растровый GeoTIFF <pair_id>_flood.tif с совпадающими CRS (EPSG:32652) и размерами
+     - расхождение площади растра и CSV <= 2.0%
 """
 
 from __future__ import annotations
@@ -41,17 +41,17 @@ import rasterio
 
 logger = logging.getLogger(__name__)
 
-# Constants from docs/TASK_SPEC.md & docs/CRITERIA.md
+# Константы из docs/TASK_SPEC.md и docs/CRITERIA.md
 FLOOD_THRESHOLD_HA: float = 50.0
 WATER_THRESHOLD_HA: float = 200.0
-BASELINE_ALLOWANCE_FRACTION: float = 0.005  # 0.5% of AOI area
-MAX_RASTER_CSV_DISCREPANCY_PCT: float = 2.0  # 2% maximum allowed divergence
-PIXEL_AREA_HA_10M: float = 0.01  # 10m x 10m = 100 m² = 0.01 ha
+BASELINE_ALLOWANCE_FRACTION: float = 0.005  # 0.5% площади AOI
+MAX_RASTER_CSV_DISCREPANCY_PCT: float = 2.0  # 2% максимально допустимое расхождение
+PIXEL_AREA_HA_10M: float = 0.01  # 10 м x 10 м = 100 м² = 0.01 га
 
 
 @dataclass(frozen=True)
 class PairScoreDetail:
-    """Detailed convergence metrics for a single monitored pair."""
+    """Детальные метрики сходимости для одной наблюдаемой пары."""
 
     pair_id: str
     event_kind: str
@@ -74,7 +74,7 @@ class PairScoreDetail:
 
 @dataclass(frozen=True)
 class OfficialCompetitionScore:
-    """Official competition score and component breakdown."""
+    """Официальная оценка соревнования и разбивка по компонентам."""
 
     score: float
     q_flood: float
@@ -83,13 +83,13 @@ class OfficialCompetitionScore:
     spec_base: float
     num_events: int
     num_baselines: int
-    technical_points: float  # Normalized 0-7 score according to criteria
+    technical_points: float  # Нормированная оценка 0-7 согласно критериям
     details: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
 class SubmissionValidationResult:
-    """Submission and raster integrity check report."""
+    """Отчёт проверки целостности сабмита и растров."""
 
     is_valid: bool
     num_pairs: int
@@ -104,7 +104,7 @@ def calculate_q_score(
     ref_val: float,
     threshold: float,
 ) -> float:
-    """Calculate single convergence score q = max(0, 1 - |X_sub - X_ref| / max(X_ref, threshold))."""
+    """Вычисляет единичную оценку сходимости q = max(0, 1 - |X_sub - X_ref| / max(X_ref, threshold))."""
     if not np.isfinite(sub_val) or not np.isfinite(ref_val):
         return 0.0
     denom = max(float(ref_val), float(threshold))
@@ -118,7 +118,7 @@ def calculate_baseline_spec(
     aoi_ha: float,
     allowance_ratio: float = BASELINE_ALLOWANCE_FRACTION,
 ) -> float:
-    """Calculate specificity score for a baseline pair: 1 - min(1, excess / (0.005 * aoi_ha))."""
+    """Вычисляет оценку специфичности для базовой пары: 1 - min(1, excess / (0.005 * aoi_ha))."""
     if aoi_ha <= 0 or not np.isfinite(flood_sub_ha) or not np.isfinite(flood_ref_ha):
         return 0.0
     excess = max(0.0, float(flood_sub_ha) - float(flood_ref_ha))
@@ -132,13 +132,13 @@ def compute_live_official_score(
     data_dir: Path,
     predictions_dir: Path | None = None,
 ) -> OfficialCompetitionScore:
-    """Compute official HydroWatch Amur metric score from submission and ground truth."""
+    """Вычисляет официальную метрику HydroWatch Amur по сабмиту и эталонным данным."""
     if not pairs_csv_path.exists():
         raise FileNotFoundError(f"pairs.csv not found: {pairs_csv_path}")
 
     pairs_df = pd.read_csv(pairs_csv_path)
 
-    # Load reference stats
+    # Загрузка эталонной статистики
     ref_rows = []
     for _, row in pairs_df.iterrows():
         pair_id = str(row["pair_id"])
@@ -167,7 +167,7 @@ def compute_live_official_score(
     events = merged[merged["event_kind"] != "baseline"].copy()
     baselines = merged[merged["event_kind"] == "baseline"].copy()
 
-    # Calculate event convergence
+    # Расчёт сходимости событий
     event_q_floods = []
     event_q_peaks = []
     event_q_pres = []
@@ -196,7 +196,7 @@ def compute_live_official_score(
             event_q_peaks.append(q_pk)
             event_q_pres.append(q_pr)
 
-        # Check raster area if predictions_dir is given
+        # Проверка площади растра, если задан predictions_dir
         raster_ha = None
         disc_pct = None
         if predictions_dir:
@@ -250,11 +250,11 @@ def compute_live_official_score(
     else:
         spec_base_mean = 1.0
 
-    # Composite Score
+    # Композитная оценка
     total_score = 0.45 * q_flood_mean + 0.25 * q_peak_mean + 0.15 * q_pre_mean + 0.15 * spec_base_mean
 
-    # Technical Criteria points: 0 to 7 based on score
-    # Score 0.403 -> ~4.5 points; Score 1.0 -> 7.0 points
+    # Баллы технических критериев: от 0 до 7 в зависимости от оценки
+    # Оценка 0.403 - около 4.5 балла; оценка 1.0 - 7.0 баллов
     tech_points = round(min(7.0, max(0.0, total_score * 7.0)), 2)
 
     return OfficialCompetitionScore(
@@ -275,7 +275,7 @@ def validate_submission_file(
     pairs_csv_path: Path,
     predictions_dir: Path | None = None,
 ) -> SubmissionValidationResult:
-    """Validate submission.csv and optional raster masks against competition rules."""
+    """Проверяет submission.csv и необязательные растровые маски на соответствие правилам соревнования."""
     passed_checks: list[str] = []
     errors: list[str] = []
     warnings: list[str] = []
@@ -303,14 +303,14 @@ def validate_submission_file(
             discrepancies=[],
         )
 
-    # 1. Header check
+    # 1. Проверка заголовка
     expected_cols = ["pair_id", "flood_ha", "water_pre_ha", "water_peak_ha"]
     if list(sub_df.columns) == expected_cols:
         passed_checks.append("Columns match required schema [pair_id, flood_ha, water_pre_ha, water_peak_ha]")
     else:
         errors.append(f"Invalid columns: expected {expected_cols}, got {list(sub_df.columns)}")
 
-    # 2. Pairs count and match
+    # 2. Количество пар и их соответствие
     if pairs_csv_path.exists():
         pairs_df = pd.read_csv(pairs_csv_path)
         expected_pair_ids = sorted(pairs_df["pair_id"].astype(str).tolist())
@@ -326,7 +326,7 @@ def validate_submission_file(
             if unexpected:
                 errors.append(f"Unexpected extra pairs: {list(unexpected)}")
 
-    # 3. Value constraints
+    # 3. Ограничения на значения
     has_nans = sub_df.isna().any().any()
     if not has_nans:
         passed_checks.append("No missing values or NaNs in table")
@@ -352,7 +352,7 @@ def validate_submission_file(
     if not any("exceeds water_peak_ha" in e or "negative area" in e for e in errors):
         passed_checks.append("Physical constraints satisfied (non-negative and flood_ha <= water_peak_ha)")
 
-    # 4. Raster mask consistency check
+    # 4. Проверка согласованности растровых масок
     if predictions_dir and predictions_dir.exists():
         all_rasters_ok = True
         for _, row in sub_df.iterrows():

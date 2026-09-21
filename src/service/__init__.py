@@ -1,1 +1,1 @@
-"""HydroWatch Amur Service Package."""
+"""Пакет сервиса HydroWatch Amur."""

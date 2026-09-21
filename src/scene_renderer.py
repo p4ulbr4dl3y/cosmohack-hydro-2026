@@ -1,7 +1,7 @@
-"""Web Raster Visualization & Dynamic PNG Overlay Engine.
+"""Движок веб-визуализации растров и динамических PNG-оверлеев.
 
-Generates transparent RGBA PNG overlays and computes WGS84 Leaflet bounding boxes
-from raster GeoTIFF files or binary/classified numpy masks for immediate web display.
+Формирует прозрачные RGBA PNG-оверлеи и вычисляет ограничивающие прямоугольники WGS84 для Leaflet
+из растровых файлов GeoTIFF или бинарных и классифицированных масок numpy для немедленного веб-отображения.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from rasterio.warp import calculate_default_transform
 
 
 def get_scene_wgs84_bounds(tif_path: str | Path) -> list[list[float]]:
-    """Compute WGS84 geographical bounds in Leaflet format [[south, west], [north, east]]."""
+    """Вычисляет географические границы WGS84 в формате Leaflet [[south, west], [north, east]]."""
     with rasterio.open(tif_path) as src:
         dst_transform, width, height = calculate_default_transform(
             src.crs, "EPSG:4326", src.width, src.height, *src.bounds
@@ -36,7 +36,7 @@ def normalize_band(
     p_low: float = 2.0,
     p_high: float = 98.0,
 ) -> np.ndarray:
-    """Normalize array values to 0..255 via percentile contrast stretching."""
+    """Нормирует значения массива к 0..255 через перцентильное растяжение контраста."""
     valid = np.isfinite(arr)
     out = np.zeros_like(arr, dtype=np.uint8)
     if not np.any(valid):
@@ -52,12 +52,12 @@ def normalize_band(
 
 def mask_to_rgba(
     mask: np.ndarray,
-    color_rgb: tuple[int, int, int] = (239, 68, 68),  # Default: red/orange flood
+    color_rgb: tuple[int, int, int] = (239, 68, 68),  # По умолчанию: красно-оранжевое затопление
     alpha: int = 190,
 ) -> np.ndarray:
-    """Convert binary mask (0 or 1) into an RGBA image array.
+    """Преобразует бинарную маску (0 или 1) в массив RGBA-изображения.
 
-    Pixels with 0 are 100% transparent. Pixels with 1 have color_rgb with alpha.
+    Пиксели со значением 0 полностью прозрачны. Пиксели со значением 1 имеют color_rgb с альфой.
     """
     h, w = mask.shape
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
@@ -75,11 +75,11 @@ def multi_water_to_rgba(
     water_peak: np.ndarray,
     flood: np.ndarray,
 ) -> np.ndarray:
-    """Create comprehensive multi-category hydrological overlay:
+    """Создаёт комплексный многокатегорийный гидрологический оверлей:
 
-    - Pre-existing water (water_pre): Dark blue (30, 64, 175, 180)
-    - Peak flood expansion (flood): Bright vermilion/red (239, 68, 68, 210)
-    - Receded water: Yellow/amber (245, 158, 11, 160)
+    - Ранее существовавшая вода (water_pre): тёмно-синий (30, 64, 175, 180)
+    - Расширение затопления на пике (flood): ярко-красный (239, 68, 68, 210)
+    - Отступившая вода: жёлто-янтарный (245, 158, 11, 160)
     """
     h, w = flood.shape
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
@@ -89,23 +89,23 @@ def multi_water_to_rgba(
     flood_b = flood.astype(bool)
     receded_b = pre_b & (~peak_b)
 
-    # 1. Pre-water
+    # 1. Ранее существовавшая вода
     rgba[pre_b] = [30, 64, 175, 180]
-    # 2. Receded
+    # 2. Отступившая вода
     rgba[receded_b] = [245, 158, 11, 160]
-    # 3. New flood (highest priority visual)
+    # 3. Новое затопление (наивысший визуальный приоритет)
     rgba[flood_b] = [239, 68, 68, 220]
 
     return rgba
 
 
 def render_rgba_to_png(rgba: np.ndarray) -> bytes:
-    """Encode an (H, W, 4) uint8 RGBA array into standard PNG bytes via rasterio."""
+    """Кодирует массив RGBA uint8 (H, W, 4) в стандартные байты PNG через rasterio."""
     h, w, c = rgba.shape
     if c != 4:
         raise ValueError(f"Expected 4 channels (RGBA), got {c}")
 
-    # rasterio expects (channels, height, width)
+    # rasterio ожидает (channels, height, width)
     bands = np.transpose(rgba, (2, 0, 1))
 
     with MemoryFile() as mem:
@@ -124,9 +124,9 @@ def render_gradient_mask_rgba(
     mask: np.ndarray,
     layer_type: str = "flood",
 ) -> np.ndarray:
-    """Render continuous bathymetric / intensity gradient overlay for hydrological masks.
+    """Строит непрерывный батиметрический градиентный оверлей интенсивности для гидрологических масок.
 
-    Uses Euclidean distance transform to model water depth and flood intensity from edge to deep interior.
+    Использует евклидово преобразование расстояния для моделирования глубины воды и интенсивности затопления от края к глубокому центру.
     """
     h, w = mask.shape
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
@@ -143,25 +143,25 @@ def render_gradient_mask_rgba(
         max_d = 1.0
     norm = np.clip(dist / max_d, 0.0, 1.0)
 
-    # Gradients for different layers
+    # Градиенты для разных слоёв
     norm_layer = layer_type.strip().lower()
     if norm_layer == "flood":
-        # Shoreline / shallow (amber/orange) -> Mid (red) -> Deep (crimson)
+        # Берег и мелководье (янтарный и оранжевый) - средняя глубина (красный) - глубина (багровый)
         c0 = np.array([254, 215, 170], dtype=float)
         c1 = np.array([239, 68, 68], dtype=float)
         c2 = np.array([153, 27, 27], dtype=float)
     elif norm_layer == "water_peak":
-        # Inundation edge (light sky) -> Mid (cyan) -> Deep channel (navy)
+        # Край затопления (светло-голубой) - средняя глубина (циан) - глубокий канал (тёмно-синий)
         c0 = np.array([186, 230, 253], dtype=float)
         c1 = np.array([14, 165, 233], dtype=float)
         c2 = np.array([30, 58, 138], dtype=float)
-    else:  # water_pre or others
-        # Edge (cyan) -> Mid (blue) -> Deep (dark blue)
+    else:  # water_pre или другие
+        # Край (циан) - средняя глубина (синий) - глубина (тёмно-синий)
         c0 = np.array([165, 243, 252], dtype=float)
         c1 = np.array([37, 99, 235], dtype=float)
         c2 = np.array([30, 64, 175], dtype=float)
 
-    # Two-stage piecewise linear interpolation
+    # Двухэтапная кусочно-линейная интерполяция
     t = norm[bool_mask]
     rgb = np.zeros((len(t), 3), dtype=np.uint8)
     first_half = t < 0.5
@@ -172,7 +172,7 @@ def render_gradient_mask_rgba(
     t2 = (t[second_half] - 0.5) * 2.0
     rgb[second_half] = np.round(c1 + (c2 - c1) * t2[:, None]).astype(np.uint8)
 
-    # Alpha ramp from 150 at edge to 230 at depth
+    # Рампа альфы от 150 на краю до 230 на глубине
     alpha = np.round(150 + 80 * t).astype(np.uint8)
 
     rgba[bool_mask, 0:3] = rgb
@@ -185,10 +185,10 @@ def render_mask_png(
     layer_type: str = "flood",
     gradient: bool = False,
 ) -> bytes:
-    """Convenience helper to render a mask directly to PNG bytes.
+    """Удобная вспомогательная функция для рендеринга маски сразу в байты PNG.
 
-    Layer types: 'flood' (red), 'water_pre' (deep blue), 'water_peak' (cyan-blue).
-    If gradient=True, generates a continuous bathymetric/intensity color ramp.
+    Типы слоёв: 'flood' (красный), 'water_pre' (тёмно-синий), 'water_peak' (циан-синий).
+    Если gradient=True, формируется непрерывная батиметрическая цветовая рампа интенсивности.
     """
     if gradient:
         rgba = render_gradient_mask_rgba(mask, layer_type=layer_type)
@@ -207,7 +207,7 @@ def render_geotiff_overlay(
     tif_path: str | Path,
     layer_type: str = "flood",
 ) -> tuple[bytes, list[list[float]], dict[str, Any]]:
-    """Load GeoTIFF, render RGBA PNG, and calculate WGS84 Leaflet bounding box."""
+    """Загружает GeoTIFF, рендерит RGBA PNG и вычисляет ограничивающий прямоугольник WGS84 для Leaflet."""
     p = Path(tif_path)
     if not p.is_file():
         raise FileNotFoundError(f"GeoTIFF file not found: {p}")

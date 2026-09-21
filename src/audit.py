@@ -1,8 +1,8 @@
-"""Cryptographic Merkle Audit Trail & Integrity Verification Module.
+"""Модуль криптографического аудита Merkle и проверки целостности.
 
-Constructs binary Merkle trees, computes SHA-256 leaves for all input scenes,
-algorithmic parameters, and output flood metrics, generating tamper-proof
-hydrological audit certificates for civil defense, insurance, and verification.
+Строит двоичные деревья Merkle, вычисляет листья SHA-256 для всех входных сцен,
+алгоритмических параметров и выходных метрик затопления, формируя защищённые от подмены
+гидрологические аудиторские сертификаты для гражданской обороны, страхования и верификации.
 """
 
 from __future__ import annotations
@@ -16,26 +16,26 @@ from typing import Any
 
 
 def canonical_json_bytes(data: Any) -> bytes:
-    """Serialize data structure to canonical byte string with sorted keys."""
+    """Сериализует структуру данных в каноническую байтовую строку с отсортированными ключами."""
     return json.dumps(data, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
 def sha256_hex(data: bytes | str) -> str:
-    """Compute SHA-256 hex digest of input bytes or UTF-8 string."""
+    """Вычисляет шестнадцатеричный дайджест SHA-256 входных байтов или строки UTF-8."""
     if isinstance(data, str):
         data = data.encode("utf-8")
     return hashlib.sha256(data).hexdigest()
 
 
 def hash_pair(left_hex: str, right_hex: str) -> str:
-    """Compute parent node SHA-256 from left and right child hex hashes."""
+    """Вычисляет SHA-256 родительского узла из шестнадцатеричных хешей левого и правого потомков."""
     combined = (left_hex + right_hex).encode("utf-8")
     return hashlib.sha256(combined).hexdigest()
 
 
 @dataclass(frozen=True)
 class MerkleLeaf:
-    """Leaf node of Merkle tree representing an audited component."""
+    """Листовой узел дерева Merkle, представляющий проверяемый компонент."""
 
     index: int
     key: str
@@ -46,9 +46,9 @@ class MerkleLeaf:
 
 @dataclass(frozen=True)
 class HydroAuditCertificate:
-    """Cryptographic audit certificate for hydrological flood determination.
+    """Криптографический аудиторский сертификат гидрологического определения затопления.
 
-    Provides a tamper-evident proof of data provenance and mathematical reproducibility.
+    Обеспечивает устойчивое к подмене доказательство происхождения данных и математической воспроизводимости.
     """
 
     certificate_id: str
@@ -74,9 +74,9 @@ class HydroAuditCertificate:
 
 
 def build_merkle_tree(leaf_hashes: list[str]) -> tuple[str, list[list[str]]]:
-    """Build binary Merkle tree from list of leaf hex hashes.
+    """Строит двоичное дерево Merkle из списка шестнадцатеричных хешей листьев.
 
-    Returns:
+    Возвращает:
         (merkle_root, tree_levels)
     """
     if not leaf_hashes:
@@ -101,7 +101,7 @@ def build_merkle_tree(leaf_hashes: list[str]) -> tuple[str, list[list[str]]]:
 
 
 def generate_merkle_proof(leaf_index: int, levels: list[list[str]]) -> list[dict[str, str]]:
-    """Generate Merkle audit proof path for a specific leaf index."""
+    """Формирует путь доказательства аудита Merkle для заданного индекса листа."""
     proof: list[dict[str, str]] = []
     idx = leaf_index
 
@@ -123,7 +123,7 @@ def generate_merkle_proof(leaf_index: int, levels: list[list[str]]) -> list[dict
 
 
 def verify_merkle_proof(leaf_hash: str, proof: list[dict[str, str]], root: str) -> bool:
-    """Verify validity of a Merkle audit proof path."""
+    """Проверяет корректность пути доказательства аудита Merkle."""
     current = leaf_hash
     for step in proof:
         sibling = step["hash"]
@@ -140,17 +140,17 @@ def generate_flood_audit_certificate(
     results_summary: dict[str, Any],
     certificate_id: str | None = None,
 ) -> HydroAuditCertificate:
-    """Construct an end-to-end cryptographic audit certificate for a monitored pair.
+    """Формирует сквозной криптографический аудиторский сертификат для наблюдаемой пары.
 
-    Audits:
-    1. Input rasters / scenes metadata
-    2. Processing pipeline parameters (Otsu corridor, MMU, DEM slope/HAND)
-    3. Output hydrological summary metrics (flood_ha, water_pre_ha, water_peak_ha)
+    Проверяет:
+    1. Метаданные входных растров и сцен
+    2. Параметры конвейера обработки (коридор Otsu, MMU, уклон DEM/HAND)
+    3. Выходные сводные гидрологические метрики (flood_ha, water_pre_ha, water_peak_ha)
     """
     cid = certificate_id or f"CERT-{pair_id}-{uuid.uuid4().hex[:8].upper()}"
     now_iso = datetime.now(UTC).isoformat()
 
-    # Create canonical leaf entries
+    # Формирование канонических листовых записей
     leaves_data = [
         ("inputs_metadata", inputs_info, "Satellite scene metadata and input hashes"),
         ("algorithm_parameters", parameters, "Segmentation thresholds, Otsu parameters, MMU"),

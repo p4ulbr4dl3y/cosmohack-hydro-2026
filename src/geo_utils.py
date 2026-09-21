@@ -1,4 +1,4 @@
-"""Spatial and raster geospatial utility functions."""
+"""Пространственные и растровые геопространственные утилиты."""
 
 from __future__ import annotations
 
@@ -20,23 +20,23 @@ from shapely.ops import unary_union
 from shapely.prepared import prep
 
 WGS84_GEOD = Geod(ellps="WGS84")
-MAX_AOI_AREA_KM2 = 25000.0  # Max allowable AOI area for regional hydrological basins (25,000 km²)
+MAX_AOI_AREA_KM2 = 25000.0  # Максимально допустимая площадь AOI для региональных гидрологических бассейнов (25 000 км²)
 
 
 def read_raster_with_meta(
     path: str | Path,
     band: int | list[int] | None = None,
 ) -> tuple[np.ndarray, dict[str, Any]]:
-    """Read raster array and its profile/metadata.
+    """Читает растровый массив и его профиль с метаданными.
 
-    Args:
-        path: Path to raster file.
-        band: 1-based band index, list of band indices, or None to read all bands.
+    Аргументы:
+        path: путь к растровому файлу.
+        band: индекс канала с нумерацией от 1, список индексов каналов или None для чтения всех каналов.
 
-    Returns:
+    Возвращает:
         (data, meta):
-            data: np.ndarray (2D if single band, 3D if multiple bands).
-            meta: rasterio profile dictionary.
+            data: np.ndarray (двумерный для одного канала, трёхмерный для нескольких каналов).
+            meta: словарь профиля rasterio.
     """
     with rasterio.open(path) as src:
         meta = src.profile.copy()
@@ -58,19 +58,19 @@ def resample_to_target(
     resampling: Resampling = Resampling.bilinear,
     dst_nodata: float | None = None,
 ) -> np.ndarray:
-    """Reproject and resample a raster band to match target grid geometry.
+    """Перепроецирует и пересэмплирует растровый канал под геометрию целевой сетки.
 
-    Args:
-        source_path: Path to source raster.
-        band: 1-based band index.
-        target_shape: (height, width) of output grid.
-        target_transform: Affine transform of output grid.
-        target_crs: CRS of output grid.
-        resampling: Resampling algorithm (default bilinear).
-        dst_nodata: Output nodata value.
+    Аргументы:
+        source_path: путь к исходному растру.
+        band: индекс канала с нумерацией от 1.
+        target_shape: (height, width) выходной сетки.
+        target_transform: аффинное преобразование выходной сетки.
+        target_crs: CRS выходной сетки.
+        resampling: алгоритм пересэмплирования (по умолчанию билинейный).
+        dst_nodata: выходное значение nodata.
 
-    Returns:
-        Resampled 2D float32 numpy array.
+    Возвращает:
+        Пересэмплированный двумерный массив numpy float32.
     """
     height, width = target_shape
     destination = np.zeros((height, width), dtype=np.float32)
@@ -94,18 +94,18 @@ def clip_by_aoi(
     transform: rasterio.Affine,
     crs: Any = None,
 ) -> np.ndarray:
-    """Clip binary or categorical 2D raster mask by AOI polygon geometry.
+    """Обрезает бинарную или категориальную двумерную растровую маску по полигону AOI.
 
-    Pixels strictly outside the AOI geometry are set to 0.
+    Пиксели строго вне геометрии AOI обнуляются.
 
-    Args:
-        mask: 2D numpy array.
-        aoi_geom: Shapely geometry or iterable of geometries.
-        transform: Affine transform of the raster.
-        crs: Optional CRS (for sanity or coordinate transforms if geometry needs reprojection).
+    Аргументы:
+        mask: двумерный массив numpy.
+        aoi_geom: геометрия Shapely или итерируемая коллекция геометрий.
+        transform: аффинное преобразование растра.
+        crs: необязательный CRS (для проверки или преобразования координат, если геометрию нужно перепроецировать).
 
-    Returns:
-        Clipped 2D numpy array with same dtype as input.
+    Возвращает:
+        Обрезанный двумерный массив numpy с тем же dtype, что и на входе.
     """
     geoms = [aoi_geom] if not isinstance(aoi_geom, (list, tuple, gpd.GeoSeries)) else list(aoi_geom)
     inside_mask = geometry_mask(geoms, out_shape=mask.shape, transform=transform, invert=True)
@@ -113,21 +113,21 @@ def clip_by_aoi(
 
 
 def get_wgs84_geod() -> Geod:
-    """Return WGS84 Geod instance for precise ellipsoidal calculations."""
+    """Возвращает экземпляр Geod WGS84 для точных эллипсоидальных расчётов."""
     return WGS84_GEOD
 
 
 def calculate_polygon_area_ha(geometry: BaseGeometry, geod: Geod | None = None) -> float:
-    """Calculate exact ellipsoidal area of a geometry in hectares on WGS84.
+    """Вычисляет точную эллипсоидальную площадь геометрии в гектарах на WGS84.
 
-    Eliminates planar projection distortion over large river basins.
+    Устраняет искажение плоской проекции на больших речных бассейнах.
 
-    Args:
-        geometry: Shapely geometry.
-        geod: Optional PyProj Geod instance (defaults to WGS84).
+    Аргументы:
+        geometry: геометрия Shapely.
+        geod: необязательный экземпляр Geod из PyProj (по умолчанию WGS84).
 
-    Returns:
-        Area in hectares.
+    Возвращает:
+        Площадь в гектарах.
     """
     if geometry.is_empty:
         return 0.0
@@ -137,15 +137,15 @@ def calculate_polygon_area_ha(geometry: BaseGeometry, geod: Geod | None = None) 
 
 
 def load_geometry(source: str | Path | dict[str, Any] | BaseGeometry) -> BaseGeometry:
-    """Load and repair geometry from GeoJSON file, dictionary, JSON string, or Shapely object.
+    """Загружает и исправляет геометрию из файла GeoJSON, словаря, строки JSON или объекта Shapely.
 
-    Automatically repairs topological anomalies using shapely.make_valid.
+    Автоматически исправляет топологические аномалии через shapely.make_valid.
 
-    Args:
-        source: File path, GeoJSON dict, JSON string, or BaseGeometry.
+    Аргументы:
+        source: путь к файлу, словарь GeoJSON, строка JSON или BaseGeometry.
 
-    Returns:
-        Valid Shapely geometry.
+    Возвращает:
+        Корректная геометрия Shapely.
     """
     if isinstance(source, BaseGeometry):
         if not source.is_valid:
@@ -200,14 +200,14 @@ def validate_aoi_geometry(
     max_area_km2: float = MAX_AOI_AREA_KM2,
     geod: Geod | None = None,
 ) -> tuple[bool, float, str | None]:
-    """Validate geometry validity and enforce area boundaries.
+    """Проверяет корректность геометрии и контролирует границы площади.
 
-    Args:
+    Аргументы:
         geometry: BaseGeometry.
-        max_area_km2: Maximum permitted area in km².
-        geod: Optional Geod instance.
+        max_area_km2: максимально допустимая площадь в км².
+        geod: необязательный экземпляр Geod.
 
-    Returns:
+    Возвращает:
         (is_valid, area_ha, error_message).
     """
     if geometry.is_empty:
@@ -233,7 +233,7 @@ def validate_aoi_geometry(
 
 
 def compute_pixel_box_area_ha(minx: float, miny: float, maxx: float, maxy: float, geod: Geod | None = None) -> float:
-    """Calculate exact ellipsoidal area of a bounding box cell in hectares."""
+    """Вычисляет точную эллипсоидальную площадь ячейки ограничивающего прямоугольника в гектарах."""
     cell = box(minx, miny, maxx, maxy)
     return calculate_polygon_area_ha(cell, geod=geod)
 
@@ -244,18 +244,18 @@ def compute_pixel_area_grid(
     shape_hw: tuple[int, int],
     geod: Geod | None = None,
 ) -> np.ndarray:
-    """Calculate the ellipsoidal intersection area (ha) for each raster pixel with a polygon.
+    """Вычисляет эллипсоидальную площадь пересечения (га) каждого растрового пикселя с полигоном.
 
-    Takes latitudinal compression into account for non-projected or regional grids.
+    Учитывает широтное сжатие для непроецированных и региональных сеток.
 
-    Args:
-        geometry: Shapely geometry.
-        transform: Raster Affine transform.
-        shape_hw: (height, width) of raster.
-        geod: Optional Geod instance.
+    Аргументы:
+        geometry: геометрия Shapely.
+        transform: аффинное преобразование растра.
+        shape_hw: (height, width) растра.
+        geod: необязательный экземпляр Geod.
 
-    Returns:
-        2D float64 array with pixel intersection areas in hectares.
+    Возвращает:
+        Двумерный массив float64 с площадями пересечения пикселей в гектарах.
     """
     height, width = shape_hw
     areas_grid = np.zeros((height, width), dtype=np.float64)
@@ -346,7 +346,7 @@ def extract_raster_pixel_intersections(
     raster_path: str | Path,
     geometry: BaseGeometry,
 ) -> tuple[np.ndarray, Affine, tuple[int, int], float]:
-    """Extract pixel intersection area grid and metadata from GeoTIFF for a given geometry."""
+    """Извлекает сетку площадей пересечения пикселей и метаданные из GeoTIFF для заданной геометрии."""
     with rasterio.open(raster_path) as src:
         transform = src.transform
         shape_hw = (src.height, src.width)
@@ -360,7 +360,7 @@ def find_raster_coverage(
     raster_paths: dict[str, str | Path],
     min_area_ha: float = 1e-4,
 ) -> list[dict[str, Any]]:
-    """Determine spatial coverage of a geometry against multiple candidate rasters."""
+    """Определяет пространственное покрытие геометрии по нескольким растровым кандидатам."""
     coverage_items: list[dict[str, Any]] = []
     if geometry.is_empty:
         return coverage_items
@@ -400,7 +400,7 @@ def compute_coverage_stats(
     covered_area_ha: float,
     geod: Geod | None = None,
 ) -> tuple[float, float, float]:
-    """Compute requested area, covered area, and coverage percentage."""
+    """Вычисляет запрошенную площадь, покрытую площадь и процент покрытия."""
     requested_area_ha = calculate_polygon_area_ha(geometry, geod=geod)
     if requested_area_ha <= 0.0:
         return 0.0, covered_area_ha, 100.0

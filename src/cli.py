@@ -1,4 +1,4 @@
-"""CLI entry point for HydroWatch Amur."""
+"""Точка входа CLI для HydroWatch Amur."""
 
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ from src.uncertainty import compute_flood_area_uncertainty
 
 logger = logging.getLogger(__name__)
 
-#: Human-readable hint printed when Sentinel-1 scenes are missing (they are
-#: distributed outside the git repository, see docs/Ссылка на данные.txt).
+#: Читаемая подсказка, выводимая при отсутствии сцен Sentinel-1 (они
+#: распространяются вне git-репозитория, см. docs/Ссылка на данные.txt).
 DATA_DOWNLOAD_HINT = f"""\
 Sentinel-1 scenes are required to run prediction, but they are NOT in this
 git repository (see .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
@@ -49,7 +49,7 @@ Prediction is therefore NOT reproducible offline until this download is done.
 
 
 def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
-    """Generate summary report for one or all pairs."""
+    """Формирует сводный отчёт для одной или всех пар."""
     loader = DataLoader()
     pairs = loader.get_pairs()
     if pair_id:
@@ -130,7 +130,7 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
 
 
 def run_audit(pair_id: str, output_json: Path | None = None) -> dict[str, Any]:
-    """Generate cryptographic Merkle verification certificate for a monitored pair."""
+    """Формирует криптографический сертификат проверки Merkle для наблюдаемой пары."""
     loader = DataLoader()
     rep = loader.get_report(pair_id)
     if not rep:
@@ -190,7 +190,7 @@ def run_uncertainty(
     spatial_correlation: float = 0.20,
     output_json: Path | None = None,
 ) -> dict[str, Any]:
-    """Compute spatial uncertainty and confidence interval [L, U] for a monitored pair."""
+    """Вычисляет пространственную неопределённость и доверительный интервал [L, U] для наблюдаемой пары."""
     import numpy as np
 
     loader = DataLoader()
@@ -249,7 +249,7 @@ def run_benchmark(
     iterations: int = 1,
     output_json: Path | None = None,
 ) -> dict[str, float]:
-    """Benchmark inference latency and memory throughput."""
+    """Измеряет задержку инференса и пропускную способность памяти."""
     if not pairs_csv_path.exists():
         print(f"Error: pairs CSV not found at {pairs_csv_path}", file=sys.stderr)
         sys.exit(1)
@@ -260,7 +260,7 @@ def run_benchmark(
 
     print(f"Benchmarking HydroWatch inference across {total_pairs} pairs ({iterations} iteration(s))...")
 
-    # Scratch rasters go to a temp dir so the benchmark also runs on read-only checkouts
+    # Временные растры пишутся во временный каталог, чтобы бенчмарк работал и на read-only копиях
     with tempfile.TemporaryDirectory(prefix="hydrowatch_benchmark_") as tmp_dir:
         tmp_out = Path(tmp_dir)
         for _i in range(iterations):
@@ -280,7 +280,7 @@ def run_benchmark(
     total_time = sum(times)
     fps = len(times) / total_time
 
-    # Peak RSS: macOS returns bytes, Linux returns KiB, Windows uses GetProcessMemoryInfo
+    # Пиковый RSS: macOS возвращает байты, Linux возвращает KiB, Windows использует GetProcessMemoryInfo
     if resource is not None:
         ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         peak_mb = (ru_maxrss / (1024.0 * 1024.0)) if sys.platform == "darwin" else (ru_maxrss / 1024.0)
@@ -352,7 +352,7 @@ def run_benchmark(
 
 
 def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
-    """Return True when all S1 pre/peak scenes referenced by pairs.csv exist."""
+    """Возвращает True, когда все сцены S1 pre/peak, указанные в pairs.csv, существуют."""
     missing = missing_s1_pairs(pairs_csv_path, data_dir)
     if missing:
         logger.warning(
@@ -368,7 +368,7 @@ def run_fetch(
     archive_output: Path | None = None,
     keep_archive: bool = True,
 ) -> None:
-    """Download the case dataset from Google Drive and unpack it."""
+    """Скачивает датасет кейса с Google Drive и распаковывает его."""
     import gdown
 
     archive_path = archive_output or data_dir.parent / "hydrowatch_amur_dataset.zip"
@@ -401,7 +401,7 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # predict sub-command
+    # подкоманда predict
     predict_parser = subparsers.add_parser(
         "predict", help="Run batch prediction on all pairs and generate submission.csv"
     )
@@ -419,7 +419,7 @@ def main() -> None:
         help="Number of worker processes for parallel batch inference (default: auto)",
     )
 
-    # evaluate sub-command
+    # подкоманда evaluate
     eval_parser = subparsers.add_parser(
         "evaluate", help="Compute official score and raster metrics against reference masks"
     )
@@ -434,12 +434,12 @@ def main() -> None:
         help="Run the additional spatial leave-one-AOI-out (LOAO) hold-out diagnostic",
     )
 
-    # report sub-command
+    # подкоманда report
     report_parser = subparsers.add_parser("report", help="Generate hydrological report for a pair or all pairs")
     report_parser.add_argument("--pair-id", type=str, default=None, help="Target pair identifier")
     report_parser.add_argument("--output", type=Path, default=None, help="Output file path (.json or .csv)")
 
-    # fetch sub-command
+    # подкоманда fetch
     fetch_parser = subparsers.add_parser("fetch", help="Download the case dataset from Google Drive and unpack it")
     fetch_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     fetch_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
@@ -455,7 +455,7 @@ def main() -> None:
         help="Delete the downloaded archive after extraction",
     )
 
-    # benchmark sub-command
+    # подкоманда benchmark
     bench_parser = subparsers.add_parser("benchmark", help="Benchmark pipeline latency and throughput")
     bench_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     bench_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
@@ -468,7 +468,7 @@ def main() -> None:
         help="Where to store the machine-readable benchmark summary",
     )
 
-    # fetch-optical sub-command
+    # подкоманда fetch-optical
     fetch_opt_parser = subparsers.add_parser(
         "fetch-optical",
         help="Download and reproject real Sentinel-2 MSI L2A bands via Planetary Computer STAC",
@@ -477,12 +477,12 @@ def main() -> None:
     fetch_opt_parser.add_argument("--pair-id", type=str, default=None, help="Process single pair_id")
     fetch_opt_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
 
-    # audit sub-command
+    # подкоманда audit
     audit_parser = subparsers.add_parser("audit", help="Generate cryptographic Merkle audit certificate")
     audit_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID to audit")
     audit_parser.add_argument("--output-json", type=Path, default=None, help="Path to save audit certificate JSON")
 
-    # uncertainty sub-command
+    # подкоманда uncertainty
     unc_parser = subparsers.add_parser("uncertainty", help="Compute spatial error bounds and confidence interval")
     unc_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID for uncertainty estimation")
     unc_parser.add_argument(

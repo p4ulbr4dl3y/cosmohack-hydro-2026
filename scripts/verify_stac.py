@@ -29,7 +29,7 @@ def verify_all_pairs():
         maxx, maxy = transformer.transform(right, top)
         bbox = [minx, miny, maxx, maxy]
 
-        # S1 Pre
+        # S1 (до события)
         d_pre = datetime.strptime(row.date_pre_sar, "%Y-%m-%d")
         dt_pre_str = (
             f"{(d_pre - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_pre + timedelta(days=1)).strftime('%Y-%m-%d')}"
@@ -42,7 +42,7 @@ def verify_all_pairs():
             ).items()
         )
 
-        # S1 Peak
+        # S1 (на пике)
         d_peak = datetime.strptime(row.date_peak_sar, "%Y-%m-%d")
         dt_peak_str = (
             f"{(d_peak - timedelta(days=1)).strftime('%Y-%m-%d')}/{(d_peak + timedelta(days=1)).strftime('%Y-%m-%d')}"

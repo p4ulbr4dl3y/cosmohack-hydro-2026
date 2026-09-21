@@ -1,4 +1,4 @@
-"""FastAPI application for HydroWatch Amur Flood Monitoring Service."""
+"""Приложение FastAPI сервиса мониторинга затоплений HydroWatch Amur."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware for web clients
+# Промежуточное ПО CORS для веб-клиентов
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -68,13 +68,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory registry for prediction tasks
+# Реестр задач прогнозирования в памяти
 tasks_db: dict[str, dict[str, Any]] = {}
 
 
 @app.get("/health")
 async def health_status() -> dict[str, Any]:
-    """Health check endpoint with service metadata."""
+    """Эндпоинт проверки работоспособности с метаданными сервиса."""
     return {
         "status": "ok",
         "service": "hydrowatch-amur",
@@ -84,7 +84,7 @@ async def health_status() -> dict[str, Any]:
 
 @app.get("/api/v1/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+    """Эндпоинт проверки работоспособности."""
     return {"status": "ok"}
 
 
@@ -94,7 +94,7 @@ async def health_check() -> dict[str, str]:
     summary="List all monitored pairs with metadata",
 )
 async def list_pairs() -> Any:
-    """Lists all 11 pairs with AOI metadata, dates, and areas."""
+    """Перечисляет все 11 пар с метаданными AOI, датами и площадями."""
     return data_loader.get_pairs()
 
 
@@ -104,7 +104,7 @@ async def list_pairs() -> Any:
     summary="Get automated hydrological report for a pair",
 )
 async def get_report(pair_id: str) -> Any:
-    """Automated summary report with flood areas, metrics, and landcover distribution."""
+    """Автоматизированный сводный отчёт с площадями затопления, метриками и типами поверхности."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -113,7 +113,7 @@ async def get_report(pair_id: str) -> Any:
 
 @app.get("/api/v1/report/{pair_id}/csv")
 async def get_report_csv(pair_id: str) -> Response:
-    """Download single pair report as CSV."""
+    """Скачивает отчёт по одной паре в формате CSV."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -203,7 +203,7 @@ async def get_geojson(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> dict[str, Any]:
-    """Vector polygons of flood zone in GeoJSON format (EPSG:4326 for web maps)."""
+    """Векторные полигоны зоны затопления в формате GeoJSON (EPSG:4326 для веб-карт)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
@@ -228,7 +228,7 @@ async def get_shapefile(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> Response:
-    """Vector polygons exported as a zipped ESRI Shapefile archive (EPSG:4326)."""
+    """Векторные полигоны, экспортированные как архив ESRI Shapefile в zip (EPSG:4326)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
@@ -250,7 +250,7 @@ async def get_geotiff(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> FileResponse:
-    """Download raster mask for the given pair and layer in GeoTIFF format (EPSG:32652)."""
+    """Скачивает растровую маску для заданной пары и слоя в формате GeoTIFF (EPSG:32652)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
@@ -273,10 +273,10 @@ async def get_geotiff(
     summary="Spatial-temporal flood prediction",
 )
 async def predict_flood(request: PredictRequest) -> Any:
-    """Spatial-temporal inference endpoint accepting bounds / polygon / pair_id."""
+    """Эндпоинт пространственно-временного вывода, принимающий bounds / polygon / pair_id."""
     try:
-        # Validate date format (YYYY-MM-DD) upfront; range plausibility is checked
-        # against the pair that is actually resolved (which may depend on the dates).
+        # Сразу проверяем формат даты (YYYY-MM-DD); правдоподобность диапазона проверяется
+        # относительно фактически выбранной пары (которая может зависеть от дат).
         requested_dates: dict[str, date | None] = {"date_pre": None, "date_peak": None}
         for name in ("date_pre", "date_peak"):
             val = getattr(request, name)
@@ -354,7 +354,7 @@ async def predict_flood(request: PredictRequest) -> Any:
     summary="Get status of an asynchronous prediction task",
 )
 async def get_prediction_task_status(task_id: str) -> PredictionTaskResponse:
-    """Check lifecycle status and retrieve result of an asynchronous prediction task."""
+    """Проверяет статус жизненного цикла и получает результат асинхронной задачи прогнозирования."""
     task = tasks_db.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail=f"Prediction task '{task_id}' not found")
@@ -363,13 +363,13 @@ async def get_prediction_task_status(task_id: str) -> PredictionTaskResponse:
 
 @app.get("/api/v1/events")
 async def list_events() -> list[dict[str, Any]]:
-    """Alias to list_pairs for openapi contract compatibility."""
+    """Псевдоним list_pairs для совместимости с контрактом openapi."""
     return data_loader.get_pairs()
 
 
 @app.get("/api/v1/aoi")
 async def get_aoi_vectors() -> dict[str, Any]:
-    """Returns GeoJSON FeatureCollection of AOI polygons."""
+    """Возвращает FeatureCollection GeoJSON с полигонами AOI."""
     aoi_path = BASE_DIR / "hydrowatch_amur" / "vectors" / "aoi.geojson"
     if not aoi_path.exists():
         aoi_path = BASE_DIR.parent / "data" / "vectors" / "aoi.geojson"
@@ -383,7 +383,7 @@ async def get_aoi_vectors() -> dict[str, Any]:
 
 @app.get("/api/v1/vectors/{layer_name}")
 async def get_vector_layer(layer_name: str) -> dict[str, Any]:
-    """Returns vector layer GeoJSON (e.g. amur_oblast, aoi, hydrography_osm, basins_hydrosheds)."""
+    """Возвращает GeoJSON векторного слоя (например, amur_oblast, aoi, hydrography_osm, basins_hydrosheds)."""
 
     v_path = BASE_DIR / "hydrowatch_amur" / "vectors" / f"{layer_name}.geojson"
     if not v_path.exists():
@@ -396,7 +396,7 @@ async def get_vector_layer(layer_name: str) -> dict[str, Any]:
 
 @app.get("/api/v1/comparison/{pair_id}")
 async def get_comparison(pair_id: str) -> dict[str, Any]:
-    """Comparison between model prediction and reference mask for report."""
+    """Сопоставление прогноза модели и эталонной маски для отчёта."""
 
     report = data_loader.get_report(pair_id)
     if not report:
@@ -454,7 +454,7 @@ async def get_comparison(pair_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/ablation")
 async def get_ablation_results() -> dict[str, Any]:
-    """Returns ML pipeline ablation results and metrics."""
+    """Возвращает результаты ablation ML-конвейера и метрики."""
 
     ablation_path = BASE_DIR / "data" / "ablation_results.json"
     if not ablation_path.exists():
@@ -464,17 +464,17 @@ async def get_ablation_results() -> dict[str, Any]:
 
 
 class RecomputeRequest(BaseModel):
-    """Optional payload for the recompute endpoint."""
+    """Необязательная нагрузка для эндпоинта пересчёта."""
 
     pair_id: str | None = None
 
 
-#: Layers whose GeoJSON cache is invalidated together with the report cache.
+#: Слои, кэш GeoJSON которых сбрасывается вместе с кэшем отчёта.
 RECOMPUTE_LAYERS = ("flood", "water_pre", "water_peak")
 
 
 def _peak_rss_gb() -> float:
-    """Process peak RSS in GiB (macOS/Windows report bytes, Linux reports KiB)."""
+    """Пиковый RSS процесса в ГиБ (macOS/Windows сообщают байты, Linux сообщает КиБ)."""
     if resource is None:  # pragma: no cover
         return 0.0
     ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
@@ -484,7 +484,7 @@ def _peak_rss_gb() -> float:
 
 
 def _invalidate_pair_caches(pair_ids: list[str]) -> None:
-    """Drop in-memory report entries and on-disk report/GeoJSON caches."""
+    """Сбрасывает записи отчётов из памяти и кэши отчёта/GeoJSON на диске."""
     for pair_id in pair_ids:
         data_loader._reports_cache.pop(pair_id, None)
         for name in (f"report_{pair_id}.json", *(f"{pair_id}_{layer}.geojson" for layer in RECOMPUTE_LAYERS)):
@@ -494,7 +494,7 @@ def _invalidate_pair_caches(pair_ids: list[str]) -> None:
 
 @app.post("/api/v1/recompute")
 async def recompute_observation(request: RecomputeRequest | None = None) -> dict[str, Any]:
-    """Rebuild report and GeoJSON caches for one pair (or every pair) with real timings."""
+    """Перестраивает кэши отчёта и GeoJSON для одной пары (или всех пар) с реальными замерами времени."""
     all_pair_ids = [p["pair_id"] for p in data_loader.get_pairs()]
     target_pair_id = request.pair_id if request else None
 
@@ -531,7 +531,7 @@ async def recompute_observation(request: RecomputeRequest | None = None) -> dict
 
 @app.get("/api/v1/layers/{pair_id}/geojson")
 async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
-    """Returns GeoJSON FeatureCollection of flood layer for a pair matching openapi contract."""
+    """Возвращает FeatureCollection GeoJSON слоя затопления для пары согласно контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer="flood")
     if geojson is None:
         raise HTTPException(status_code=404, detail=f"Layers for pair '{pair_id}' not found")
@@ -540,7 +540,7 @@ async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
 
 @app.get("/api/v1/layers/{pair_id}/{layer}")
 async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
-    """Path-based layer endpoint matching openapi contract."""
+    """Эндпоинт слоя на основе пути, соответствующий контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer=layer)
     if geojson is None:
         raise HTTPException(status_code=404, detail=f"Layer '{layer}' for pair '{pair_id}' not found")
@@ -549,7 +549,7 @@ async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
 
 @app.post("/api/v1/analyze")
 async def analyze_flood(request: PredictRequest) -> dict[str, Any]:
-    """Alias to predict_flood matching openapi contract."""
+    """Псевдоним predict_flood, соответствующий контракту openapi."""
     return await predict_flood(request)
 
 
@@ -558,7 +558,7 @@ async def export_vectors(
     pair_id: str,
     format: str = Query(default="geojson", description="Format: 'geojson' or 'shp'"),
 ) -> Response:
-    """Export vector contours as GeoJSON or a genuine ESRI Shapefile (.zip)."""
+    """Экспортирует векторные контуры как GeoJSON или настоящий ESRI Shapefile (.zip)."""
     if format.lower() == "shp":
         shp_bytes = data_loader.get_shapefile_zip(pair_id, layer="flood")
         if shp_bytes is None:
@@ -585,7 +585,7 @@ async def export_report(
     pair_id: str,
     format: str = Query(default="json", description="Format: 'json' or 'csv'"),
 ) -> Response:
-    """Export summary report as JSON or CSV."""
+    """Экспортирует сводный отчёт как JSON или CSV."""
     if format.lower() == "csv":
         return await get_report_csv(pair_id)
 
@@ -606,7 +606,7 @@ async def export_report(
     summary="Cryptographic Merkle audit certificate for flood verification",
 )
 async def get_audit_certificate(pair_id: str) -> Any:
-    """Generate or retrieve tamper-proof Merkle audit certificate for a monitored pair."""
+    """Создаёт или получает защищённый от подделки аудиторский сертификат Merkle для наблюдаемой пары."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -652,7 +652,7 @@ async def get_flood_uncertainty(
     confidence_level: float = Query(default=0.95, ge=0.50, le=0.999),
     spatial_correlation: float = Query(default=0.20, ge=0.0, le=1.0),
 ) -> Any:
-    """Calculate spatial error propagation and [L, U] confidence interval."""
+    """Вычисляет распространение пространственной ошибки и доверительный интервал [L, U]."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -700,7 +700,7 @@ async def get_flood_uncertainty(
     summary="Sentinel-1 radar polarimetric analytics and quality metrics",
 )
 async def get_sar_analytics(pair_id: str) -> Any:
-    """Analyze dual-polarization SAR backscatter and radar penetration for a pair."""
+    """Анализирует обратное рассеяние SAR с двойной поляризацией и проникновение радара для пары."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -731,7 +731,7 @@ async def get_raster_overlay_png(
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
     gradient: bool = Query(default=True, description="Enable continuous depth/intensity color gradient"),
 ) -> Response:
-    """Render transparent RGBA PNG overlay directly for Leaflet L.imageOverlay."""
+    """Отрисовывает прозрачный оверлей RGBA PNG напрямую для Leaflet L.imageOverlay."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
@@ -747,7 +747,7 @@ async def get_raster_overlay_png(
             mask = src.read(1)
         png_bytes = render_mask_png(mask, layer_type=norm_layer, gradient=gradient)
     else:
-        # Fallback 100x100 transparent image
+        # Резервное прозрачное изображение 100x100
         empty_mask = np.zeros((100, 100), dtype=np.uint8)
         png_bytes = render_mask_png(empty_mask, layer_type=norm_layer, gradient=gradient)
 
@@ -767,7 +767,7 @@ async def get_raster_overlay_metadata(
     pair_id: str,
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> Any:
-    """Get Leaflet-compatible WGS84 bounding box [[south, west], [north, east]] for overlay."""
+    """Получает совместимый с Leaflet прямоугольник WGS84 [[south, west], [north, east]] для оверлея."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -803,7 +803,7 @@ async def get_raster_overlay_metadata(
     summary="Official competition score and component convergence (docs/TASK_SPEC.md)",
 )
 async def get_official_metrics() -> Any:
-    """Computes live official competition score across all 11 pairs:
+    """Вычисляет актуальную официальную оценку соревнования по всем 11 парам:
     Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
     """
     sub_path = BASE_DIR / "submission.csv"
@@ -828,7 +828,7 @@ async def get_official_metrics() -> Any:
     summary="Validate submission.csv and raster masks against criteria (docs/CRITERIA.md)",
 )
 async def validate_submission() -> Any:
-    """Validates submission.csv constraints and checks 2% raster discrepancy rule."""
+    """Проверяет ограничения submission.csv и правило 2% расхождения растров."""
     sub_path = BASE_DIR / "submission.csv"
     pairs_path = BASE_DIR / "hydrowatch_amur" / "pairs.csv"
     val = validate_submission_file(
@@ -845,7 +845,7 @@ async def validate_submission() -> Any:
     summary="Biomass and carbon stock loss assessment for flood events",
 )
 async def get_carbon_impact(pair_id: str) -> Any:
-    """Calculates carbon footprint, biomass loss (IPCC default CF=0.47) and mitigation credits."""
+    """Вычисляет углеродный след, потерю биомассы (значение IPCC по умолчанию CF=0.47) и кредиты на смягчение."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
@@ -858,7 +858,7 @@ async def get_carbon_impact(pair_id: str) -> Any:
     return res_dict
 
 
-# Mount static assets
+# Подключение статических ресурсов
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
@@ -866,8 +866,8 @@ if STATIC_DIR.exists():
 @app.get("/")
 @app.get("/{full_path:path}")
 async def root(full_path: str = "") -> FileResponse:
-    """Serve the interactive web map dashboard and SPA fallback."""
-    # Do not intercept API requests
+    """Отдаёт интерактивный веб-дашборд карты и fallback SPA."""
+    # Не перехватывать запросы API
     if full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
 
@@ -875,9 +875,9 @@ async def root(full_path: str = "") -> FileResponse:
     if full_path and file_candidate.is_file():
         return FileResponse(file_candidate)
 
-    # Missing asset requests (e.g. a stale index.html pointing at an old chunk
-    # hash) must 404. Falling back to index.html would return text/html for a
-    # JavaScript module, which the browser rejects and renders a blank screen.
+    # Запросы отсутствующих ресурсов (например, устаревший index.html, ссылающийся на старый
+    # хэш) должны отдавать 404. Откат к index.html вернул бы text/html для
+    # модуля JavaScript, который браузер отвергает и отрисовывает пустой экран.
     if full_path and Path(full_path).suffix:
         raise HTTPException(status_code=404, detail=f"Asset '{full_path}' not found")
 

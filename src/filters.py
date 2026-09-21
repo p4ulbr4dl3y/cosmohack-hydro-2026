@@ -1,4 +1,4 @@
-"""Speckle filtering and morphology post-processing for radar imagery."""
+"""Подавление спекла и морфологическая постобработка радиолокационных изображений."""
 
 from __future__ import annotations
 
@@ -13,21 +13,21 @@ def refined_lee_filter(
     size: int = LEE_SIZE,
     n_looks: float = LEE_LOOKS,
 ) -> np.ndarray:
-    """Apply Lee MMSE speckle filter using local mean and variance.
+    """Применяет спекл-фильтр Lee MMSE по локальному среднему и дисперсии.
 
-    This is the classical Lee minimum-mean-square-error filter with a square
-    window, NOT the directional "Refined Lee" variant (which uses edge-aligned
-    sub-windows). Formula:
+    Это классический фильтр Lee с минимумом среднеквадратичной ошибки и квадратным
+    окном, а НЕ направленный вариант "Refined Lee" (использующий субокна,
+    выровненные по краям). Формула:
         W = (Var(I) - mean(I)^2 / n_looks) / Var(I)
         I_hat = mean(I) + W * (I - mean(I))
 
-    Args:
-        data: 2D array of SAR backscatter in dB.
-        size: Window aperture size (default 7 for 7x7 filter).
-        n_looks: Equivalent number of looks (4.4 for Sentinel-1 IW GRD).
+    Аргументы:
+        data: двумерный массив обратного рассеяния SAR в дБ.
+        size: размер апертуры окна (по умолчанию 7 для фильтра 7x7).
+        n_looks: эквивалентное число накоплений (4.4 для Sentinel-1 IW GRD).
 
-    Returns:
-        Filtered 2D array in dB.
+    Возвращает:
+        Отфильтрованный двумерный массив в дБ.
     """
     valid_mask = np.isfinite(data) & (data > SAR_NODATA_MAX_DB)
     if not np.any(valid_mask):
@@ -36,15 +36,15 @@ def refined_lee_filter(
     fill_val = float(np.nanmedian(data[valid_mask]))
     data_clean = np.where(valid_mask, data, fill_val)
 
-    # Convert dB to linear intensity scale
+    # Перевод дБ в линейную шкалу интенсивности
     linear = 10.0 ** (data_clean / 10.0)
 
-    # Compute local mean and variance over size x size window
+    # Вычисление локального среднего и дисперсии по окну size x size
     mean_linear = uniform_filter(linear, size=size)
     mean_sq_linear = uniform_filter(linear**2, size=size)
     var_linear = np.maximum(mean_sq_linear - mean_linear**2, 0.0)
 
-    # Lee weighting factor
+    # Весовой коэффициент Lee
     theoretical_var = (mean_linear**2) / n_looks
     var_clean = np.maximum(var_linear, 1e-10)
     w = np.clip((var_linear - theoretical_var) / var_clean, 0.0, 1.0)
@@ -62,15 +62,15 @@ def speckle_filter(
     method: str = "lee",
     size: int = LEE_SIZE,
 ) -> np.ndarray | None:
-    """Apply speckle noise filtering on radar backscatter data.
+    """Применяет подавление спекла к данным обратного рассеяния радара.
 
-    Args:
-        data: 2D array of SAR backscatter in dB or None.
-        method: Filtering method, 'lee' (default, Lee MMSE 7x7), 'uniform', or 'median'.
-        size: Kernel window size (e.g. 5 or 7).
+    Аргументы:
+        data: двумерный массив обратного рассеяния SAR в дБ или None.
+        method: метод фильтрации: 'lee' (по умолчанию, Lee MMSE 7x7), 'uniform' или 'median'.
+        size: размер окна ядра (например, 5 или 7).
 
-    Returns:
-        Filtered 2D array or None if input data is None.
+    Возвращает:
+        Отфильтрованный двумерный массив или None, если входные данные равны None.
     """
     if data is None:
         return None
@@ -94,14 +94,14 @@ def apply_mmu(
     mask: np.ndarray,
     min_size: int | None = None,
 ) -> np.ndarray:
-    """Remove isolated noise clusters smaller than min_size pixels.
+    """Удаляет изолированные кластеры шума меньше min_size пикселей.
 
-    Args:
-        mask: 2D boolean or integer binary array.
-        min_size: Minimum number of contiguous connected pixels.
+    Аргументы:
+        mask: двумерный булев или целочисленный бинарный массив.
+        min_size: минимальное число смежных связанных пикселей.
 
-    Returns:
-        Cleaned binary array.
+    Возвращает:
+        Очищенный бинарный массив.
     """
     if min_size is None:
         min_size = MMU_MIN_PIXELS
@@ -124,11 +124,11 @@ def apply_hydrological_connectivity(
     flood_mask: np.ndarray,
     seed_mask: np.ndarray,
 ) -> np.ndarray:
-    """Filter flood clusters by hydrological connectivity to a seed water network.
+    """Фильтрует кластеры затопления по гидрологической связности с опорной водной сетью.
 
-    Retains only connected components (8-connectivity) of flood_mask that touch
-    or intersect the seed_mask (typically permanent river water, e.g. GSW occurrence >= 80%).
-    Isolated puddles and false alarms far from the river drainage network are eliminated.
+    Оставляет только компоненты связности (8-связность) flood_mask, которые касаются
+    или пересекают seed_mask (обычно постоянная речная вода, например GSW occurrence >= 80%).
+    Изолированные лужи и ложные срабатывания вдали от речной дренажной сети устраняются.
     """
     if not np.any(flood_mask) or not np.any(seed_mask):
         return np.zeros_like(flood_mask)
@@ -139,7 +139,7 @@ def apply_hydrological_connectivity(
     if num_features == 0:
         return flood_mask.copy()
 
-    # Dilate seed by 1 pixel (3x3) so adjacent flood components touch the seed
+    # Расширение опорной маски на 1 пиксель (3x3), чтобы соседние компоненты затопления касались опоры
     from scipy.ndimage import binary_dilation
 
     seed_dilated = binary_dilation(seed_mask > 0, structure=structure)
@@ -158,7 +158,7 @@ def apply_morphological_closing(
     mask: np.ndarray,
     kernel_size: int = 5,
 ) -> np.ndarray:
-    """Close small speckle holes and wave gaps inside water bodies using a disk kernel."""
+    """Закрывает мелкие спекл-провалы и разрывы от волн внутри водных объектов дисковым ядром."""
     if not np.any(mask):
         return mask.copy()
 
