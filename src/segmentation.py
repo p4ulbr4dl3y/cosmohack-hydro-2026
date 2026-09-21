@@ -87,7 +87,11 @@ def refined_lee_filter(
     size: int = 7,
     n_looks: float = 4.4,
 ) -> np.ndarray:
-    """Apply genuine Refined Lee filter using local mean and variance."""
+    """Apply Lee MMSE speckle filter (7x7 square window, n_looks=4.4).
+
+    This is the classical Lee minimum-mean-square-error filter with a square
+    window. The directional edge-aligned "Refined Lee" variant is NOT implemented.
+    """
     return _filters_refined_lee_filter(data=data, size=size, n_looks=n_looks)
 
 
@@ -341,7 +345,8 @@ def segment_water(
 
     sar_valid = np.isfinite(vv) & (vv > nodata_max_db)
 
-    # 1. Speckle filtering (7x7 Refined Lee by default)
+    # 1. Speckle filtering (Lee MMSE, 7x7 square window by default; the
+    #    directional edge-aligned "Refined Lee" variant is NOT implemented)
     vv_filt = speckle_filter(vv, method=filter_method, size=filter_size)
     vh_filt = speckle_filter(vh, method=filter_method, size=filter_size) if vh is not None else None
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
 import json
 import logging
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -123,28 +123,22 @@ def run_benchmark(
     times = []
 
     print(f"Benchmarking HydroWatch inference across {total_pairs} pairs ({iterations} iteration(s))...")
-    tmp_out = predictions_dir / "_benchmark_tmp"
-    tmp_out.mkdir(parents=True, exist_ok=True)
 
-    for _i in range(iterations):
-        for idx, row in pairs_df.iterrows():
-            t0 = time.perf_counter()
-            process_pair(
-                row=row,
-                data_dir=data_dir,
-                predictions_dir=tmp_out,
-                ablation_mode=4,
-            )
-            elapsed = time.perf_counter() - t0
-            times.append(elapsed)
-            print(f"  [{idx + 1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f}s")
-
-    # Clean up benchmark temp files
-    for f in tmp_out.glob("*"):
-        with contextlib.suppress(OSError):
-            f.unlink()
-    with contextlib.suppress(OSError):
-        tmp_out.rmdir()
+    # Scratch rasters go to a temp dir so the benchmark also runs on read-only checkouts
+    with tempfile.TemporaryDirectory(prefix="hydrowatch_benchmark_") as tmp_dir:
+        tmp_out = Path(tmp_dir)
+        for _i in range(iterations):
+            for idx, row in pairs_df.iterrows():
+                t0 = time.perf_counter()
+                process_pair(
+                    row=row,
+                    data_dir=data_dir,
+                    predictions_dir=tmp_out,
+                    ablation_mode=4,
+                )
+                elapsed = time.perf_counter() - t0
+                times.append(elapsed)
+                print(f"  [{idx + 1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f}s")
 
     avg_time = sum(times) / len(times)
     total_time = sum(times)
