@@ -16,7 +16,12 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
     try {
-      const data = report || await apiClient.fetchReport(pairId);
+      const data = report ?? (await apiClient.fetchReport(pairId));
+      // Without a server report there is nothing truthful to export.
+      if (!data) {
+        console.error(`No report available for ${pairId}; PDF export skipped`);
+        return;
+      }
       downloadReportPdf(data);
     } catch (e) {
       console.error('Error generating PDF:', e);

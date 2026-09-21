@@ -20,21 +20,30 @@ export const Report: React.FC = () => {
   const [report, setReport] = useState<ReportData | null>(null);
   const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
+    setLoadError(null);
 
     Promise.all([apiClient.fetchReport(pairId), apiClient.fetchComparison(pairId)])
       .then(([rep, comp]) => {
-        if (isMounted) {
-          setReport(rep);
-          setComparison(comp);
+        if (!isMounted) return;
+        setReport(rep);
+        setComparison(comp);
+        // A null report means the API returned no data; the spinner must stop
+        // and the failure must be shown instead of hanging forever.
+        if (!rep) {
+          setLoadError('Отчёт недоступен: сервис не вернул данные для этой пары.');
         }
       })
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        if (isMounted) setLoadError('Отчёт недоступен: не удалось связаться с сервисом.');
+      })
       .finally(() => {
         if (isMounted) setLoading(false);
       });
@@ -119,12 +128,32 @@ export const Report: React.FC = () => {
     }
   };
 
-  if (loading || !report) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center p-8">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 border-3 border-[#0EA5E9] border-t-transparent rounded-full animate-spin mx-auto" />
           <div className="text-sm text-text-secondary font-medium">Генерация сводного отчёта...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="min-h-screen bg-[#FAFBFC] flex items-center justify-center p-8">
+        <div className="max-w-md text-center space-y-4">
+          <div className="text-base font-semibold text-text-primary">Отчёт недоступен</div>
+          <div className="text-sm text-text-secondary">
+            {loadError || 'Сервис не вернул данные отчёта для этой пары.'}
+          </div>
+          <button
+            onClick={() => navigate(`/dashboard/${pairId}`)}
+            className="inline-flex items-center gap-2 text-xs font-medium text-text-secondary hover:text-text-primary px-3 py-2 rounded-lg border border-[#EAECF0] bg-white hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Назад к дашборду</span>
+          </button>
         </div>
       </div>
     );

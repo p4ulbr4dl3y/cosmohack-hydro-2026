@@ -51,8 +51,8 @@ describe('API Client & Fetch Mocking', () => {
       expect(pairs.length).toBe(1);
       expect(pairs[0].pair_id).toBe('flood_2019_07_amur__blagoveshchensk');
       expect(pairs[0].status).toBe('active');
-      // /api/v1/pairs carries no areas; curated fallback mirrors submission.csv
-      expect(pairs[0].flood_ha).toBe(996.37);
+      // /api/v1/pairs carries no areas and none may be invented client-side
+      expect(pairs[0].flood_ha).toBeUndefined();
     });
 
     it('falls back to /data/pairs.csv when /api/v1/pairs returns 500 error', async () => {
@@ -112,11 +112,12 @@ flood_2019_07_amur__belogorsk,belogorsk,Белогорск,flood_2019_07_amur,П
       const report = await fetchReport(pairId);
 
       expect(fetchMock).toHaveBeenCalledWith(`/api/v1/report/${pairId}`);
-      expect(report.pair_id).toBe(pairId);
-      expect(report.flood_ha).toBe(1614.38);
+      expect(report).not.toBeNull();
+      expect(report!.pair_id).toBe(pairId);
+      expect(report!.flood_ha).toBe(1614.38);
     });
 
-    it('falls back to static report calculation when endpoint returns error or throws', async () => {
+    it('returns null instead of an invented report when endpoint returns error', async () => {
       const pairId = 'flood_2019_07_amur__blagoveshchensk';
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
@@ -125,10 +126,15 @@ flood_2019_07_amur__belogorsk,belogorsk,Белогорск,flood_2019_07_amur,П
 
       const report = await fetchReport(pairId);
 
-      expect(report.pair_id).toBe(pairId);
-      expect(report.flood_ha).toBe(996.37);
-      expect(report.landcover).toBeDefined();
-      expect(report.landcover.builtup_ha).toBeGreaterThan(0);
+      expect(report).toBeNull();
+    });
+
+    it('returns null instead of an invented report when the request throws', async () => {
+      global.fetch = vi.fn().mockRejectedValue(new Error('Network unreachable'));
+
+      const report = await fetchReport('flood_2019_07_amur__blagoveshchensk');
+
+      expect(report).toBeNull();
     });
 
     it('calls recompute endpoint successfully', async () => {
@@ -183,25 +189,28 @@ flood_2019_07_amur__belogorsk,belogorsk,Белогорск,flood_2019_07_amur,П
       const comp = await fetchComparison(pairId);
 
       expect(fetchMock).toHaveBeenCalledWith(`/api/v1/comparison/${pairId}`);
-      expect(comp.pair_id).toBe(pairId);
-      expect(comp.rows.length).toBe(1);
-      expect(comp.rows[0].metric).toBe('flood_ha');
+      expect(comp).not.toBeNull();
+      expect(comp!.pair_id).toBe(pairId);
+      expect(comp!.rows.length).toBe(1);
+      expect(comp!.rows[0].metric).toBe('flood_ha');
     });
 
-    it('falls back to report-derived rows when comparison endpoint fails', async () => {
+    it('returns null instead of synthesising rows when comparison endpoint fails', async () => {
       const pairId = 'flood_2019_07_amur__blagoveshchensk';
       global.fetch = vi.fn().mockRejectedValue(new Error('Comparison API down'));
 
       const comp = await fetchComparison(pairId);
 
-      expect(comp.pair_id).toBe(pairId);
-      expect(Array.isArray(comp.rows)).toBe(true);
-      expect(comp.rows.length).toBe(3);
-      expect(comp.rows.map((r) => r.metric)).toEqual([
-        'flood_ha',
-        'water_peak_ha',
-        'water_pre_ha',
-      ]);
+      expect(comp).toBeNull();
+    });
+
+    it('returns null when comparison endpoint responds with an error status', async () => {
+      const pairId = 'flood_2019_07_amur__blagoveshchensk';
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+
+      const comp = await fetchComparison(pairId);
+
+      expect(comp).toBeNull();
     });
   });
 
@@ -290,11 +299,19 @@ flood_2019_07_amur__belogorsk,belogorsk,Белогорск,flood_2019_07_amur,П
       expect(res.processing_time_sec).toBe(10.5);
     });
 
-    it('recompute returns safe fallback when fetch fails', async () => {
+    it('recompute returns an error result (no fabricated success) when fetch fails', async () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
       const res = await postRecompute();
-      expect(res.status).toBe('success');
-      expect(res.processing_time_sec).toBe(12.4);
+      expect(res.status).toBe('error');
+      expect(res.processing_time_sec).toBeUndefined();
+      expect(res.message).toBeTruthy();
+    });
+
+    it('recompute reports an error status when the server responds with a failure code', async () => {
+      global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+      const res = await postRecompute();
+      expect(res.status).toBe('error');
+      expect(res.processing_time_sec).toBeUndefined();
     });
 
     it('analyze sends POST /api/v1/analyze with JSON body', async () => {

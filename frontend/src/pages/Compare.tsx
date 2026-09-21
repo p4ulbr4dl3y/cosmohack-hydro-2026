@@ -479,7 +479,7 @@ export const Compare: React.FC = () => {
         {/* Center: Flood Delta */}
         <div className="text-center space-y-0.5">
           <div className="font-mono text-lg sm:text-2xl md:text-3xl font-extrabold text-[#F97316] tracking-tight">
-            +{report ? Math.round(report.flood_ha).toLocaleString('ru-RU') : '2 847'} га
+            {report ? `+${Math.round(report.flood_ha).toLocaleString('ru-RU')}` : '—'} га
           </div>
           <div className="text-[10px] sm:text-xs text-text-secondary font-medium">
             новое затопление

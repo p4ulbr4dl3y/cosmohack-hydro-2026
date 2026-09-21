@@ -10,6 +10,7 @@ import { useUiStore } from '../store/uiStore';
 import { apiClient } from '../api/client';
 import type { Pair, ReportData } from '../types/domain';
 import {
+  AlertTriangle,
   ArrowRight,
   FileText,
   CheckCircle,
@@ -30,6 +31,7 @@ export const Dashboard: React.FC = () => {
   const [currentReport, setCurrentReport] = useState<ReportData | null>(null);
   const [loadingPairs, setLoadingPairs] = useState(true);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [reportUnavailable, setReportUnavailable] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
@@ -72,14 +74,21 @@ export const Dashboard: React.FC = () => {
 
     let isMounted = true;
     setLoadingReport(true);
+    setReportUnavailable(false);
     apiClient
       .fetchReport(activePairId)
       .then((rep) => {
+        if (!isMounted) return;
+        setCurrentReport(rep);
+        setReportUnavailable(rep === null);
+      })
+      .catch((e) => {
+        console.error(e);
         if (isMounted) {
-          setCurrentReport(rep);
+          setCurrentReport(null);
+          setReportUnavailable(true);
         }
       })
-      .catch(console.error)
       .finally(() => {
         if (isMounted) setLoadingReport(false);
       });
@@ -95,6 +104,7 @@ export const Dashboard: React.FC = () => {
     if (activePairId) {
       const rep = await apiClient.fetchReport(activePairId);
       setCurrentReport(rep);
+      setReportUnavailable(rep === null);
     }
     setIsRefreshing(false);
   };
@@ -284,8 +294,16 @@ export const Dashboard: React.FC = () => {
             </div>
           )}
 
+          {/* Report unavailable: never fall back to invented numbers */}
+          {reportUnavailable && !loadingReport && (
+            <div className="flex items-center gap-1.5 text-xs text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Отчёт недоступен: сервис не вернул данные</span>
+            </div>
+          )}
+
           {/* KPI Cards */}
-          <KpiCards report={currentReport} isLoading={loadingReport} />
+          <KpiCards report={currentReport} isLoading={loadingReport || reportUnavailable} />
 
           {/* Landcover Chart */}
           <LandcoverChart landcover={currentReport?.landcover} />
