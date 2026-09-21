@@ -6,7 +6,10 @@ import argparse
 import contextlib
 import json
 import logging
-import resource
+try:
+    import resource
+except ImportError:  # pragma: no cover
+    resource = None
 import sys
 import time
 from pathlib import Path
@@ -143,9 +146,12 @@ def run_benchmark(
     total_time = sum(times)
     fps = len(times) / total_time
 
-    # Peak RSS: macOS returns bytes, Linux returns KiB
-    ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    peak_mb = (ru_maxrss / (1024.0 * 1024.0)) if sys.platform == "darwin" else (ru_maxrss / 1024.0)
+    # Peak RSS: macOS returns bytes, Linux returns KiB, Windows fallback
+    if resource is not None:
+        ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        peak_mb = (ru_maxrss / (1024.0 * 1024.0)) if sys.platform == "darwin" else (ru_maxrss / 1024.0)
+    else:
+        peak_mb = 0.0
 
     print("\n" + "=" * 50)
     print("BENCHMARK RESULTS")

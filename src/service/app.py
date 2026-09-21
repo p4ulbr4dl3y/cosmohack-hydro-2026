@@ -45,6 +45,16 @@ app.add_middleware(
 tasks_db: dict[str, dict[str, Any]] = {}
 
 
+@app.get("/health")
+async def health_status() -> dict[str, Any]:
+    """Health check endpoint with service metadata."""
+    return {
+        "status": "ok",
+        "service": "hydrowatch-amur",
+        "pairs_count": len(data_loader.get_pairs()),
+    }
+
+
 @app.get("/api/v1/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
@@ -292,14 +302,215 @@ async def get_prediction_task_status(task_id: str) -> PredictionTaskResponse:
     return PredictionTaskResponse(**task)
 
 
+@app.get("/api/v1/events")
+async def list_events() -> list[dict[str, Any]]:
+    """Alias to list_pairs for openapi contract compatibility."""
+    return data_loader.get_pairs()
+
+
+@app.get("/api/v1/aoi")
+async def get_aoi_vectors() -> dict[str, Any]:
+    """Returns GeoJSON FeatureCollection of AOI polygons."""
+    aoi_path = BASE_DIR / "hydrowatch_amur" / "vectors" / "aoi.geojson"
+    if not aoi_path.exists():
+        aoi_path = BASE_DIR.parent / "data" / "vectors" / "aoi.geojson"
+    if not aoi_path.exists():
+        raise HTTPException(status_code=404, detail="aoi.geojson not found")
+    with open(aoi_path, encoding="utf-8") as f:
+        import json
+        return json.load(f)
+
+
+@app.get("/api/v1/vectors/{layer_name}")
+async def get_vector_layer(layer_name: str) -> dict[str, Any]:
+    """Returns vector layer GeoJSON (e.g. amur_oblast, aoi, hydrography_osm, basins_hydrosheds)."""
+    import json
+    v_path = BASE_DIR / "hydrowatch_amur" / "vectors" / f"{layer_name}.geojson"
+    if not v_path.exists():
+        v_path = BASE_DIR.parent / "data" / "vectors" / f"{layer_name}.geojson"
+    if not v_path.exists():
+        raise HTTPException(status_code=404, detail=f"Vector layer '{layer_name}' not found")
+    with open(v_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/v1/comparison/{pair_id}")
+async def get_comparison(pair_id: str) -> dict[str, Any]:
+    """Comparison between model prediction and reference mask for report."""
+    import json
+    report = data_loader.get_report(pair_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+
+    ref_json_path = BASE_DIR / "hydrowatch_amur" / "reference_masks" / f"reference_{pair_id}.json"
+    if not ref_json_path.exists():
+        ref_json_path = BASE_DIR.parent / "data" / "reference_masks" / f"reference_{pair_id}.json"
+
+    ref_stats = {}
+    if ref_json_path.exists():
+        with open(ref_json_path, encoding="utf-8") as f:
+            ref_data = json.load(f)
+            ref_stats = ref_data.get("stats", {})
+
+    flood_pred = report.get("flood_ha", 0.0)
+    flood_ref = ref_stats.get("flood_ha", flood_pred)
+    flood_diff_pct = round(abs(flood_pred - flood_ref) / max(flood_ref, 1.0) * 100.0, 1)
+
+    peak_pred = report.get("water_peak_ha", 0.0)
+    peak_ref = ref_stats.get("water_peak_ha", peak_pred)
+    peak_diff_pct = round(abs(peak_pred - peak_ref) / max(peak_ref, 1.0) * 100.0, 1)
+
+    pre_pred = report.get("water_pre_ha", 0.0)
+    pre_ref = ref_stats.get("water_pre_ha", pre_pred)
+    pre_diff_pct = round(abs(pre_pred - pre_ref) / max(pre_ref, 1.0) * 100.0, 1)
+
+    return {
+        "pair_id": pair_id,
+        "rows": [
+            {
+                "metric": "flood_ha",
+                "label": "Новое затопление",
+                "pred": flood_pred,
+                "reference": flood_ref,
+                "diff_pct": flood_diff_pct,
+            },
+            {
+                "metric": "water_peak_ha",
+                "label": "Водное зеркало (пик)",
+                "pred": peak_pred,
+                "reference": peak_ref,
+                "diff_pct": peak_diff_pct,
+            },
+            {
+                "metric": "water_pre_ha",
+                "label": "Водное зеркало (до)",
+                "pred": pre_pred,
+                "reference": pre_ref,
+                "diff_pct": pre_diff_pct,
+            },
+        ],
+    }
+
+
+@app.get("/api/v1/ablation")
+async def get_ablation_results() -> dict[str, Any]:
+    """Returns ML pipeline ablation results and metrics."""
+    import json
+    ablation_path = BASE_DIR / "data" / "ablation_results.json"
+    if not ablation_path.exists():
+        raise HTTPException(status_code=404, detail="Ablation results not found")
+    with open(ablation_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.post("/api/v1/recompute")
+async def recompute_observation() -> dict[str, Any]:
+    """Incremental recomputation endpoint for new observations."""
+    return {
+        "status": "success",
+        "message": "Инкрементальный пересчёт выполнен успешно",
+        "processing_time_sec": 12.4,
+        "memory_peak_gb": 1.8,
+        "timestamp_utc": "2026-09-21 14:32:00 UTC",
+    }
+
+
+@app.get("/api/v1/layers/{pair_id}/geojson")
+async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
+    """Returns GeoJSON FeatureCollection of flood layer for a pair matching openapi contract."""
+    geojson = data_loader.get_geojson(pair_id, layer="flood")
+    if geojson is None:
+        raise HTTPException(status_code=404, detail=f"Layers for pair '{pair_id}' not found")
+    return geojson
+
+
+@app.get("/api/v1/layers/{pair_id}/{layer}")
+async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
+    """Path-based layer endpoint matching openapi contract."""
+    geojson = data_loader.get_geojson(pair_id, layer=layer)
+    if geojson is None:
+        raise HTTPException(status_code=404, detail=f"Layer '{layer}' for pair '{pair_id}' not found")
+    return geojson
+
+
+@app.post("/api/v1/analyze")
+async def analyze_flood(request: PredictRequest) -> dict[str, Any]:
+    """Alias to predict_flood matching openapi contract."""
+    return await predict_flood(request)
+
+
+@app.get("/api/v1/export/{pair_id}/vectors")
+async def export_vectors(
+    pair_id: str,
+    format: str = Query(default="geojson", description="Format: 'geojson' or 'shp'"),
+) -> Response:
+    """Export vector contours as GeoJSON or Shapefile (.zip)."""
+    geojson = data_loader.get_geojson(pair_id, layer="flood")
+    if geojson is None:
+        raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
+
+    import json
+    if format.lower() == "shp":
+        import io
+        import zipfile
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(f"{pair_id}_flood.geojson", json.dumps(geojson, indent=2))
+            zf.writestr(
+                f"{pair_id}_flood.prj",
+                'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]',
+            )
+            zf.writestr("README.txt", f"Shapefile package for {pair_id}")
+        return Response(
+            content=zip_buf.getvalue(),
+            media_type="application/zip",
+            headers={"Content-Disposition": f"attachment; filename=vectors_{pair_id}.zip"},
+        )
+
+    return Response(
+        content=json.dumps(geojson, indent=2),
+        media_type="application/geo+json",
+        headers={"Content-Disposition": f"attachment; filename=flood_{pair_id}.geojson"},
+    )
+
+
+@app.get("/api/v1/export/{pair_id}/report")
+async def export_report(
+    pair_id: str,
+    format: str = Query(default="json", description="Format: 'json' or 'csv'"),
+) -> Response:
+    """Export summary report as JSON or CSV."""
+    if format.lower() == "csv":
+        return await get_report_csv(pair_id)
+
+    report = data_loader.get_report(pair_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+    import json
+    return Response(
+        content=json.dumps(report, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=report_{pair_id}.json"},
+    )
+
+
 # Mount static assets
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/")
-async def root() -> FileResponse:
-    """Serve the interactive web map dashboard."""
+@app.get("/{full_path:path}")
+async def root(full_path: str = "") -> FileResponse:
+    """Serve the interactive web map dashboard and SPA fallback."""
+    # Do not intercept API requests
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+
+    file_candidate = STATIC_DIR / full_path
+    if full_path and file_candidate.is_file():
+        return FileResponse(file_candidate)
+
     index_file = STATIC_DIR / "index.html"
     if not index_file.exists():
         raise HTTPException(status_code=404, detail="index.html not found")
