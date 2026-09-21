@@ -13,29 +13,50 @@ from typing import Any
 
 import numpy as np
 import rasterio
-import yaml
-from rasterio.warp import Resampling, reproject
+from rasterio.warp import Resampling
 from scipy.ndimage import label, median_filter, uniform_filter
 
+from src.config import HydroConfig
+from src.filters import refined_lee_filter as _filters_refined_lee_filter
+from src.filters import speckle_filter as _filters_speckle_filter
+from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
+from src.indices import calculate_optical_indices
+from src.indices import segment_optical as _indices_segment_optical
+
 logger = logging.getLogger(__name__)
+
+# Re-exports for backwards compatibility and tests
+__all__ = [
+    "HydroConfig",
+    "load_config",
+    "refined_lee_filter",
+    "speckle_filter",
+    "compute_otsu_threshold",
+    "load_aux_priors",
+    "segment_optical",
+    "apply_mmu",
+    "segment_water",
+    "read_raster_with_meta",
+    "resample_to_target",
+    "clip_by_aoi",
+    "calculate_optical_indices",
+    "label",
+    "median_filter",
+    "uniform_filter",
+]
 
 # Default config cache
 _CONFIG_CACHE: dict[str, Any] | None = None
 
 
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
-    """Load configuration dictionary from config.yaml."""
+    """Load configuration dictionary from config.yaml or HydroConfig."""
     global _CONFIG_CACHE
     if _CONFIG_CACHE is not None and config_path is None:
         return _CONFIG_CACHE
 
-    config_path = Path(__file__).resolve().parent.parent / "config.yaml" if config_path is None else Path(config_path)
-
-    if config_path.exists():
-        with open(config_path, encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
-    else:
-        cfg = {}
+    cfg_obj = HydroConfig.from_yaml(config_path)
+    cfg = cfg_obj.to_dict()
 
     defaults = {
         "otsu_min_db": -22.0,
@@ -65,79 +86,17 @@ def refined_lee_filter(
     size: int = 7,
     n_looks: float = 4.4,
 ) -> np.ndarray:
-    """Apply genuine Refined Lee filter using local mean and variance.
-
-    Formula:
-        W = (Var(I) - mean(I)^2 / n_looks) / Var(I)
-        I_hat = mean(I) + W * (I - mean(I))
-
-    Args:
-        data: 2D array of SAR backscatter in dB.
-        size: Window aperture size (default 7 for 7x7 filter).
-        n_looks: Equivalent number of looks (4.4 for Sentinel-1 IW GRD).
-
-    Returns:
-        Filtered 2D array in dB.
-    """
-    valid_mask = np.isfinite(data) & (data > -100.0)
-    if not np.any(valid_mask):
-        return data.copy()
-
-    fill_val = float(np.nanmedian(data[valid_mask]))
-    data_clean = np.where(valid_mask, data, fill_val)
-
-    # Convert dB to linear intensity scale
-    linear = 10.0 ** (data_clean / 10.0)
-
-    # Compute local mean and variance over size x size window
-    mean_linear = uniform_filter(linear, size=size)
-    mean_sq_linear = uniform_filter(linear**2, size=size)
-    var_linear = np.maximum(mean_sq_linear - mean_linear**2, 0.0)
-
-    # Lee weighting factor
-    theoretical_var = (mean_linear**2) / n_looks
-    var_clean = np.maximum(var_linear, 1e-10)
-    w = np.clip((var_linear - theoretical_var) / var_clean, 0.0, 1.0)
-
-    filtered_linear = mean_linear + w * (linear - mean_linear)
-    filtered_linear = np.maximum(filtered_linear, 1e-10)
-    filtered_db = 10.0 * np.log10(filtered_linear)
-
-    filtered_db[~valid_mask] = data[~valid_mask]
-    return filtered_db.astype(np.float32)
+    """Apply genuine Refined Lee filter using local mean and variance."""
+    return _filters_refined_lee_filter(data=data, size=size, n_looks=n_looks)
 
 
 def speckle_filter(
-    data: np.ndarray,
+    data: np.ndarray | None,
     method: str = "lee",
     size: int = 7,
-) -> np.ndarray:
-    """Apply speckle noise filtering on radar backscatter data.
-
-    Args:
-        data: 2D array of SAR backscatter in dB.
-        method: Filtering method, 'lee' (default 7x7 Refined Lee), 'uniform', or 'median'.
-        size: Kernel window size (e.g. 5 or 7).
-
-    Returns:
-        Filtered 2D array.
-    """
-    if data is None:
-        return None
-    valid_mask = np.isfinite(data) & (data > -100.0)
-    if not np.any(valid_mask):
-        return data.copy()
-
-    if method == "lee":
-        return refined_lee_filter(data, size=size, n_looks=4.4)
-
-    fill_val = float(np.nanmedian(data[valid_mask]))
-    data_clean = np.where(valid_mask, data, fill_val)
-
-    filtered = median_filter(data_clean, size=size) if method == "median" else uniform_filter(data_clean, size=size)
-
-    filtered[~valid_mask] = data[~valid_mask]
-    return filtered.astype(np.float32)
+) -> np.ndarray | None:
+    """Apply speckle noise filtering on radar backscatter data."""
+    return _filters_speckle_filter(data=data, method=method, size=size)
 
 
 def compute_otsu_threshold(
@@ -189,49 +148,38 @@ def load_aux_priors(
     hand_max = float(cfg["hand_max_m"])
     gsw_min = float(cfg["gsw_occurrence_min_pct"])
 
-    height, width = target_shape
-    slope = np.zeros((height, width), dtype=np.float32)
-    hand = np.zeros((height, width), dtype=np.float32)
-    occurrence = np.zeros((height, width), dtype=np.float32)
-    builtup = np.zeros((height, width), dtype=np.float32)
-
-    with rasterio.open(aux_path) as src:
-        reproject(
-            source=rasterio.band(src, 1),
-            destination=slope,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            dst_transform=target_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.bilinear,
-        )
-        reproject(
-            source=rasterio.band(src, 2),
-            destination=hand,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            dst_transform=target_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.bilinear,
-        )
-        reproject(
-            source=rasterio.band(src, 3),
-            destination=occurrence,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            dst_transform=target_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.nearest,
-        )
-        reproject(
-            source=rasterio.band(src, 6),
-            destination=builtup,
-            src_transform=src.transform,
-            src_crs=src.crs,
-            dst_transform=target_transform,
-            dst_crs=target_crs,
-            resampling=Resampling.nearest,
-        )
+    slope = resample_to_target(
+        source_path=aux_path,
+        band=1,
+        target_shape=target_shape,
+        target_transform=target_transform,
+        target_crs=target_crs,
+        resampling=Resampling.bilinear,
+    )
+    hand = resample_to_target(
+        source_path=aux_path,
+        band=2,
+        target_shape=target_shape,
+        target_transform=target_transform,
+        target_crs=target_crs,
+        resampling=Resampling.bilinear,
+    )
+    occurrence = resample_to_target(
+        source_path=aux_path,
+        band=3,
+        target_shape=target_shape,
+        target_transform=target_transform,
+        target_crs=target_crs,
+        resampling=Resampling.nearest,
+    )
+    builtup = resample_to_target(
+        source_path=aux_path,
+        band=6,
+        target_shape=target_shape,
+        target_transform=target_transform,
+        target_crs=target_crs,
+        resampling=Resampling.nearest,
+    )
 
     # Sanitize invalid or corrupted nodata values (e.g. -inf in Svobodny 2021-08)
     valid_slope = np.isfinite(slope) & (slope >= 0.0)
@@ -253,45 +201,18 @@ def segment_optical(
     s2_path: str | Path | None,
     target_shape: tuple[int, int],
 ) -> tuple[np.ndarray | None, np.ndarray]:
-    """Segment water using Sentinel-2 MSI indices where available.
-
-    Turbid flood water has negative NDWI, so NDWI is not required.
-    Uses: (MNDWI > 0.1 or AWEIsh > 0.0) & (NDVI <= 0.3).
-    """
+    """Segment water using Sentinel-2 MSI indices where available."""
     cfg = load_config()
     mndwi_min = float(cfg["optical_mndwi_min"])
     aweish_min = float(cfg["optical_aweish_min"])
     ndvi_max = float(cfg["optical_ndvi_max"])
-
-    height, width = target_shape
-    if not s2_path or not Path(s2_path).exists():
-        return None, np.zeros((height, width), dtype=bool)
-
-    with rasterio.open(s2_path) as src:
-        # Expected bands: 5: NDWI, 6: MNDWI, 7: NDVI, 8: AWEIsh
-        if src.count < 8:
-            return None, np.zeros((height, width), dtype=bool)
-
-        mndwi = src.read(6)
-        ndvi = src.read(7)
-        aweish = src.read(8)
-
-    valid_mask = (
-        np.isfinite(mndwi)
-        & (mndwi != -999.0)
-        & np.isfinite(ndvi)
-        & (ndvi != -999.0)
-        & np.isfinite(aweish)
-        & (aweish != -999.0)
+    return _indices_segment_optical(
+        s2_path=s2_path,
+        target_shape=target_shape,
+        mndwi_min=mndwi_min,
+        aweish_min=aweish_min,
+        ndvi_max=ndvi_max,
     )
-
-    if not np.any(valid_mask):
-        return None, np.zeros((height, width), dtype=bool)
-
-    # Turbid water fix: MNDWI > 0.1 or AWEIsh > 0, NDVI <= 0.3
-    optical_water = ((mndwi > mndwi_min) | (aweish > aweish_min)) & (ndvi <= ndvi_max) & valid_mask
-
-    return optical_water, valid_mask
 
 
 def apply_mmu(
@@ -384,7 +305,6 @@ def segment_water(
         sar_water = (sar_water | drop_cond) & sar_valid
 
         # Sub-canopy double bounce detection: Delta_VH >= 2.0 dB at HAND <= 3m and slope <= 3 deg
-        # No restrictive vh < -16.5 gate on flooded vegetation!
         if vh_filt is not None and vh_ref is not None and hand is not None and slope is not None:
             vh_ref_filt = speckle_filter(vh_ref, method=filter_method, size=filter_size)
             delta_vh = vh_filt - vh_ref_filt

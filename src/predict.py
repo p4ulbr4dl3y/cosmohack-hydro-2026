@@ -23,12 +23,13 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from rasterio.features import geometry_mask
 
+from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M
+from src.filters import apply_mmu
+from src.geo_utils import clip_by_aoi
+from src.indices import segment_optical
 from src.segmentation import (
-    apply_mmu,
     load_aux_priors,
-    segment_optical,
     segment_water,
 )
 from src.temporal import compute_temporal_dynamics
@@ -163,7 +164,7 @@ def process_pair(
         water_pre=water_pre,
         water_peak=water_peak,
         permanent=perm_mask,
-        pixel_size_m=10.0,
+        pixel_size_m=PIXEL_SIZE_M,
     )
 
     flood_mask = temporal["flood"]
@@ -179,22 +180,20 @@ def process_pair(
             matched = aoi_gdf[aoi_gdf["aoi_id"] == aoi_id]
             if not matched.empty:
                 geom = matched.to_crs(target_crs).geometry.values[0]
-                aoi_inside_mask = geometry_mask([geom], out_shape=target_shape, transform=target_transform, invert=True)
-                flood_mask = (flood_mask & aoi_inside_mask).astype(np.uint8)
-                water_pre_mask = (water_pre_mask & aoi_inside_mask).astype(np.uint8)
-                water_peak_mask = (water_peak_mask & aoi_inside_mask).astype(np.uint8)
+                flood_mask = clip_by_aoi(flood_mask, geom, target_transform, target_crs)
+                water_pre_mask = clip_by_aoi(water_pre_mask, geom, target_transform, target_crs)
+                water_peak_mask = clip_by_aoi(water_peak_mask, geom, target_transform, target_crs)
         except Exception as e:
             logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
 
     # 6c. Apply MMU to final flood mask in full pipeline mode (Mode 4)
     if ablation_mode == 4:
-        flood_mask = apply_mmu(flood_mask, min_size=25).astype(np.uint8)
+        flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
     # Recompute areas in hectares after clipping and MMU
-    px_ha = 0.01  # 10m x 10m = 100 m² = 0.01 ha
-    flood_ha = round(float(np.sum(flood_mask == 1) * px_ha), 2)
-    water_pre_ha = round(float(np.sum(water_pre_mask == 1) * px_ha), 2)
-    water_peak_ha = round(float(np.sum(water_peak_mask == 1) * px_ha), 2)
+    flood_ha = round(float(np.sum(flood_mask == 1) * PIXEL_SIZE_HA), 2)
+    water_pre_ha = round(float(np.sum(water_pre_mask == 1) * PIXEL_SIZE_HA), 2)
+    water_peak_ha = round(float(np.sum(water_peak_mask == 1) * PIXEL_SIZE_HA), 2)
 
     # 7. Write GeoTIFF prediction
     predictions_dir.mkdir(parents=True, exist_ok=True)
@@ -235,7 +234,7 @@ def process_pair(
 
     # 8. Strict Area Verification (< 2% difference between CSV and raster mask)
     raster_flood_px = int(np.sum(flood_mask == 1))
-    raster_flood_ha = round(raster_flood_px * 0.01, 2)
+    raster_flood_ha = round(raster_flood_px * PIXEL_SIZE_HA, 2)
     diff = abs(flood_ha - raster_flood_ha)
     denom = max(raster_flood_ha, 1.0)
     diff_pct = (diff / denom) * 100.0

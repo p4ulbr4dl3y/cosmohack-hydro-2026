@@ -261,3 +261,176 @@ def test_static_index_html_not_found(monkeypatch, tmp_path):
     resp = client.get("/")
     assert resp.status_code == 404
     assert resp.json()["detail"] == "index.html not found"
+
+
+def test_prediction_task_status_lifecycle(monkeypatch):
+    from src.service.app import tasks_db
+
+    # 404 on nonexistent task
+    resp = client.get("/api/v1/predict/status/nonexistent_task_123")
+    assert resp.status_code == 404
+    assert "not found" in resp.json()["detail"]
+
+    # Submit task with task_id
+    task_id = "test_task_success_456"
+    resp = client.post(
+        "/api/v1/predict",
+        json={"pair_id": "flood_2019_07_amur__blagoveshchensk", "task_id": task_id},
+    )
+    assert resp.status_code == 200
+    assert task_id in tasks_db
+
+    # Query status
+    status_resp = client.get(f"/api/v1/predict/status/{task_id}")
+    assert status_resp.status_code == 200
+    task_data = status_resp.json()
+    assert task_data["task_id"] == task_id
+    assert task_data["status"] == "completed"
+    assert task_data["progress"] == 1.0
+    assert task_data["result"] is not None
+    assert task_data["error"] is None
+
+    # Test failure on ValueError
+    fail_task_id = "test_task_fail_val_error"
+    fail_resp = client.post(
+        "/api/v1/predict",
+        json={"pair_id": "non_existent_pair", "task_id": fail_task_id},
+    )
+    assert fail_resp.status_code == 400
+    fail_status = client.get(f"/api/v1/predict/status/{fail_task_id}")
+    assert fail_status.status_code == 200
+    assert fail_status.json()["status"] == "failed"
+    assert fail_status.json()["error"] is not None
+
+    # Test failure on 500 runtime error
+    def mock_predict(*args, **kwargs):
+        raise RuntimeError("Async crash")
+
+    monkeypatch.setattr("src.service.app.data_loader.predict_spatial_temporal", mock_predict)
+    crash_task_id = "test_task_fail_crash"
+    crash_resp = client.post(
+        "/api/v1/predict",
+        json={"pair_id": "flood_2019_07_amur__blagoveshchensk", "task_id": crash_task_id},
+    )
+    assert crash_resp.status_code == 500
+    crash_status = client.get(f"/api/v1/predict/status/{crash_task_id}")
+    assert crash_status.status_code == 200
+    assert crash_status.json()["status"] == "failed"
+    assert "Async crash" in crash_status.json()["error"]
+
+
+def test_schemas_direct():
+    from src.service.schemas import (
+        LandcoverDistribution,
+        PairInfo,
+        PairsListResponse,
+        PredictionTaskResponse,
+        PredictMetadata,
+        PredictRequest,
+        PredictResponse,
+        PredictSummary,
+        ReportResponse,
+    )
+
+    lc = LandcoverDistribution(builtup_ha=10.0, builtup_pct=5.0)
+    assert lc.builtup_ha == 10.0
+
+    pair = PairInfo(
+        pair_id="p1",
+        aoi_id="a1",
+        aoi_name="AOI 1",
+        event_id="e1",
+        event_name="Event 1",
+        event_kind="flood",
+        year=2021,
+        aoi_km2=100.0,
+        aoi_ha=10000.0,
+        bounds_4326=[120.0, 50.0, 121.0, 51.0],
+        center_4326=[50.5, 120.5],
+    )
+    pairs_list = PairsListResponse([pair])
+    assert len(pairs_list.root) == 1
+
+    report = ReportResponse(
+        pair_id="p1",
+        aoi_id="a1",
+        aoi_name="AOI 1",
+        event_id="e1",
+        event_name="Event 1",
+        event_kind="flood",
+        year=2021,
+        bounds_4326=[120.0, 50.0, 121.0, 51.0],
+        center_4326=[50.5, 120.5],
+        aoi_ha=10000.0,
+        aoi_km2=100.0,
+        flood_ha=50.0,
+        flood_km2=0.5,
+        water_pre_ha=200.0,
+        water_pre_km2=2.0,
+        water_peak_ha=250.0,
+        water_peak_km2=2.5,
+        permanent_ha=150.0,
+        receded_ha=0.0,
+        water_gain_ha=50.0,
+        water_gain_pct=25.0,
+        share_of_aoi=0.005,
+        flood_share_pct=0.5,
+        landcover=lc,
+    )
+    assert report.flood_ha == 50.0
+
+    pred_res = PredictResponse(
+        pair_id="p1",
+        summary=PredictSummary(
+            flood_ha=50.0,
+            flood_km2=0.5,
+            water_pre_ha=200.0,
+            water_peak_ha=250.0,
+            water_gain_ha=50.0,
+            water_gain_pct=25.0,
+        ),
+        metadata=PredictMetadata(
+            aoi_id="a1",
+            aoi_name="AOI 1",
+            event_id="e1",
+            event_name="Event 1",
+            event_kind="flood",
+            year=2021,
+            bounds_4326=[120.0, 50.0, 121.0, 51.0],
+            center_4326=[50.5, 120.5],
+        ),
+    )
+    task = PredictionTaskResponse(task_id="t1", status="completed", progress=1.0, result=pred_res)
+    assert task.status == "completed"
+
+    req = PredictRequest(pair_id="p1", task_id="t1")
+    assert req.task_id == "t1"
+
+
+def test_data_loader_cache_resolution(tmp_path, monkeypatch):
+
+    from src.service.data_loader import DataLoader
+
+    # Test env var config
+    custom_cache = tmp_path / "env_cache"
+    monkeypatch.setenv("HYDROWATCH_CACHE_DIR", str(custom_cache))
+    loader = DataLoader(cache_dir=None)
+    assert loader.cache_dir == custom_cache
+    assert custom_cache.exists()
+
+    # Test fallback to legacy cache
+    legacy_dir = tmp_path / "legacy"
+    legacy_dir.mkdir()
+    (legacy_dir / "report_mock.json").write_text('{"mock": true}', encoding="utf-8")
+
+    loader_fallback = DataLoader(cache_dir=tmp_path / "new_cache", legacy_cache_dir=legacy_dir)
+    resolved = loader_fallback._resolve_cache_path("report_mock.json")
+    assert resolved == legacy_dir / "report_mock.json"
+
+    # If primary exists, primary takes priority
+    primary_file = tmp_path / "new_cache" / "report_mock.json"
+    primary_file.write_text('{"primary": true}', encoding="utf-8")
+    assert loader_fallback._resolve_cache_path("report_mock.json") == primary_file
+
+    # When neither primary nor legacy exists, return primary
+    assert loader_fallback._resolve_cache_path("missing_file.json") == tmp_path / "new_cache" / "missing_file.json"

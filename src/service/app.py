@@ -12,9 +12,15 @@ from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
 from src.service.data_loader import data_loader
+from src.service.schemas import (
+    PairsListResponse,
+    PredictionTaskResponse,
+    PredictRequest,
+    PredictResponse,
+    ReportResponse,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -35,12 +41,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class PredictRequest(BaseModel):
-    pair_id: str | None = Field(default=None, description="Pair identifier, e.g. flood_2019_07_amur__blagoveshchensk")
-    bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
-    date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
-    date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
+# In-memory registry for prediction tasks
+tasks_db: dict[str, dict[str, Any]] = {}
 
 
 @app.get("/api/v1/health")
@@ -49,14 +51,22 @@ async def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/api/v1/pairs")
-async def list_pairs() -> list[dict[str, Any]]:
+@app.get(
+    "/api/v1/pairs",
+    response_model=PairsListResponse,
+    summary="List all monitored pairs with metadata",
+)
+async def list_pairs() -> Any:
     """Lists all 11 pairs with AOI metadata, dates, and areas."""
     return data_loader.get_pairs()
 
 
-@app.get("/api/v1/report/{pair_id}")
-async def get_report(pair_id: str) -> dict[str, Any]:
+@app.get(
+    "/api/v1/report/{pair_id}",
+    response_model=ReportResponse,
+    summary="Get automated hydrological report for a pair",
+)
+async def get_report(pair_id: str) -> Any:
     """Automated summary report with flood areas, metrics, and landcover distribution."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -188,8 +198,12 @@ async def get_geotiff(
     )
 
 
-@app.post("/api/v1/predict")
-async def predict_flood(request: PredictRequest) -> dict[str, Any]:
+@app.post(
+    "/api/v1/predict",
+    response_model=PredictResponse,
+    summary="Spatial-temporal flood prediction",
+)
+async def predict_flood(request: PredictRequest) -> Any:
     """Spatial-temporal inference endpoint accepting bounds / pair_id."""
     try:
         # Validate optional requested dates (YYYY-MM-DD) and plausibility (±30 days
@@ -232,13 +246,50 @@ async def predict_flood(request: PredictRequest) -> dict[str, Any]:
                                 ),
                             )
         result.setdefault("requested_dates", {k: (v.isoformat() if v else None) for k, v in requested_dates.items()})
+        if request.task_id:
+            tasks_db[request.task_id] = {
+                "task_id": request.task_id,
+                "status": "completed",
+                "progress": 1.0,
+                "result": result,
+                "error": None,
+            }
         return result
     except HTTPException:
         raise
     except ValueError as e:
+        if request.task_id:
+            tasks_db[request.task_id] = {
+                "task_id": request.task_id,
+                "status": "failed",
+                "progress": 1.0,
+                "result": None,
+                "error": str(e),
+            }
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        if request.task_id:
+            tasks_db[request.task_id] = {
+                "task_id": request.task_id,
+                "status": "failed",
+                "progress": 1.0,
+                "result": None,
+                "error": str(e),
+            }
         raise HTTPException(status_code=500, detail=f"Internal prediction error: {e!s}")
+
+
+@app.get(
+    "/api/v1/predict/status/{task_id}",
+    response_model=PredictionTaskResponse,
+    summary="Get status of an asynchronous prediction task",
+)
+async def get_prediction_task_status(task_id: str) -> PredictionTaskResponse:
+    """Check lifecycle status and retrieve result of an asynchronous prediction task."""
+    task = tasks_db.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Prediction task '{task_id}' not found")
+    return PredictionTaskResponse(**task)
 
 
 # Mount static assets

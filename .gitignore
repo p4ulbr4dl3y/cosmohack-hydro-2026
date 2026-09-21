@@ -30,6 +30,7 @@ dist/
 .coverage
 .coverage.*
 .pytest_cache/
+.cache/
 
 
 # Environment & OS

@@ -5,6 +5,7 @@ from __future__ import annotations
 import glob
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +27,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "hydrowatch_amur"
 PREDICTIONS_DIR = BASE_DIR / "predictions"
 SUBMISSION_CSV = BASE_DIR / "submission.csv"
-CACHE_DIR = BASE_DIR / "src" / "service" / "cache"
+DEFAULT_CACHE_DIR = BASE_DIR / ".cache" / "hydrowatch"
+LEGACY_CACHE_DIR = BASE_DIR / "src" / "service" / "cache"
+CACHE_DIR = Path(os.getenv("HYDROWATCH_CACHE_DIR", str(DEFAULT_CACHE_DIR)))
 
 
 class DataLoader:
@@ -35,17 +38,34 @@ class DataLoader:
         data_dir: Path = DATA_DIR,
         predictions_dir: Path = PREDICTIONS_DIR,
         submission_csv: Path = SUBMISSION_CSV,
-        cache_dir: Path = CACHE_DIR,
+        cache_dir: Path | None = None,
+        legacy_cache_dir: Path | None = None,
     ):
         self.data_dir = data_dir
         self.predictions_dir = predictions_dir
         self.submission_csv = submission_csv
-        self.cache_dir = cache_dir
+        if cache_dir is None:
+            self.cache_dir = Path(os.getenv("HYDROWATCH_CACHE_DIR", str(DEFAULT_CACHE_DIR)))
+            self.legacy_cache_dir = legacy_cache_dir or LEGACY_CACHE_DIR
+        else:
+            self.cache_dir = Path(cache_dir)
+            self.legacy_cache_dir = legacy_cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.pairs_df: pd.DataFrame | None = None
         self._pairs_cache: list[dict[str, Any]] = []
         self._reports_cache: dict[str, dict[str, Any]] = {}
         self.init_data()
+
+    def _resolve_cache_path(self, filename: str) -> Path:
+        """Resolve path to cached file with fallback to legacy cache dir."""
+        primary = self.cache_dir / filename
+        if primary.exists():
+            return primary
+        if self.legacy_cache_dir is not None:
+            legacy = self.legacy_cache_dir / filename
+            if legacy.exists():
+                return legacy
+        return primary
 
     def init_data(self) -> None:
         pairs_csv = self.data_dir / "pairs.csv"
