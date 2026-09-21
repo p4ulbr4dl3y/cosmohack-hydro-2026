@@ -23,8 +23,9 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.windows import Window
 
-from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M
+from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M, SAR_READ_BLOCK_ROWS
 from src.filters import apply_mmu
 from src.geo_utils import clip_by_aoi
 from src.indices import segment_optical
@@ -37,6 +38,58 @@ from src.temporal import compute_temporal_dynamics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def read_sar_bands(
+    path: str | Path,
+    block_rows: int = SAR_READ_BLOCK_ROWS,
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Read VV (band 1) and VH (band 2) from a Sentinel-1 scene in row blocks.
+
+    Full S1 scenes in this case are ~3700x4500 float32; reading them as whole arrays
+    (``src.read(1)`` / ``src.read(2)``) makes peak RSS scale with the scene size. Here the
+    band is streamed with ``rasterio.windows.Window`` in ``block_rows``-high strips and
+    written into the destination array, so the extra working set is bounded by one block
+    (``block_rows * width`` pixels) instead of the whole scene.
+
+    The destination is allocated with the raster's native dtype and each block is copied
+    verbatim, so the result is bit-identical to a whole-array read.
+
+    Args:
+        path: Path to the S1 raster (band 1 = VV, band 2 = VH when present).
+        block_rows: Number of rows per window (default from ``SAR_READ_BLOCK_ROWS``).
+
+    Returns:
+        (vv, vh): ``vh`` is ``None`` when the raster has fewer than 2 bands.
+    """
+    rows_per_block = max(int(block_rows), 1)
+    with rasterio.open(path) as src:
+        height, width = src.shape
+        vv = np.empty((height, width), dtype=src.dtypes[0])
+        vh = np.empty((height, width), dtype=src.dtypes[1]) if src.count >= 2 else None
+        for row0 in range(0, height, rows_per_block):
+            block = min(rows_per_block, height - row0)
+            window = Window(col_off=0, row_off=row0, width=width, height=block)
+            rows = slice(row0, row0 + block)
+            vv[rows] = src.read(1, window=window)
+            if vh is not None:
+                vh[rows] = src.read(2, window=window)
+    return vv, vh
+
+
+def resolve_orbit_pass(row: pd.Series) -> str | None:
+    """Return the SAR orbit pass label ("ASCENDING"/"DESCENDING") from a pairs row.
+
+    The label drives the orbit-aware radar-shadow guard in :func:`segment_water`: a
+    right-looking Sentinel-1 illuminates from the west on descending passes and from the
+    east on ascending passes, so the shadowed terrain aspect flips by 180 deg. Returns
+    ``None`` when the column is absent or empty, which disables the guard.
+    """
+    value = row.get("orbit_pass") if hasattr(row, "get") else None
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def process_pair(
@@ -72,13 +125,10 @@ def process_pair(
 
     height, width = target_shape
 
-    with rasterio.open(s1_pre_files[0]) as src:
-        vv_pre = src.read(1)
-        vh_pre = src.read(2) if src.count >= 2 else None
-
-    with rasterio.open(s1_peak_files[0]) as src:
-        vv_peak = src.read(1)
-        vh_peak = src.read(2) if src.count >= 2 else None
+    # Windowed (row-block) reads: peak RSS of the SAR read path is bounded by
+    # SAR_READ_BLOCK_ROWS rather than the full scene size. Bit-identical to src.read().
+    vv_pre, vh_pre = read_sar_bands(s1_pre_files[0], block_rows=SAR_READ_BLOCK_ROWS)
+    vv_peak, vh_peak = read_sar_bands(s1_peak_files[0], block_rows=SAR_READ_BLOCK_ROWS)
 
     # 2. Load Topographic & Hydrological priors from AUX
     aux_file = rasters_dir / "AUX_terrain_gsw.tif"
@@ -88,6 +138,7 @@ def process_pair(
         perm_mask = aux_data["permanent_mask"] if ablation_mode == 4 else None
         hand_arr = aux_data["hand"]
         slope_arr = aux_data["slope"]
+        aspect_arr = aux_data["aspect"]
         builtup_arr = aux_data["builtup"]
         occ_arr = aux_data["occurrence"]
     else:
@@ -95,6 +146,7 @@ def process_pair(
         perm_mask = None
         hand_arr = None
         slope_arr = None
+        aspect_arr = None
         builtup_arr = None
         occ_arr = None
 
@@ -114,6 +166,10 @@ def process_pair(
     use_mmu = ablation_mode == 4
     use_permanent = ablation_mode == 4
 
+    # Orbit geometry from the pairs row drives the orbit-aware radar-shadow guard
+    # (descending looks west, ascending looks east -> the shadowed aspect flips).
+    orbit_pass = resolve_orbit_pass(row)
+
     # 4. Segment pre-flood water
     water_pre = segment_water(
         vv=vv_pre,
@@ -126,6 +182,8 @@ def process_pair(
         slope=slope_arr,
         builtup=builtup_arr,
         occurrence=occ_arr,
+        aspect=aspect_arr,
+        orbit_pass=orbit_pass,
         is_peak=False,
         use_topo=use_topo,
         use_optical=use_optical,
@@ -147,6 +205,8 @@ def process_pair(
         slope=slope_arr,
         builtup=builtup_arr,
         occurrence=occ_arr,
+        aspect=aspect_arr,
+        orbit_pass=orbit_pass,
         is_peak=True,
         use_topo=use_topo,
         use_optical=use_optical,

@@ -36,6 +36,18 @@ double_bounce_vv_pre_min_db: -14.0
 slope_max_deg: 5.0
 hand_max_m: 25.0
 
+# Orbit-aware radar-shadow guard (D3). Sentinel-1 is right-looking: descending passes
+# look west (~270 deg), ascending passes look east (~90 deg), so the shadowed terrain
+# aspect flips by 180 deg between passes. The dataset has no per-pixel incidence-angle
+# band, hence the nominal IW mid-swath look angle; facets whose local incidence reaches
+# the shadow limit are geometrically unilluminated and suppressed as SAR-only holes.
+sar_nominal_incidence_deg: 38.0
+radar_shadow_min_incidence_deg: 90.0
+
+# Row block size for windowed (rasterio.windows.Window) reads of full S1 scenes:
+# peak RSS of the SAR read path is bounded by block size instead of the whole scene.
+sar_read_block_rows: 1024
+
 # Global Surface Water prior
 gsw_occurrence_min_pct: 80.0
 
