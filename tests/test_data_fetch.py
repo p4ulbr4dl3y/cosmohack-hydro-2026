@@ -42,9 +42,7 @@ def test_safe_extract_blocks_absolute(tmp_path):
 def test_missing_s1_pairs(tmp_path):
     pairs = tmp_path / "pairs.csv"
     pairs.write_text(
-        "pair_id,rasters_dir\n"
-        "a,rasters/a\n"
-        "b,rasters/b\n",
+        "pair_id,rasters_dir\na,rasters/a\nb,rasters/b\n",
         encoding="utf-8",
     )
     # Data for pair 'a': pre exists, peak missing -> 'a' missing

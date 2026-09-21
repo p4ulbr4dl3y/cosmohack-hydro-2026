@@ -167,3 +167,23 @@ def test_static_index_html():
     assert resp.status_code == 200
     assert "HydroWatch" in resp.text
     assert "Leaflet" in resp.text or "leaflet.js" in resp.text
+
+
+def test_404_not_found_endpoints():
+    assert client.get("/api/v1/report/non_existent_pair").status_code == 404
+    assert client.get("/api/v1/report/non_existent_pair/csv").status_code == 404
+    assert client.get("/api/v1/geojson/non_existent_pair").status_code == 404
+
+
+def test_predict_endpoint_errors(monkeypatch):
+    # Test ValueError handling (400)
+    resp = client.post("/api/v1/predict", json={"pair_id": "non_existent_pair"})
+    assert resp.status_code == 400
+
+    # Test unhandled Exception handling (500)
+    def mock_predict(*args, **kwargs):
+        raise RuntimeError("Mock failure")
+
+    monkeypatch.setattr("src.service.app.data_loader.predict_spatial_temporal", mock_predict)
+    resp500 = client.post("/api/v1/predict", json={"pair_id": "flood_2019_07_amur__blagoveshchensk"})
+    assert resp500.status_code == 500

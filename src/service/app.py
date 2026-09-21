@@ -176,9 +176,7 @@ async def predict_flood(request: PredictRequest) -> dict[str, Any]:
             date_pre=request.date_pre,
             date_peak=request.date_peak,
         )
-        result.setdefault(
-            "requested_dates", {k: (v.isoformat() if v else None) for k, v in requested_dates.items()}
-        )
+        result.setdefault("requested_dates", {k: (v.isoformat() if v else None) for k, v in requested_dates.items()})
         return result
     except HTTPException:
         raise

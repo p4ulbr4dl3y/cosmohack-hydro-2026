@@ -156,7 +156,9 @@ def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
     """Return True when all S1 pre/peak scenes referenced by pairs.csv exist."""
     missing = missing_s1_pairs(pairs_csv_path, data_dir)
     if missing:
-        logger.warning(f"S1 scenes missing for {len(missing)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else ""))
+        logger.warning(
+            f"S1 scenes missing for {len(missing)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else "")
+        )
         return False
     return True
 
@@ -226,9 +228,7 @@ def main() -> None:
     report_parser.add_argument("--output", type=Path, default=None, help="Output file path (.json or .csv)")
 
     # fetch sub-command
-    fetch_parser = subparsers.add_parser(
-        "fetch", help="Download the case dataset from Google Drive and unpack it"
-    )
+    fetch_parser = subparsers.add_parser("fetch", help="Download the case dataset from Google Drive and unpack it")
     fetch_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     fetch_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     fetch_parser.add_argument(
