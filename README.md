@@ -404,24 +404,33 @@ curl -X POST "http://localhost:8000/api/v1/predict" \
 
 ## 6. Данные (важно перед запуском)
 
-Исходные данные кейса **не хранятся в git-репозитории**: каталоги `hydrowatch_amur/rasters/`, `hydrowatch_amur/reference_masks/` и `hydrowatch_amur/vectors/` исключены из контроля версий (см. `.gitignore`) и распространяются отдельно через Google Drive.
+### Что уже в репозитории (закоммичено, ~90 МБ)
+- `hydrowatch_amur/reference_masks/` — эталонные маски (11 шт, по ним считается `evaluate`);
+- `hydrowatch_amur/rasters/**/AUX_terrain_gsw.tif` — приоры рельефа (slope/HAND/GSW/builtup);
+- `hydrowatch_amur/rasters/**/SENTINEL2_*.tif` — индексы Sentinel-2 (MNDWI/NDVI/AWEIsh, 6 пар);
+- паспорта сцен (`S1_*.json`), метеоданные `ERA5_daily_*.csv`, каталоги `tables/`, векторы `vectors/`;
+- `predictions/` — все сгенерированные маски (`*_flood.tif`, `*_water_pre.tif`, `*_water_peak.tif`, uint8 EPSG:32652 10 м).
 
-Ссылка взята из [`docs/Ссылка на данные.txt`](docs/Ссылка%20на%20данные.txt):
+### Что остаётся внешним: радары Sentinel-1 (~2.9 ГБ)
+Сцены `S1_pre_*/S1_peak_*.tif` (по ~180 МБ × 45) **не хранятся в git** (см. `.gitignore`) — это тяжёлые бинарные GRD-снимки, раздаваемые организаторами через Google Drive и помеченные «публикация и передача третьим лицам запрещены». Ссылка из [`docs/Ссылка на данные.txt`](docs/Ссылка%20на%20данные.txt):
+
 ```
 https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing
 ```
 
-Скачивание и распаковка (нужен пакет `gdown`):
+Скачивание и распаковка (нужен пакет `gdown`, есть в `pyproject.toml`):
+
 ```bash
-# 1. Скачивание архива данных (весь набор кейса с rasters/ и reference_masks/)
+# 1. Скачивание архива данных (полный набор кейса включая rasters/)
 uv run gdown "https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing"
 
 # 2. Распаковка архива в корень репозитория
 unzip <имя_архива>.zip
 ```
-После распаковки структура `hydrowatch_amur/rasters/`, `hydrowatch_amur/reference_masks/`, `hydrowatch_amur/vectors/` должна соответствовать путям, указанным в `hydrowatch_amur/pairs.csv`.
 
-> ⚠️ **Без этих данных полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары S1 (`S1_pre_*.tif`, `S1_peak_*.tif`) и вспомогательные растры `AUX_terrain_gsw.tif` из `hydrowatch_amur/rasters/`, а геометрия выходных масок выравнивается по эталонным маскам из `hydrowatch_amur/reference_masks/`. При их отсутствии пайплайн завершится с ошибкой `FileNotFoundError`. В репозитории (в `src/service/cache/`) содержатся только готовые отчёты и GeoJSON-слои для пары Благовещенск, а в `predictions/` — уже сгенерированные маски субмиссии.
+После распаковки структура `hydrowatch_amur/rasters/` должна соответствовать путям в `hydrowatch_amur/pairs.csv`.
+
+> ⚠️ **Без S1 полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары `S1_pre_*.tif`/`S1_peak_*.tif` из `hydrowatch_amur/rasters/`; при их отсутствии пайплайн завершится ошибкой `FileNotFoundError`. Всё остальное (эталоны, AUX, S2-индексы) уже в репозитории. В `src/service/cache/` — готовые отчёты и GeoJSON для всех 11 пар, в `predictions/` — финальные маски сабмита.
 
 ---
 

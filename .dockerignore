@@ -12,5 +12,5 @@ __pycache__
 .DS_Store
 predictions_ablation/
 data/
-hydrowatch_amur/rasters/
-hydrowatch_amur/reference_masks/
+# Heavy Sentinel-1 GRD scenes stay external (download via gdown)
+hydrowatch_amur/rasters/**/S1_*.tif
