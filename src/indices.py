@@ -19,19 +19,42 @@ def calculate_optical_indices(
     nir: np.ndarray,
     swir1: np.ndarray,
     swir2: np.ndarray,
+    blue: np.ndarray | None = None,
+    red: np.ndarray | None = None,
 ) -> dict[str, np.ndarray]:
-    """Calculate standard optical water and vegetation indices from spectral bands.
+    """Calculate optical water and vegetation indices from Sentinel-2 MSI bands.
 
-    Indices:
+    Always returned:
         - NDWI = (Green - NIR) / (Green + NIR)
         - MNDWI = (Green - SWIR1) / (Green + SWIR1)
-        - NDVI = (NIR - Red) / (NIR + Red)  [approx or if Red given, here NIR/SWIR]
-        - AWEIsh = Blue + 2.5 * Green - 1.5 * (NIR + SWIR1) - 0.25 * SWIR2
+
+    Returned when the required band is supplied:
+        - NDVI = (NIR - Red) / (NIR + Red)              [requires ``red``]
+        - AWEIsh = Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2
+                                                        [requires ``blue``]
+
+    ``swir2`` is only used by AWEIsh.
+
+    Args:
+        green: Green band (B03).
+        nir: Near-infrared band (B08).
+        swir1: Short-wave infrared 1 band (B11).
+        swir2: Short-wave infrared 2 band (B12), used by AWEIsh.
+        blue: Optional blue band (B02) required for AWEIsh.
+        red: Optional red band (B04) required for NDVI.
+
+    Returns:
+        Mapping of index name to 2D array.
     """
     eps = 1e-7
     ndwi = (green - nir) / np.maximum(green + nir, eps)
     mndwi = (green - swir1) / np.maximum(green + swir1, eps)
-    return {"ndwi": ndwi, "mndwi": mndwi}
+    indices = {"ndwi": ndwi, "mndwi": mndwi}
+    if red is not None:
+        indices["ndvi"] = (nir - red) / np.maximum(nir + red, eps)
+    if blue is not None:
+        indices["aweish"] = blue + 2.5 * green - 1.5 * (nir + swir1) - 0.25 * swir2
+    return indices
 
 
 def segment_optical(

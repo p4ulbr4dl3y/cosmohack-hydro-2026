@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.ndimage import label, median_filter, uniform_filter
 
-from src.config import LEE_LOOKS, LEE_SIZE, MMU_MIN_PIXELS
+from src.config import LEE_LOOKS, LEE_SIZE, MMU_MIN_PIXELS, SAR_NODATA_MAX_DB
 
 
 def refined_lee_filter(
@@ -27,7 +27,7 @@ def refined_lee_filter(
     Returns:
         Filtered 2D array in dB.
     """
-    valid_mask = np.isfinite(data) & (data > -100.0)
+    valid_mask = np.isfinite(data) & (data > SAR_NODATA_MAX_DB)
     if not np.any(valid_mask):
         return data.copy()
 
@@ -72,7 +72,7 @@ def speckle_filter(
     """
     if data is None:
         return None
-    valid_mask = np.isfinite(data) & (data > -100.0)
+    valid_mask = np.isfinite(data) & (data > SAR_NODATA_MAX_DB)
     if not np.any(valid_mask):
         return data.copy()
 

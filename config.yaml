@@ -4,6 +4,15 @@
 otsu_min_db: -22.0
 otsu_max_db: -14.0
 otsu_bins: 64
+# Validity gate for the Otsu histogram and fallback for degenerate samples
+otsu_valid_min_db: -30.0
+otsu_valid_max_db: -12.0
+otsu_min_valid_pixels: 50
+otsu_fallback_db: -16.5
+
+# SAR validity and masking
+sar_nodata_max_db: -100.0
+builtup_max_fraction: 0.5
 
 # SAR change detection and backscatter thresholds
 sar_flood_drop_db: 3.0
@@ -30,3 +39,13 @@ optical_ndvi_max: 0.3
 
 # Minimum Mapping Unit (MMU) filtering (pixels)
 mmu_min_pixels: 25
+
+# Partial-SAR fallback (Poyarkovo-style track boundary gaps)
+sar_valid_frac_min: 0.1
+fallback_hand_max_m: 1.0
+fallback_occurrence_min_pct: 5.0
+
+# GeoJSON contour export limits
+# geojson_max_contours: 0 disables truncation (preserves total mapped area)
+geojson_min_area_sqm: 500.0
+geojson_max_contours: 0

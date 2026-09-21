@@ -14,6 +14,12 @@ LEE_SIZE: int = 7
 OTSU_MIN_DB: float = -22.0
 OTSU_MAX_DB: float = -14.5
 OTSU_BINS: int = 64
+OTSU_VALID_MIN_DB: float = -30.0
+OTSU_VALID_MAX_DB: float = -12.0
+OTSU_MIN_VALID_PIXELS: int = 50
+OTSU_FALLBACK_DB: float = -16.5
+SAR_NODATA_MAX_DB: float = -100.0
+BUILTUP_MAX_FRACTION: float = 0.5
 SAR_FLOOD_DROP_DB: float = 3.0
 VH_THRESHOLD_DB: float = -16.5
 SAR_DROP_VV_MAX_DB: float = -14.0
@@ -43,6 +49,12 @@ class HydroConfig:
     otsu_min_db: float = OTSU_MIN_DB
     otsu_max_db: float = OTSU_MAX_DB
     otsu_bins: int = OTSU_BINS
+    otsu_valid_min_db: float = OTSU_VALID_MIN_DB
+    otsu_valid_max_db: float = OTSU_VALID_MAX_DB
+    otsu_min_valid_pixels: int = OTSU_MIN_VALID_PIXELS
+    otsu_fallback_db: float = OTSU_FALLBACK_DB
+    sar_nodata_max_db: float = SAR_NODATA_MAX_DB
+    builtup_max_fraction: float = BUILTUP_MAX_FRACTION
     sar_flood_drop_db: float = SAR_FLOOD_DROP_DB
     vh_threshold_db: float = VH_THRESHOLD_DB
     sar_drop_vv_max_db: float = SAR_DROP_VV_MAX_DB
@@ -91,6 +103,12 @@ class HydroConfig:
             "otsu_min_db": self.otsu_min_db,
             "otsu_max_db": self.otsu_max_db,
             "otsu_bins": self.otsu_bins,
+            "otsu_valid_min_db": self.otsu_valid_min_db,
+            "otsu_valid_max_db": self.otsu_valid_max_db,
+            "otsu_min_valid_pixels": self.otsu_min_valid_pixels,
+            "otsu_fallback_db": self.otsu_fallback_db,
+            "sar_nodata_max_db": self.sar_nodata_max_db,
+            "builtup_max_fraction": self.builtup_max_fraction,
             "sar_flood_drop_db": self.sar_flood_drop_db,
             "vh_threshold_db": self.vh_threshold_db,
             "sar_drop_vv_max_db": self.sar_drop_vv_max_db,

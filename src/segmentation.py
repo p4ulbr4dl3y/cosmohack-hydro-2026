@@ -14,18 +14,16 @@ from typing import Any
 import numpy as np
 import rasterio
 from rasterio.warp import Resampling
-from scipy.ndimage import label, median_filter, uniform_filter
+from scipy.ndimage import label
 
 from src.config import HydroConfig
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
 from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
-from src.indices import calculate_optical_indices
 from src.indices import segment_optical as _indices_segment_optical
 
 logger = logging.getLogger(__name__)
 
-# Re-exports for backwards compatibility and tests
 __all__ = [
     "HydroConfig",
     "load_config",
@@ -39,10 +37,6 @@ __all__ = [
     "read_raster_with_meta",
     "resample_to_target",
     "clip_by_aoi",
-    "calculate_optical_indices",
-    "label",
-    "median_filter",
-    "uniform_filter",
 ]
 
 # Default config cache
@@ -62,6 +56,12 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         "otsu_min_db": -22.0,
         "otsu_max_db": -14.5,
         "otsu_bins": 64,
+        "otsu_valid_min_db": -30.0,
+        "otsu_valid_max_db": -12.0,
+        "otsu_min_valid_pixels": 50,
+        "otsu_fallback_db": -16.5,
+        "sar_nodata_max_db": -100.0,
+        "builtup_max_fraction": 0.5,
         "sar_flood_drop_db": 3.0,
         "vh_threshold_db": -16.5,
         "double_bounce_delta_vh_db": 2.0,
@@ -105,20 +105,32 @@ def compute_otsu_threshold(
     min_db: float | None = None,
     max_db: float | None = None,
     bins: int | None = None,
+    valid_min_db: float | None = None,
+    valid_max_db: float | None = None,
+    min_valid_pixels: int | None = None,
+    fallback_db: float | None = None,
 ) -> float:
-    """Compute Otsu threshold on VV radar backscatter, constrained to [min_db, max_db]."""
+    """Compute Otsu threshold on VV radar backscatter, constrained to [min_db, max_db].
+
+    Pixels outside [valid_min_db, valid_max_db] are treated as nodata and excluded
+    from the histogram; if fewer than min_valid_pixels remain, fallback_db is returned.
+    """
     cfg = load_config()
     min_val = min_db if min_db is not None else float(cfg["otsu_min_db"])
     max_val = max_db if max_db is not None else float(cfg["otsu_max_db"])
     num_bins = bins if bins is not None else int(cfg["otsu_bins"])
+    valid_min = valid_min_db if valid_min_db is not None else float(cfg["otsu_valid_min_db"])
+    valid_max = valid_max_db if valid_max_db is not None else float(cfg["otsu_valid_max_db"])
+    min_pixels = min_valid_pixels if min_valid_pixels is not None else int(cfg["otsu_min_valid_pixels"])
+    fallback = fallback_db if fallback_db is not None else float(cfg["otsu_fallback_db"])
 
-    valid = np.isfinite(vv_data) & (vv_data > -30.0) & (vv_data < -12.0)
+    valid = np.isfinite(vv_data) & (vv_data > valid_min) & (vv_data < valid_max)
     if mask is not None:
         valid = valid & mask
 
     valid_vals = vv_data[valid]
-    if len(valid_vals) < 50:
-        return -16.5
+    if len(valid_vals) < min_pixels:
+        return fallback
 
     counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(min_val, max_val))
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
@@ -272,8 +284,13 @@ def segment_water(
     db_slope_max = float(cfg.get("double_bounce_slope_max_deg", 3.0))
     db_vv_ref_max = float(cfg.get("double_bounce_vv_ref_max_db", -14.0))
     mmu_pixels = mmu_min_size if mmu_min_size is not None else int(cfg["mmu_min_pixels"])
+    nodata_max_db = float(cfg.get("sar_nodata_max_db", -100.0))
+    builtup_max = float(cfg.get("builtup_max_fraction", 0.5))
+    sar_valid_frac_min = float(cfg.get("sar_valid_frac_min", 0.1))
+    fb_hand_max = float(cfg.get("fallback_hand_max_m", 1.0))
+    fb_occ_min = float(cfg.get("fallback_occurrence_min_pct", 5.0))
 
-    sar_valid = np.isfinite(vv) & (vv > -100.0)
+    sar_valid = np.isfinite(vv) & (vv > nodata_max_db)
 
     # 1. Speckle filtering (7x7 Refined Lee by default)
     vv_filt = speckle_filter(vv, method=filter_method, size=filter_size)
@@ -284,7 +301,7 @@ def segment_water(
     th_vv = compute_otsu_threshold(vv_filt, mask=mask_for_otsu)
 
     # Open water by constrained Otsu within floodplain (exclude dry built-up asphalt)
-    builtup_clean = (builtup < 0.5) if builtup is not None else True
+    builtup_clean = (builtup < builtup_max) if builtup is not None else True
     otsu_water = (vv_filt < th_vv) & sar_valid & builtup_clean
     if vh_filt is not None:
         otsu_water = otsu_water & (vh_filt < vh_thresh)
@@ -318,10 +335,13 @@ def segment_water(
             )
             sar_water = (sar_water | db_cond) & sar_valid
 
-    # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries)
-    if sar_valid.mean() < 0.1 and permanent_mask is not None:
+    # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries).
+    # Explicit, config-driven heuristic: when SAR coverage is too sparse to be
+    # trusted (< sar_valid_frac_min of the AOI), fall back to permanent GSW water
+    # plus a conservative low-HAND floodplain expansion instead of SAR Otsu.
+    if sar_valid.mean() < sar_valid_frac_min and permanent_mask is not None:
         if is_peak and topo_mask is not None and hand is not None and occurrence is not None:
-            flood_expansion = topo_mask & (hand <= 1.0) & (occurrence >= 5.0) & (~permanent_mask)
+            flood_expansion = topo_mask & (hand <= fb_hand_max) & (occurrence >= fb_occ_min) & (~permanent_mask)
             sar_water = permanent_mask | flood_expansion
         else:
             sar_water = permanent_mask.copy()
