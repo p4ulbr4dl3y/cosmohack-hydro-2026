@@ -20,7 +20,7 @@ def test_pairs_endpoint():
     pairs = resp.json()
     assert isinstance(pairs, list)
     assert len(pairs) == 11
-    
+
     # Check fields of first pair
     first = pairs[0]
     required_keys = [
@@ -37,7 +37,7 @@ def test_report_endpoint():
     resp = client.get(f"/api/v1/report/{pair_id}")
     assert resp.status_code == 200
     data = resp.json()
-    
+
     assert data["pair_id"] == pair_id
     assert "flood_ha" in data
     assert "flood_km2" in data
@@ -47,7 +47,12 @@ def test_report_endpoint():
     assert "water_gain_ha" in data
     assert "water_gain_pct" in data
     assert "share_of_aoi" in data
-    
+
+    # Verify values match submission.csv predictions
+    assert data["flood_ha"] == 1335.69
+    assert data["water_pre_ha"] == 8522.61
+    assert data["water_peak_ha"] == 9253.8
+
     # Verify landcover structure
     assert "landcover" in data
     lc = data["landcover"]
@@ -55,6 +60,7 @@ def test_report_endpoint():
     assert "builtup_pct" in lc
     assert "natural_vegetation_ha" in lc
     assert "natural_vegetation_pct" in lc
+    assert "mean_hand_m" in lc
 
 
 def test_report_csv_endpoint():
@@ -75,6 +81,17 @@ def test_geojson_endpoint():
         gj = resp.json()
         assert gj.get("type") == "FeatureCollection"
         assert "features" in gj
+
+    # Verify GeoJSON properties on flood layer from predictions
+    flood_resp = client.get(f"/api/v1/geojson/{pair_id}?layer=flood")
+    flood_gj = flood_resp.json()
+    assert len(flood_gj["features"]) > 0
+    props = flood_gj["features"][0]["properties"]
+    for required_prop in ["area_ha", "pair_id", "layer", "aoi_name", "event_name"]:
+        assert required_prop in props, f"Missing {required_prop} in GeoJSON properties"
+    assert props["pair_id"] == pair_id
+    assert props["layer"] == "flood"
+    assert props["area_ha"] > 0
 
 
 def test_predict_endpoint_by_pair_id():
@@ -98,6 +115,15 @@ def test_predict_endpoint_by_bounds():
     assert res["status"] == "success"
     assert "summary" in res
     assert "geojson" in res
+
+
+def test_predict_endpoint_arbitrary_bounds():
+    # Bounds outside coverage - should still return 200 with best matching pair or empty features
+    bounds = [10.0, 10.0, 11.0, 11.0]
+    resp = client.post("/api/v1/predict", json={"bounds": bounds})
+    assert resp.status_code == 200
+    res = resp.json()
+    assert res["status"] == "success"
 
 
 def test_static_index_html():

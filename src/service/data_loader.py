@@ -19,12 +19,22 @@ from shapely.geometry import box, shape
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "hydrowatch_amur"
+PREDICTIONS_DIR = BASE_DIR / "predictions"
+SUBMISSION_CSV = BASE_DIR / "submission.csv"
 CACHE_DIR = BASE_DIR / "src" / "service" / "cache"
 
 
 class DataLoader:
-    def __init__(self, data_dir: Path = DATA_DIR, cache_dir: Path = CACHE_DIR):
+    def __init__(
+        self,
+        data_dir: Path = DATA_DIR,
+        predictions_dir: Path = PREDICTIONS_DIR,
+        submission_csv: Path = SUBMISSION_CSV,
+        cache_dir: Path = CACHE_DIR,
+    ):
         self.data_dir = data_dir
+        self.predictions_dir = predictions_dir
+        self.submission_csv = submission_csv
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.pairs_df: Optional[pd.DataFrame] = None
@@ -42,12 +52,13 @@ class DataLoader:
 
         for _, row in self.pairs_df.iterrows():
             pair_id = str(row["pair_id"])
+            pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
             ref_tif = self.data_dir / str(row["reference_mask"])
-            ref_json = ref_tif.with_suffix(".json")
 
             bounds_4326 = [127.0, 50.0, 128.0, 51.0]
-            if ref_tif.exists():
-                with rasterio.open(ref_tif) as src:
+            target_tif = pred_tif if pred_tif.exists() else ref_tif
+            if target_tif.exists():
+                with rasterio.open(target_tif) as src:
                     b = transform_bounds(src.crs, "EPSG:4326", *src.bounds)
                     bounds_4326 = [round(x, 6) for x in b]
 
@@ -104,35 +115,53 @@ class DataLoader:
             return None
 
         row = self.pairs_df[self.pairs_df["pair_id"] == pair_id].iloc[0]
+        pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         ref_tif = self.data_dir / str(row["reference_mask"])
-        ref_json = ref_tif.with_suffix(".json")
         aux_tif = self.data_dir / str(row["rasters_dir"]) / "AUX_terrain_gsw.tif"
 
-        ref_stats: Dict[str, Any] = {}
-        if ref_json.exists():
-            with open(ref_json, "r", encoding="utf-8") as f:
-                ref_stats = json.load(f).get("stats", {})
+        # Load areas from submission.csv if available
+        flood_ha = None
+        water_pre_ha = None
+        water_peak_ha = None
+
+        if self.submission_csv.exists():
+            sub_df = pd.read_csv(self.submission_csv)
+            sub_row = sub_df[sub_df["pair_id"] == pair_id]
+            if not sub_row.empty:
+                r0 = sub_row.iloc[0]
+                flood_ha = float(r0["flood_ha"])
+                water_pre_ha = float(r0["water_pre_ha"])
+                water_peak_ha = float(r0["water_peak_ha"])
+
+        # Target flood raster: prefer model prediction over reference
+        target_flood_tif = pred_tif if pred_tif.exists() else (ref_tif if ref_tif.exists() else None)
 
         # Compute or extract landcover distribution from AUX
         built_ha = 0.0
-        nat_ha = float(ref_stats.get("flood_ha", 0.0))
+        nat_ha = flood_ha if flood_ha is not None else 0.0
         built_pct = 0.0
         nat_pct = 100.0
         mean_hand = 0.0
         hist_water_ha = 0.0
-        new_flood_ha = float(ref_stats.get("flood_ha", 0.0))
+        new_flood_ha = flood_ha if flood_ha is not None else 0.0
         hist_pct = 0.0
         new_pct = 100.0
 
-        if ref_tif.exists() and aux_tif.exists():
-            with rasterio.open(ref_tif) as ref:
+        if target_flood_tif and target_flood_tif.exists() and aux_tif.exists():
+            with rasterio.open(target_flood_tif) as ref:
                 flood_mask = ref.read(1)
                 ref_shape = ref.shape
                 ref_transform = ref.transform
                 ref_crs = ref.crs
+                res = ref.res
+                px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
+
+            if flood_ha is None:
+                flood_ha = round(float((flood_mask == 1).sum() * px_ha), 2)
 
             builtup = np.zeros(ref_shape, dtype=np.float32)
             max_extent = np.zeros(ref_shape, dtype=np.float32)
+            hand = np.zeros(ref_shape, dtype=np.float32)
 
             with rasterio.open(aux_tif) as aux:
                 reproject(
@@ -153,6 +182,15 @@ class DataLoader:
                     dst_crs=ref_crs,
                     resampling=Resampling.nearest,
                 )
+                reproject(
+                    source=rasterio.band(aux, 2),
+                    destination=hand,
+                    src_transform=aux.transform,
+                    src_crs=aux.crs,
+                    dst_transform=ref_transform,
+                    dst_crs=ref_crs,
+                    resampling=Resampling.bilinear,
+                )
 
             flood_pts = (flood_mask == 1)
             tot_pix = int(flood_pts.sum())
@@ -162,27 +200,32 @@ class DataLoader:
                 b_hist = int((max_extent[flood_pts] == 1).sum())
                 b_new = tot_pix - b_hist
 
-                built_ha = round(b_built * 0.01, 2)
-                nat_ha = round(b_nat * 0.01, 2)
+                built_ha = round(b_built * px_ha, 2)
+                nat_ha = round(b_nat * px_ha, 2)
                 built_pct = round(b_built / tot_pix * 100.0, 2)
                 nat_pct = round(b_nat / tot_pix * 100.0, 2)
-                hist_water_ha = round(b_hist * 0.01, 2)
-                new_flood_ha = round(b_new * 0.01, 2)
+                hist_water_ha = round(b_hist * px_ha, 2)
+                new_flood_ha = round(b_new * px_ha, 2)
                 hist_pct = round(b_hist / tot_pix * 100.0, 2)
                 new_pct = round(b_new / tot_pix * 100.0, 2)
                 mean_hand = round(float(np.mean(hand[flood_pts])), 2)
 
-        flood_ha = float(ref_stats.get("flood_ha", 0.0))
-        flood_km2 = float(ref_stats.get("flood_km2", round(flood_ha / 100.0, 3)))
-        water_pre_ha = float(ref_stats.get("water_pre_ha", 0.0))
-        water_pre_km2 = float(ref_stats.get("water_pre_km2", round(water_pre_ha / 100.0, 3)))
-        water_peak_ha = float(ref_stats.get("water_peak_ha", 0.0))
-        water_peak_km2 = float(ref_stats.get("water_peak_km2", round(water_peak_ha / 100.0, 3)))
-        receded_ha = float(ref_stats.get("receded_ha", 0.0))
-        water_gain_ha = float(ref_stats.get("water_gain_ha", round(water_peak_ha - water_pre_ha, 2)))
-        water_gain_pct = float(ref_stats.get("water_gain_pct", 0.0))
-        share_of_aoi = float(ref_stats.get("flood_share_of_aoi", 0.0))
-        permanent_ha = float(ref_stats.get("permanent_ha", 0.0))
+        if flood_ha is None:
+            flood_ha = 0.0
+        if water_pre_ha is None:
+            water_pre_ha = 0.0
+        if water_peak_ha is None:
+            water_peak_ha = flood_ha
+
+        flood_km2 = round(flood_ha / 100.0, 3)
+        water_pre_km2 = round(water_pre_ha / 100.0, 3)
+        water_peak_km2 = round(water_peak_ha / 100.0, 3)
+        receded_ha = 0.0
+        water_gain_ha = round(water_peak_ha - water_pre_ha, 2)
+        water_gain_pct = round((water_gain_ha / water_pre_ha * 100.0), 2) if water_pre_ha > 0 else 0.0
+        aoi_ha = pair_meta["aoi_ha"]
+        share_of_aoi = round(flood_ha / aoi_ha, 6) if aoi_ha > 0 else 0.0
+        permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2)
 
         report_data = {
             "pair_id": pair_id,
@@ -247,30 +290,37 @@ class DataLoader:
             return None
 
         row = self.pairs_df[self.pairs_df["pair_id"] == pair_id].iloc[0]
+        pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         ref_tif = self.data_dir / str(row["reference_mask"])
-        if not ref_tif.exists():
+
+        # For flood layer: prioritize model predictions (<pair_id>_flood.tif)
+        if layer == "flood" and pred_tif.exists():
+            src_tif = pred_tif
+            band_idx = 1
+        elif ref_tif.exists():
+            src_tif = ref_tif
+            band_map = {"flood": 1, "water_pre": 2, "water_peak": 3}
+            band_idx = band_map[layer]
+        else:
             return None
 
-        band_map = {"flood": 1, "water_pre": 2, "water_peak": 3}
-        band_idx = band_map[layer]
-
-        with rasterio.open(ref_tif) as src:
+        with rasterio.open(src_tif) as src:
             arr = src.read(band_idx)
             mask = arr == 1
             poly_shapes = list(shapes(arr, mask=mask, transform=src.transform))
 
-            features = []
             if poly_shapes:
                 geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
                 gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
                 # Remove single-pixel noise polygons (<100 m²) to optimize web transfer
                 gdf = gdf[gdf.geometry.area >= 100]
                 if not gdf.empty:
+                    area_ha = round(float(gdf.geometry.area.sum() / 10000.0), 2)
                     dissolved = gdf.dissolve().to_crs(epsg=4326).simplify(0.00015)
-                    # Convert to GeoJSON dict
                     geojson_dict = json.loads(dissolved.to_json())
                     for feat in geojson_dict.get("features", []):
                         feat["properties"] = {
+                            "area_ha": area_ha,
                             "pair_id": pair_id,
                             "layer": layer,
                             "aoi_name": pair_meta["aoi_name"],

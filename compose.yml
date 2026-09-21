@@ -1,0 +1,11 @@
+services:
+  hydrowatch-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hydrowatch-service
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
