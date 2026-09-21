@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import glob
 import json
 import logging
 import sys
@@ -18,6 +19,22 @@ from src.predict import process_pair
 from src.service.data_loader import DataLoader
 
 logger = logging.getLogger(__name__)
+
+#: Human-readable hint printed when Sentinel-1 scenes are missing (they are
+#: distributed outside the git repository, see docs/Ссылка на данные.txt).
+DATA_DOWNLOAD_HINT = """\
+Sentinel-1 scenes are required to run prediction, but they are NOT in this
+git repository (see .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
+
+Download and unpack the case dataset from Google Drive:
+
+    uv run gdown "https://drive.google.com/file/d/15bwUajgK31XtiW_EiMAAfvTAaqzA6skV/view?usp=sharing"
+    unzip <archive>.zip
+
+The link is also documented in docs/Ссылка на данные.txt.
+After unpacking, hydrowatch_amur/rasters/ must contain the S1_pre_*.tif /
+S1_peak_*.tif scenes referenced by hydrowatch_amur/pairs.csv.
+"""
 
 
 def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
@@ -135,6 +152,25 @@ def run_benchmark(
     print("=" * 50 + "\n")
 
 
+def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
+    """Return True when all S1 pre/peak scenes referenced by pairs.csv exist."""
+    try:
+        pairs_df = pd.read_csv(pairs_csv_path)
+    except FileNotFoundError:
+        return False
+    missing: list[str] = []
+    for row in pairs_df.itertuples(index=False):
+        rasters_dir = data_dir / str(row.rasters_dir)
+        if not glob.glob(str(rasters_dir / "S1_pre_*.tif")) or not glob.glob(
+            str(rasters_dir / "S1_peak_*.tif")
+        ):
+            missing.append(str(row.pair_id))
+    if missing:
+        logger.warning(f"S1 scenes missing for {len(missing)}/{len(pairs_df)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else ""))
+        return False
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="hydrowatch-cli",
@@ -177,6 +213,9 @@ def main() -> None:
     args, unknown = parser.parse_known_args()
 
     if args.command == "predict":
+        if not check_s1_data_available(args.pairs, args.data_dir):
+            print(DATA_DOWNLOAD_HINT, file=sys.stderr)
+            sys.exit(1)
         sys.argv = [sys.argv[0]]
         if args.pairs:
             sys.argv.extend(["--pairs", str(args.pairs)])

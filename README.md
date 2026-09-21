@@ -430,7 +430,7 @@ unzip <имя_архива>.zip
 
 После распаковки структура `hydrowatch_amur/rasters/` должна соответствовать путям в `hydrowatch_amur/pairs.csv`.
 
-> ⚠️ **Без S1 полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары `S1_pre_*.tif`/`S1_peak_*.tif` из `hydrowatch_amur/rasters/`; при их отсутствии пайплайн завершится ошибкой `FileNotFoundError`. Всё остальное (эталоны, AUX, S2-индексы) уже в репозитории. В `src/service/cache/` — готовые отчёты и GeoJSON для всех 11 пар, в `predictions/` — финальные маски сабмита.
+> ⚠️ **Без S1 полный инференс невозможен:** команда `uv run python -m src.cli predict` читает радары `S1_pre_*.tif`/`S1_peak_*.tif` из `hydrowatch_amur/rasters/`; при их отсутствии CLI завершится с понятным сообщением и командой для скачивания данных (не голым `FileNotFoundError`). Всё остальное (эталоны, AUX, S2-индексы) уже в репозитории. В `src/service/cache/` — готовые отчёты и GeoJSON для всех 11 пар, в `predictions/` — финальные маски сабмита.
 
 ---
 
