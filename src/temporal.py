@@ -62,10 +62,10 @@ def compute_temporal_dynamics(
     # Area in hectares (1 px = pixel_size_m^2 m^2; 1 ha = 10,000 m^2)
     px_ha = (pixel_size_m * pixel_size_m) / 10000.0
 
-    flood_ha = float(np.sum(flood) * px_ha)
-    water_pre_ha = float(np.sum(water_pre) * px_ha)
-    water_peak_ha = float(np.sum(water_peak) * px_ha)
-    receded_ha = float(np.sum(receded) * px_ha)
+    flood_ha = float(np.sum(flood_bool) * px_ha)
+    water_pre_ha = float(np.sum(pre_bool) * px_ha)
+    water_peak_ha = float(np.sum(peak_bool) * px_ha)
+    receded_ha = float(np.sum(receded_bool) * px_ha)
     permanent_ha = float(np.sum(perm_mask) * px_ha)
 
     return {

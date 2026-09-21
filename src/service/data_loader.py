@@ -13,7 +13,7 @@ import pandas as pd
 import rasterio
 from rasterio.enums import Resampling
 from rasterio.features import shapes
-from rasterio.warp import transform_bounds
+from rasterio.warp import reproject, transform_bounds
 import shapely.geometry
 from shapely.geometry import box, shape
 
@@ -128,11 +128,31 @@ class DataLoader:
             with rasterio.open(ref_tif) as ref:
                 flood_mask = ref.read(1)
                 ref_shape = ref.shape
+                ref_transform = ref.transform
+                ref_crs = ref.crs
+
+            builtup = np.zeros(ref_shape, dtype=np.float32)
+            max_extent = np.zeros(ref_shape, dtype=np.float32)
 
             with rasterio.open(aux_tif) as aux:
-                builtup = aux.read(6, out_shape=ref_shape, resampling=Resampling.nearest)
-                max_extent = aux.read(5, out_shape=ref_shape, resampling=Resampling.nearest)
-                hand = aux.read(2, out_shape=ref_shape, resampling=Resampling.nearest)
+                reproject(
+                    source=rasterio.band(aux, 6),
+                    destination=builtup,
+                    src_transform=aux.transform,
+                    src_crs=aux.crs,
+                    dst_transform=ref_transform,
+                    dst_crs=ref_crs,
+                    resampling=Resampling.nearest,
+                )
+                reproject(
+                    source=rasterio.band(aux, 5),
+                    destination=max_extent,
+                    src_transform=aux.transform,
+                    src_crs=aux.crs,
+                    dst_transform=ref_transform,
+                    dst_crs=ref_crs,
+                    resampling=Resampling.nearest,
+                )
 
             flood_pts = (flood_mask == 1)
             tot_pix = int(flood_pts.sum())
