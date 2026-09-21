@@ -74,7 +74,9 @@ jobs:
   deploy-vps:
     name: Deploy to VPS
     needs: [backend-checks, frontend-checks]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    # Temporarily disabled. Original condition:
+    # if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
