@@ -101,6 +101,8 @@ async def get_report_csv(pair_id: str) -> Response:
             "share_of_aoi",
             "builtup_flood_ha",
             "builtup_flood_pct",
+            "cropland_flood_ha",
+            "cropland_flood_pct",
             "natural_flood_ha",
             "natural_flood_pct",
         ]
@@ -124,6 +126,8 @@ async def get_report_csv(pair_id: str) -> Response:
             report["share_of_aoi"],
             lc.get("builtup_ha", 0.0),
             lc.get("builtup_pct", 0.0),
+            lc.get("cropland_ha", 0.0),
+            lc.get("cropland_pct", 0.0),
             lc.get("natural_vegetation_ha", 0.0),
             lc.get("natural_vegetation_pct", 0.0),
         ]
@@ -204,26 +208,26 @@ async def get_geotiff(
     summary="Spatial-temporal flood prediction",
 )
 async def predict_flood(request: PredictRequest) -> Any:
-    """Spatial-temporal inference endpoint accepting bounds / pair_id."""
+    """Spatial-temporal inference endpoint accepting bounds / polygon / pair_id."""
     try:
-        # Validate optional requested dates (YYYY-MM-DD) and plausibility (±30 days
-        # around the pair's scene dates) before any cache lookup
+        # Validate date format (YYYY-MM-DD) upfront; range plausibility is checked
+        # against the pair that is actually resolved (which may depend on the dates).
         requested_dates: dict[str, date | None] = {"date_pre": None, "date_peak": None}
-        pair_meta = data_loader.get_pair_meta(request.pair_id) if request.pair_id else None
         for name in ("date_pre", "date_peak"):
             val = getattr(request, name)
             if val is None or val == "":
                 continue  # dates omitted: behave exactly as before
             try:
-                requested_date = datetime.strptime(val, "%Y-%m-%d").date()
+                requested_dates[name] = datetime.strptime(val, "%Y-%m-%d").date()
             except ValueError:
                 raise HTTPException(status_code=400, detail=f"Некорректная дата {name}: '{val}' (ожидается YYYY-MM-DD)")
-            requested_dates[name] = requested_date
+
         result = data_loader.predict_spatial_temporal(
             pair_id=request.pair_id,
             bounds=request.bounds,
             date_pre=request.date_pre,
             date_peak=request.date_peak,
+            polygon=request.polygon,
         )
         resolved_pair_id = result.get("pair_id")
         pair_meta = data_loader.get_pair_meta(resolved_pair_id) if resolved_pair_id else None

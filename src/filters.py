@@ -13,9 +13,11 @@ def refined_lee_filter(
     size: int = LEE_SIZE,
     n_looks: float = LEE_LOOKS,
 ) -> np.ndarray:
-    """Apply genuine Refined Lee filter using local mean and variance.
+    """Apply Lee MMSE speckle filter using local mean and variance.
 
-    Formula:
+    This is the classical Lee minimum-mean-square-error filter with a square
+    window, NOT the directional "Refined Lee" variant (which uses edge-aligned
+    sub-windows). Formula:
         W = (Var(I) - mean(I)^2 / n_looks) / Var(I)
         I_hat = mean(I) + W * (I - mean(I))
 
@@ -64,7 +66,7 @@ def speckle_filter(
 
     Args:
         data: 2D array of SAR backscatter in dB or None.
-        method: Filtering method, 'lee' (default 7x7 Refined Lee), 'uniform', or 'median'.
+        method: Filtering method, 'lee' (default, Lee MMSE 7x7), 'uniform', or 'median'.
         size: Kernel window size (e.g. 5 or 7).
 
     Returns:

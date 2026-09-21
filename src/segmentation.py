@@ -14,9 +14,9 @@ from typing import Any
 import numpy as np
 import rasterio
 from rasterio.warp import Resampling
-from scipy.ndimage import label
 
 from src.config import HydroConfig
+from src.filters import apply_mmu as _filters_apply_mmu
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
 from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
@@ -33,6 +33,7 @@ __all__ = [
     "load_aux_priors",
     "segment_optical",
     "apply_mmu",
+    "detect_flooded_vegetation",
     "segment_water",
     "read_raster_with_meta",
     "resample_to_target",
@@ -54,7 +55,7 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
 
     defaults = {
         "otsu_min_db": -22.0,
-        "otsu_max_db": -14.5,
+        "otsu_max_db": -12.0,
         "otsu_bins": 64,
         "otsu_valid_min_db": -30.0,
         "otsu_valid_max_db": -12.0,
@@ -110,7 +111,13 @@ def compute_otsu_threshold(
     min_valid_pixels: int | None = None,
     fallback_db: float | None = None,
 ) -> float:
-    """Compute Otsu threshold on VV radar backscatter, constrained to [min_db, max_db].
+    """Compute Otsu threshold on VV radar backscatter, clipped to [min_db, max_db].
+
+    The histogram is built over the *full* validity window
+    [valid_min_db, valid_max_db] so both the water mode (~ -20 dB) and the dry-land
+    mode (~ -8 dB) are represented; Otsu on a truncated single-mode tail is
+    meaningless. The resulting threshold is then clipped into the physically
+    admissible corridor [min_db, max_db] (task spec: [-22, -12] dB).
 
     Pixels outside [valid_min_db, valid_max_db] are treated as nodata and excluded
     from the histogram; if fewer than min_valid_pixels remain, fallback_db is returned.
@@ -132,7 +139,8 @@ def compute_otsu_threshold(
     if len(valid_vals) < min_pixels:
         return fallback
 
-    counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(min_val, max_val))
+    # Histogram spans the full validity window (both modes), threshold is clipped afterwards.
+    counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(valid_min, valid_max))
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
 
     weight1 = np.cumsum(counts)
@@ -142,8 +150,16 @@ def compute_otsu_threshold(
     mean2 = (np.cumsum((counts * bin_centers)[::-1]) / np.maximum(weight2[::-1], 1))[::-1]
 
     variance = weight1[:-1] * weight2[1:] * (mean1[:-1] - mean2[1:]) ** 2
-    best_idx = int(np.argmax(variance))
+    # The between-class variance is flat across an empty gap between two modes.
+    # Pick the centre of the maximal plateau rather than the first bin, which
+    # otherwise biases the threshold towards the water (dark) mode.
+    best = float(variance.max())
+    plateau_idx = np.flatnonzero(variance >= best * (1.0 - 1e-9))
+    best_idx = int(plateau_idx[len(plateau_idx) // 2])
     threshold = float(bin_centers[best_idx])
+
+    if not np.isfinite(threshold):
+        return fallback
 
     return float(np.clip(threshold, min_val, max_val))
 
@@ -231,23 +247,60 @@ def apply_mmu(
     mask: np.ndarray,
     min_size: int | None = None,
 ) -> np.ndarray:
-    """Remove isolated noise clusters smaller than min_size pixels."""
+    """Remove isolated noise clusters smaller than min_size pixels (config-aware wrapper)."""
     if min_size is None:
         cfg = load_config()
         min_size = int(cfg["mmu_min_pixels"])
+    return _filters_apply_mmu(mask, min_size=min_size)
 
-    if not np.any(mask):
-        return mask.copy()
 
-    structure = np.ones((3, 3), dtype=np.uint8)
-    labeled, num_features = label(mask, structure=structure)
-    if num_features == 0:
-        return mask.copy()
+def detect_flooded_vegetation(
+    vv: np.ndarray,
+    vh: np.ndarray | None,
+    vv_ref: np.ndarray | None,
+    vh_ref: np.ndarray | None,
+    hand: np.ndarray | None = None,
+    slope: np.ndarray | None = None,
+    builtup: np.ndarray | None = None,
+    filter_method: str = "lee",
+    filter_size: int = 7,
+) -> np.ndarray:
+    """Detect sub-canopy (flooded) vegetation via the double-bounce mechanism.
 
-    counts = np.bincount(labeled.ravel())
-    remove_mask = (counts < min_size)[labeled]
-    cleaned = mask & (~remove_mask)
-    return cleaned
+    Double bounce = open water + vertical stem. Physically the *pre* date pixel is
+    dry vegetation (bright VV, e.g. ~ -8 dB) and it becomes flooded at peak, so VH
+    rises. A pixel that was already open water at the pre date cannot produce a
+    double bounce, so the pre-date VV must be >= ``double_bounce_vv_pre_min_db``.
+
+    Per task spec section 5 the flooded vegetation is a separate product layer and
+    is NOT part of the open-water mirror, hence this mask is returned separately and
+    never merged into :func:`segment_water`.
+    """
+    if vh is None or vh_ref is None or vv_ref is None:
+        return np.zeros(vv.shape, dtype=bool)
+
+    cfg = load_config()
+    db_delta = float(cfg["double_bounce_delta_vh_db"])
+    db_hand_max = float(cfg["double_bounce_hand_max_m"])
+    db_slope_max = float(cfg.get("double_bounce_slope_max_deg", 3.0))
+    db_vv_pre_min = float(cfg.get("double_bounce_vv_pre_min_db", -14.0))
+    nodata_max_db = float(cfg.get("sar_nodata_max_db", -100.0))
+    builtup_max = float(cfg.get("builtup_max_fraction", 0.5))
+
+    sar_valid = np.isfinite(vv) & (vv > nodata_max_db)
+    vv_ref_filt = speckle_filter(vv_ref, method=filter_method, size=filter_size)
+    vh_filt = speckle_filter(vh, method=filter_method, size=filter_size)
+    vh_ref_filt = speckle_filter(vh_ref, method=filter_method, size=filter_size)
+    delta_vh = vh_filt - vh_ref_filt
+
+    builtup_clean = (builtup < builtup_max) if builtup is not None else True
+    cond = (delta_vh >= db_delta) & (vv_ref_filt >= db_vv_pre_min) & builtup_clean & sar_valid
+    if hand is not None:
+        cond = cond & (hand <= db_hand_max)
+    if slope is not None:
+        cond = cond & (slope <= db_slope_max)
+
+    return cond
 
 
 def segment_water(
@@ -279,10 +332,6 @@ def segment_water(
     sar_drop_vv_max = float(cfg.get("sar_drop_vv_max_db", -14.0))
     sar_drop_vh_min = float(cfg.get("sar_drop_vh_min_db", 1.5))
     sar_drop_vh_max = float(cfg.get("sar_drop_vh_max_db", -17.0))
-    db_delta = float(cfg["double_bounce_delta_vh_db"])
-    db_hand_max = float(cfg["double_bounce_hand_max_m"])
-    db_slope_max = float(cfg.get("double_bounce_slope_max_deg", 3.0))
-    db_vv_ref_max = float(cfg.get("double_bounce_vv_ref_max_db", -14.0))
     mmu_pixels = mmu_min_size if mmu_min_size is not None else int(cfg["mmu_min_pixels"])
     nodata_max_db = float(cfg.get("sar_nodata_max_db", -100.0))
     builtup_max = float(cfg.get("builtup_max_fraction", 0.5))
@@ -318,22 +367,10 @@ def segment_water(
             drop_vh = vh_ref_filt - vh_filt
             drop_cond = drop_cond & (drop_vh >= sar_drop_vh_min) & (vh_filt < sar_drop_vh_max)
 
-        # Peak water combines drop >= 3dB and constrained Otsu water
+        # Peak water combines drop >= 3dB and constrained Otsu water.
+        # Sub-canopy flooded vegetation (double bounce) is intentionally NOT merged
+        # into the open-water mirror (task spec section 5); see detect_flooded_vegetation().
         sar_water = (sar_water | drop_cond) & sar_valid
-
-        # Sub-canopy double bounce detection: Delta_VH >= 2.0 dB at HAND <= 3m and slope <= 3 deg
-        if vh_filt is not None and vh_ref is not None and hand is not None and slope is not None:
-            vh_ref_filt = speckle_filter(vh_ref, method=filter_method, size=filter_size)
-            delta_vh = vh_filt - vh_ref_filt
-            db_cond = (
-                (delta_vh >= db_delta)
-                & (hand <= db_hand_max)
-                & (slope <= db_slope_max)
-                & builtup_clean
-                & sar_valid
-                & (vv_ref_filt < db_vv_ref_max)
-            )
-            sar_water = (sar_water | db_cond) & sar_valid
 
     # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries).
     # Explicit, config-driven heuristic: when SAR coverage is too sparse to be

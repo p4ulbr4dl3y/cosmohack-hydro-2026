@@ -18,6 +18,7 @@ hydrowatch_amur/rasters/**/S1_*.tif
 !hydrowatch_amur/reference_masks/*.tif
 !hydrowatch_amur/rasters/**/AUX_terrain_gsw.tif
 !hydrowatch_amur/rasters/**/SENTINEL2_*.tif
+!hydrowatch_amur/rasters/**/CROPLAND_worldcover.tif
 
 # Python
 __pycache__/
@@ -39,3 +40,4 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+.johnston/config.local.json

@@ -7,6 +7,7 @@ from rasterio.transform import from_origin
 from src.segmentation import (
     apply_mmu,
     compute_otsu_threshold,
+    detect_flooded_vegetation,
     load_aux_priors,
     load_config,
     refined_lee_filter,
@@ -143,6 +144,39 @@ def test_otsu_gates_come_from_yaml():
     assert cfg["sar_nodata_max_db"] == -100.0
 
 
+def test_otsu_histogram_spans_full_validity_window():
+    """Regression: the histogram must cover the whole validity window, not just
+    the [-22, -14] corridor, so the dry-land mode can separate the two classes."""
+    rng = np.random.default_rng(11)
+    # Water mode ~ -20 dB, dry-land mode ~ -13 dB. Both live inside the supplied
+    # validity window, but the dry-land mode is ABOVE the legacy -14 dB corridor.
+    data = (
+        np.concatenate([rng.normal(-20.0, 0.3, 400), rng.normal(-13.0, 0.3, 400)]).reshape((20, 40)).astype(np.float32)
+    )
+
+    th = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-8.0, min_db=-22.0, max_db=-8.0)
+    # The threshold must separate the two modes. With the legacy truncated range
+    # (-22, -14) the dry-land mode fell outside np.histogram's range and was
+    # silently dropped, producing a bias towards the water mode.
+    assert -19.5 < th < -13.5
+
+    # Sanity: a truncated histogram range loses the bright mode entirely, so the
+    # resulting threshold collapses onto the water (dark) side.
+    th_truncated = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-8.0, min_db=-22.0, max_db=-14.0)
+    assert th_truncated <= -14.0
+
+
+def test_otsu_contracts_corridor_but_keeps_full_histogram():
+    """Threshold is clipped into [_min_db, _max_db] while the histogram stays full."""
+    rng = np.random.default_rng(3)
+    data = (
+        np.concatenate([rng.normal(-19.0, 0.3, 300), rng.normal(-8.0, 0.3, 300)]).reshape((20, 30)).astype(np.float32)
+    )
+    # -8 dB lies outside the validity window and is excluded entirely
+    th = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-12.0, min_db=-22.0, max_db=-12.0)
+    assert -22.0 <= th <= -12.0
+
+
 def test_load_aux_priors(tmp_path):
     aux_path = tmp_path / "test_aux.tif"
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
@@ -276,8 +310,9 @@ def test_segment_water_comprehensive():
     )
     assert water_peak[25, 25] == 1
 
-    # 3. Double-bounce detection under canopy
-    vv_db = np.full(shape, -16.0, dtype=np.float32)
+    # 3. Double-bounce (flooded vegetation) is a separate layer, NOT open water.
+    #    Pre-date VV is dry/bright (-16 dB >= -14? no -> set brighter) and VH rises.
+    vv_db = np.full(shape, -8.0, dtype=np.float32)  # dry vegetation before/at peak
     vh_ref = np.full(shape, -22.0, dtype=np.float32)
     vh_db = np.full(shape, -18.0, dtype=np.float32)  # delta_vh = +4 dB >= 2.0 dB
     hand = np.full(shape, 1.0, dtype=np.float32)
@@ -298,7 +333,31 @@ def test_segment_water_comprehensive():
         use_mmu=False,
         use_permanent=False,
     )
-    assert water_db[5, 5] == 1
+    # Open-water mirror must not contain the flooded-vegetation triple-bounce pixel
+    assert water_db[5, 5] == 0
+
+    fv = detect_flooded_vegetation(
+        vv=vv_db,
+        vh=vh_db,
+        vv_ref=vv_db,
+        vh_ref=vh_ref,
+        hand=hand,
+        slope=slope,
+        builtup=builtup,
+    )
+    assert fv[5, 5]
+
+    # A pixel that was already water before the peak cannot double-bounce
+    fv_already_water = detect_flooded_vegetation(
+        vv=vv_db,
+        vh=vh_db,
+        vv_ref=np.full(shape, -22.0, dtype=np.float32),
+        vh_ref=vh_ref,
+        hand=hand,
+        slope=slope,
+        builtup=builtup,
+    )
+    assert not fv_already_water[5, 5]
 
     # 4. Partial / nodata SAR fallback
     sar_nodata = np.full(shape, -999.0, dtype=np.float32)
@@ -376,7 +435,7 @@ def test_apply_mmu_config_fallback_and_zero_features(monkeypatch):
     assert cleaned.shape == mask.shape
 
     # 2. num_features == 0 fallback
-    monkeypatch.setattr("src.segmentation.label", lambda m, structure=None: (np.zeros_like(m), 0))
+    monkeypatch.setattr("src.filters.label", lambda m, structure=None: (np.zeros_like(m), 0))
     res = apply_mmu(mask, min_size=10)
     assert np.array_equal(res, mask)
 

@@ -74,6 +74,7 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                         "water_gain_ha": r["water_gain_ha"],
                         "water_gain_pct": r["water_gain_pct"],
                         "builtup_ha": lc.get("builtup_ha", 0.0),
+                        "cropland_ha": lc.get("cropland_ha", 0.0),
                         "natural_vegetation_ha": lc.get("natural_vegetation_ha", 0.0),
                     }
                 )
@@ -93,6 +94,7 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
             print(f"  Water Gain: {r['water_gain_ha']:.2f} ha ({r['water_gain_pct']:.2f}%)")
             lc = r.get("landcover", {})
             print(f"  Builtup flood: {lc.get('builtup_ha', 0.0):.2f} ha ({lc.get('builtup_pct', 0.0):.1f}%)")
+            print(f"  Cropland flood: {lc.get('cropland_ha', 0.0):.2f} ha ({lc.get('cropland_pct', 0.0):.1f}%)")
             print(
                 f"  Natural flood: {lc.get('natural_vegetation_ha', 0.0):.2f} ha ({lc.get('natural_vegetation_pct', 0.0):.1f}%)"
             )

@@ -14,19 +14,27 @@ def test_cli_report_single_pair(capsys):
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     run_report(pair_id=pair_id)
     captured = capsys.readouterr()
-    assert "REPORT: flood_2019_07_amur__blagoveshchensk" in captured.out
-    assert "Flood: 1478.62 ha" in captured.out
+    assert f"REPORT: {pair_id}" in captured.out
+    # Flood area must match the shipped submission.csv (single source of truth)
+    sub = pd.read_csv(Path("submission.csv"))
+    expected = float(sub.loc[sub["pair_id"] == pair_id, "flood_ha"].iloc[0])
+    assert f"Flood: {expected:.2f} ha" in captured.out
     assert "Water Gain:" in captured.out
+    assert "Cropland flood:" in captured.out
 
 
 def test_cli_report_output_json(tmp_path):
     out_json = tmp_path / "report.json"
-    run_report(pair_id="flood_2019_07_amur__blagoveshchensk", output=out_json)
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    run_report(pair_id=pair_id, output=out_json)
     assert out_json.exists()
     with open(out_json, encoding="utf-8") as f:
         data = json.load(f)
-    assert data["pair_id"] == "flood_2019_07_amur__blagoveshchensk"
-    assert data["flood_ha"] == 1478.62
+    assert data["pair_id"] == pair_id
+    sub = pd.read_csv(Path("submission.csv"))
+    expected = float(sub.loc[sub["pair_id"] == pair_id, "flood_ha"].iloc[0])
+    assert data["flood_ha"] == expected
+    assert "cropland_ha" in data["landcover"]
 
 
 def test_cli_report_output_csv(tmp_path):

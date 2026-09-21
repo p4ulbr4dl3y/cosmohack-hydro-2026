@@ -29,6 +29,7 @@ from src.filters import apply_mmu
 from src.geo_utils import clip_by_aoi
 from src.indices import segment_optical
 from src.segmentation import (
+    detect_flooded_vegetation,
     load_aux_priors,
     segment_water,
 )
@@ -165,6 +166,21 @@ def process_pair(
     water_pre_mask = temporal["water_pre"]
     water_peak_mask = temporal["water_peak"]
 
+    # 5b. Sub-canopy flooded vegetation (double bounce) as a separate product layer.
+    # Not part of the open-water mirror (task spec section 5); informational only.
+    flooded_vegetation_mask = np.zeros(water_peak_mask.shape, dtype=np.uint8)
+    if ablation_mode >= 2:
+        fv = detect_flooded_vegetation(
+            vv=vv_peak,
+            vh=vh_peak,
+            vv_ref=vv_pre,
+            vh_ref=vh_pre,
+            hand=hand_arr,
+            slope=slope_arr,
+            builtup=builtup_arr,
+        )
+        flooded_vegetation_mask = fv.astype(np.uint8)
+
     # 6b. AOI polygon boundary clipping (eliminates out-of-boundary predictions)
     aoi_geojson_path = data_dir / "vectors" / "aoi.geojson"
     if aoi_geojson_path.exists():
@@ -177,12 +193,14 @@ def process_pair(
                 flood_mask = clip_by_aoi(flood_mask, geom, target_transform, target_crs)
                 water_pre_mask = clip_by_aoi(water_pre_mask, geom, target_transform, target_crs)
                 water_peak_mask = clip_by_aoi(water_peak_mask, geom, target_transform, target_crs)
+                flooded_vegetation_mask = clip_by_aoi(flooded_vegetation_mask, geom, target_transform, target_crs)
         except Exception as e:
             logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
 
     # 6c. Apply MMU to final flood mask in full pipeline mode (Mode 4)
     if ablation_mode == 4:
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
+        flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
     # Recompute areas in hectares after clipping and MMU
     flood_ha = round(float(np.sum(flood_mask == 1) * PIXEL_SIZE_HA), 2)
@@ -208,8 +226,12 @@ def process_pair(
         dst.write(flood_mask, 1)
 
     # 7b. Write own water mask GeoTIFFs (served by the FastAPI service)
-    water_masks_map = {"water_pre": water_pre_mask, "water_peak": water_peak_mask}
-    for water_layer in ("water_pre", "water_peak"):
+    water_masks_map = {
+        "water_pre": water_pre_mask,
+        "water_peak": water_peak_mask,
+        "flooded_vegetation": flooded_vegetation_mask,
+    }
+    for water_layer in ("water_pre", "water_peak", "flooded_vegetation"):
         out_tif = predictions_dir / f"{pair_id}_{water_layer}.tif"
         with rasterio.open(
             out_tif,

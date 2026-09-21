@@ -136,6 +136,34 @@ def test_process_pair_all_ablations(synthetic_pair_env):
         assert (pred_dir / "pair_test_flood.tif").exists()
         assert (pred_dir / "pair_test_water_pre.tif").exists()
         assert (pred_dir / "pair_test_water_peak.tif").exists()
+        # Sub-canopy flooded vegetation is always emitted as a separate layer
+        assert (pred_dir / "pair_test_flooded_vegetation.tif").exists()
+        with rasterio.open(pred_dir / "pair_test_flooded_vegetation.tif") as src:
+            fv = src.read(1)
+        assert fv.dtype == np.uint8
+        assert set(np.unique(fv)).issubset({0, 1})
+
+
+def test_flooded_vegetation_layer_emitted_separately(synthetic_pair_env):
+    """Sub-canopy flooded vegetation is a distinct product layer, not merged in."""
+    data_dir = synthetic_pair_env["data_dir"]
+    row = synthetic_pair_env["row"]
+    pred_dir = synthetic_pair_env["predictions_dir"]
+
+    res = process_pair(row, data_dir, pred_dir, ablation_mode=4)
+    fv_path = pred_dir / "pair_test_flooded_vegetation.tif"
+    assert fv_path.exists()
+
+    with rasterio.open(pred_dir / "pair_test_flood.tif") as flood_src, rasterio.open(fv_path) as fv_src:
+        flood_src.read(1)
+        fv_src.read(1)
+        # Same grid as the flood product
+        assert flood_src.transform == fv_src.transform
+        assert flood_src.crs == fv_src.crs
+
+    # The returned summary carries only the open-water areas; flooded vegetation
+    # is deliberately excluded from flood_ha / water_peak_ha.
+    assert "flooded_vegetation_ha" not in res
 
 
 def test_run_prediction_and_main(synthetic_pair_env, tmp_path, monkeypatch):

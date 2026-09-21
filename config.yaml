@@ -1,8 +1,11 @@
 # HydroWatch Amur segmentation thresholds and hyperparameters
 
 # Otsu thresholding parameters
+# The histogram is built over the full validity window [otsu_valid_min_db, otsu_valid_max_db]
+# so the dry-land mode (~ -8 dB) is represented; the resulting threshold is then clipped
+# into the physically admissible corridor [otsu_min_db, otsu_max_db] (task spec: [-22, -12] dB).
 otsu_min_db: -22.0
-otsu_max_db: -14.0
+otsu_max_db: -12.0
 otsu_bins: 64
 # Validity gate for the Otsu histogram and fallback for degenerate samples
 otsu_valid_min_db: -30.0
@@ -21,11 +24,15 @@ sar_drop_vv_max_db: -14.0
 sar_drop_vh_min_db: 1.5
 sar_drop_vh_max_db: -17.0
 
-# Sub-canopy double bounce detection parameters
+# Sub-canopy double bounce detection parameters.
+# Double bounce = water + vertical stem -> VH rises at peak over a *previously dry*
+# (vegetated, brighter) pixel. Hence the pre-date VV must be >= double_bounce_vv_pre_min_db
+# (not already open water). The resulting mask is a separate "flooded vegetation" product
+# layer and is NEVER merged into the open-water mirror (task spec: section 5).
 double_bounce_delta_vh_db: 2.0
 double_bounce_hand_max_m: 3.0
 double_bounce_slope_max_deg: 3.0
-double_bounce_vv_ref_max_db: -14.0
+double_bounce_vv_pre_min_db: -14.0
 slope_max_deg: 5.0
 hand_max_m: 25.0
 
@@ -49,3 +56,9 @@ fallback_occurrence_min_pct: 5.0
 # geojson_max_contours: 0 disables truncation (preserves total mapped area)
 geojson_min_area_sqm: 500.0
 geojson_max_contours: 0
+
+# ESA WorldCover cropland cropland class (v200 class code 40) used for landcover
+# stratification of the flooded area. Local per-AOI masks are produced by
+# scripts/fetch_worldcover.py and read from rasters/**/CROPLAND_worldcover.tif.
+worldcover_cropland_class: 40
+cropland_raster_name: CROPLAND_worldcover.tif

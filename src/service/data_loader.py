@@ -68,6 +68,63 @@ class DataLoader:
                 return legacy
         return primary
 
+    @staticmethod
+    def _parse_query_dates(date_pre: str | None, date_peak: str | None) -> dict[str, Any]:
+        """Parse optional requested ISO dates, ignoring malformed/empty values."""
+        from datetime import datetime as _datetime
+
+        parsed: dict[str, Any] = {"date_pre": None, "date_peak": None}
+        for name, val in (("date_pre", date_pre), ("date_peak", date_peak)):
+            if not val:
+                continue
+            try:
+                parsed[name] = _datetime.strptime(str(val), "%Y-%m-%d").date()
+            except ValueError:
+                parsed[name] = None
+        return parsed
+
+    @staticmethod
+    def _pair_date_distance(pair_meta: dict[str, Any], req_dates: dict[str, Any]) -> float:
+        """Mean absolute day distance between requested and scene dates for a pair.
+
+        When no dates are requested the distance is 0 for every pair, so ordering
+        falls back to spatial overlap.
+        """
+        from datetime import datetime as _datetime
+
+        dists: list[float] = []
+        for name in ("date_pre", "date_peak"):
+            req_d = req_dates.get(name)
+            scene_val = pair_meta.get(f"{name}_sar")
+            if req_d is None or not scene_val:
+                continue
+            try:
+                scene_dt = _datetime.strptime(str(scene_val), "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            dists.append(abs((req_d - scene_dt).days))
+        return float(np.mean(dists)) if dists else 0.0
+
+    def _metric_area_ha(self, geom_4326: Any, pair_id: str) -> float:
+        """Area of a WGS84 geometry in hectares, computed in local UTM CRS."""
+        utm_crs = "EPSG:32652"
+        aoi_path = self.data_dir / "vectors" / "aoi.geojson"
+        if aoi_path.exists():
+            try:
+                aoi_gdf = gpd.read_file(aoi_path)
+                meta = self.get_pair_meta(pair_id)
+                if meta is not None and "aoi_id" in aoi_gdf.columns:
+                    matched = aoi_gdf[aoi_gdf["aoi_id"] == meta["aoi_id"]]
+                    if not matched.empty and "utm_crs" in matched.columns:
+                        candidate = matched.iloc[0].get("utm_crs")
+                        if isinstance(candidate, str) and candidate:
+                            utm_crs = candidate
+            except Exception:  # noqa: BLE001
+                pass
+
+        series = gpd.GeoSeries([geom_4326], crs="EPSG:4326").to_crs(utm_crs)
+        return float(series.iloc[0].area) / 10000.0
+
     def init_data(self) -> None:
         pairs_csv = self.data_dir / "pairs.csv"
         if not pairs_csv.exists():
@@ -168,6 +225,8 @@ class DataLoader:
         nat_ha = flood_ha if flood_ha is not None else 0.0
         built_pct = 0.0
         nat_pct = 100.0
+        crop_ha = 0.0
+        crop_pct = 0.0
         mean_hand = 0.0
         hist_water_ha = 0.0
         new_flood_ha = flood_ha if flood_ha is not None else 0.0
@@ -191,6 +250,7 @@ class DataLoader:
             max_extent = np.zeros(ref_shape, dtype=np.float32)
             hand = np.zeros(ref_shape, dtype=np.float32)
             occurrence = np.zeros(ref_shape, dtype=np.float32)
+            cropland = np.zeros(ref_shape, dtype=np.float32)
 
             with rasterio.open(aux_tif) as aux:
                 reproject(
@@ -232,15 +292,37 @@ class DataLoader:
 
             flood_pts = flood_mask == 1
             tot_pix = int(flood_pts.sum())
+
+            # Cropland from a locally cached ESA WorldCover mask (may be absent)
+            cropland_tif = self.data_dir / str(row["rasters_dir"]) / "CROPLAND_worldcover.tif"
+            if cropland_tif.exists():
+                try:
+                    with rasterio.open(cropland_tif) as cr:
+                        reproject(
+                            source=rasterio.band(cr, 1),
+                            destination=cropland,
+                            src_transform=cr.transform,
+                            src_crs=cr.crs,
+                            dst_transform=ref_transform,
+                            dst_crs=ref_crs,
+                            resampling=Resampling.nearest,
+                        )
+                except Exception:  # noqa: BLE001
+                    logger.warning(f"[{pair_id}] Failed to read cropland mask; treating as absent")
+
             if tot_pix > 0:
                 b_built = int((builtup[flood_pts] == 1).sum())
-                b_nat = tot_pix - b_built
+                # Cropland only counts non-built-up pixels; built-up wins on overlap
+                b_crop = int(((cropland[flood_pts] == 1) & (builtup[flood_pts] != 1)).sum())
+                b_nat = tot_pix - b_built - b_crop
                 b_hist = int((max_extent[flood_pts] == 1).sum())
                 b_new = tot_pix - b_hist
 
                 built_ha = round(b_built * px_ha, 2)
+                crop_ha = round(b_crop * px_ha, 2)
                 nat_ha = round(b_nat * px_ha, 2)
                 built_pct = round(b_built / tot_pix * 100.0, 2)
+                crop_pct = round(b_crop / tot_pix * 100.0, 2)
                 nat_pct = round(b_nat / tot_pix * 100.0, 2)
                 hist_water_ha = round(b_hist * px_ha, 2)
                 new_flood_ha = round(b_new * px_ha, 2)
@@ -318,6 +400,8 @@ class DataLoader:
             "landcover": {
                 "builtup_ha": built_ha,
                 "builtup_pct": built_pct,
+                "cropland_ha": crop_ha,
+                "cropland_pct": crop_pct,
                 "natural_vegetation_ha": nat_ha,
                 "natural_vegetation_pct": nat_pct,
                 "historic_water_extent_ha": hist_water_ha,
@@ -325,7 +409,7 @@ class DataLoader:
                 "new_flood_extent_ha": new_flood_ha,
                 "new_flood_extent_pct": new_pct,
                 "mean_hand_m": mean_hand,
-                "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4",
+                "source": "ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4",
             },
         }
 
@@ -445,25 +529,47 @@ class DataLoader:
         bounds: list[float] | None = None,
         date_pre: str | None = None,
         date_peak: str | None = None,
+        polygon: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Predict / evaluate flood summary and geojson given pair_id or bounding box."""
+        """Resolve a monitored pair from pair_id, bbox or polygon and return its flood summary.
+
+        Pair resolution precedence:
+          1. explicit ``pair_id``;
+          2. spatial+temporal match: among pairs overlapping the requested
+             bbox/polygon, prefer the one whose SAR scene dates are closest to the
+             requested ``date_pre``/``date_peak`` (ties broken by spatial overlap);
+          3. purely spatial match (largest overlap) when no dates are supplied.
+        """
         target_pair_id = pair_id
 
-        # If pair_id not given but bounds provided, find best overlapping pair
-        if not target_pair_id and bounds and len(bounds) == 4:
-            req_box = box(bounds[0], bounds[1], bounds[2], bounds[3])
-            best_overlap = 0.0
-            best_pair = None
+        # Resolve the requested query geometry (polygon wins over bbox when both given)
+        query_geom = None
+        if polygon is not None:
+            try:
+                query_geom = shape(polygon)
+            except Exception as exc:  # noqa: BLE001
+                raise ValueError(f"Invalid polygon geometry: {exc}") from exc
+        elif bounds and len(bounds) == 4:
+            query_geom = box(bounds[0], bounds[1], bounds[2], bounds[3])
+
+        if not target_pair_id and query_geom is not None:
+            req_dates = self._parse_query_dates(date_pre, date_peak)
+
+            candidates: list[tuple[float, float, str]] = []
             for p in self._pairs_cache:
                 pb = p["bounds_4326"]
                 pair_box = box(pb[0], pb[1], pb[2], pb[3])
-                overlap = req_box.intersection(pair_box).area
-                if overlap > best_overlap:
-                    best_overlap = overlap
-                    best_pair = p["pair_id"]
-            if not best_pair or best_overlap <= 0.0:
-                raise ValueError(f"Requested bounds {bounds} do not overlap any monitored Amur basin AOI")
-            target_pair_id = best_pair
+                overlap = query_geom.intersection(pair_box).area
+                if overlap <= 0.0:
+                    continue
+                date_dist = self._pair_date_distance(p, req_dates)
+                candidates.append((date_dist, -overlap, p["pair_id"]))
+
+            if not candidates:
+                raise ValueError("Requested bounds do not overlap any monitored Amur basin AOI")
+            # Smallest date distance first; larger overlap (more negative) as tie-break
+            candidates.sort()
+            target_pair_id = candidates[0][2]
         elif not target_pair_id:
             target_pair_id = self._pairs_cache[0]["pair_id"]
 
@@ -473,24 +579,19 @@ class DataLoader:
 
         geojson = self.get_geojson(target_pair_id, layer="flood")
 
-        # If bounds provided, clip feature geometries to intersection and update area_ha
-        if bounds and len(bounds) == 4 and geojson and geojson.get("features"):
-            req_box = box(bounds[0], bounds[1], bounds[2], bounds[3])
+        # If a query geometry was given, clip feature geometries to its intersection
+        # and recompute area_ha in a metric (UTM) projection rather than degrees.
+        if query_geom is not None and geojson and geojson.get("features"):
             clipped_features = []
             for feat in geojson["features"]:
                 geom = shape(feat["geometry"])
-                if geom.intersects(req_box):
-                    clipped_geom = geom.intersection(req_box)
+                if geom.intersects(query_geom):
+                    clipped_geom = geom.intersection(query_geom)
                     if not clipped_geom.is_empty:
                         new_feat = dict(feat)
                         new_feat["geometry"] = mapping(clipped_geom)
                         props = dict(feat.get("properties") or {})
-                        # Approximate area in hectares in EPSG:4326 using degree conversion at ~50°N
-                        lat_mid = (bounds[1] + bounds[3]) / 2.0
-                        m_per_deg_lat = 111320.0
-                        m_per_deg_lon = 111320.0 * np.cos(np.radians(lat_mid))
-                        area_sqm = clipped_geom.area * (m_per_deg_lat * m_per_deg_lon)
-                        props["area_ha"] = round(area_sqm / 10000.0, 2)
+                        props["area_ha"] = round(self._metric_area_ha(clipped_geom, target_pair_id), 2)
                         new_feat["properties"] = props
                         clipped_features.append(new_feat)
             geojson = {
@@ -503,6 +604,7 @@ class DataLoader:
             "status": "success",
             "pair_id": target_pair_id,
             "query_bounds": bounds,
+            "query_polygon": polygon,
             "query_dates": {"date_pre": date_pre, "date_peak": date_peak},
             "scene_dates": {
                 "date_pre": report["date_pre_sar"],

@@ -12,7 +12,7 @@ import yaml
 LEE_LOOKS: float = 4.4
 LEE_SIZE: int = 7
 OTSU_MIN_DB: float = -22.0
-OTSU_MAX_DB: float = -14.5
+OTSU_MAX_DB: float = -12.0
 OTSU_BINS: int = 64
 OTSU_VALID_MIN_DB: float = -30.0
 OTSU_VALID_MAX_DB: float = -12.0
@@ -28,7 +28,7 @@ SAR_DROP_VH_MAX_DB: float = -17.0
 DOUBLE_BOUNCE_DELTA_VH_DB: float = 2.0
 DOUBLE_BOUNCE_HAND_MAX_M: float = 3.0
 DOUBLE_BOUNCE_SLOPE_MAX_DEG: float = 3.0
-DOUBLE_BOUNCE_VV_REF_MAX_DB: float = -14.0
+DOUBLE_BOUNCE_VV_PRE_MIN_DB: float = -14.0
 SLOPE_MAX_DEG: float = 5.0
 HAND_MAX_M: float = 25.0
 GSW_OCCURRENCE_MIN_PCT: float = 80.0
@@ -63,7 +63,7 @@ class HydroConfig:
     double_bounce_delta_vh_db: float = DOUBLE_BOUNCE_DELTA_VH_DB
     double_bounce_hand_max_m: float = DOUBLE_BOUNCE_HAND_MAX_M
     double_bounce_slope_max_deg: float = DOUBLE_BOUNCE_SLOPE_MAX_DEG
-    double_bounce_vv_ref_max_db: float = DOUBLE_BOUNCE_VV_REF_MAX_DB
+    double_bounce_vv_pre_min_db: float = DOUBLE_BOUNCE_VV_PRE_MIN_DB
     slope_max_deg: float = SLOPE_MAX_DEG
     hand_max_m: float = HAND_MAX_M
     gsw_occurrence_min_pct: float = GSW_OCCURRENCE_MIN_PCT
@@ -117,7 +117,7 @@ class HydroConfig:
             "double_bounce_delta_vh_db": self.double_bounce_delta_vh_db,
             "double_bounce_hand_max_m": self.double_bounce_hand_max_m,
             "double_bounce_slope_max_deg": self.double_bounce_slope_max_deg,
-            "double_bounce_vv_ref_max_db": self.double_bounce_vv_ref_max_db,
+            "double_bounce_vv_pre_min_db": self.double_bounce_vv_pre_min_db,
             "slope_max_deg": self.slope_max_deg,
             "hand_max_m": self.hand_max_m,
             "gsw_occurrence_min_pct": self.gsw_occurrence_min_pct,

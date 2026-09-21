@@ -1,5 +1,8 @@
 """Integration tests for HydroWatch Amur FastAPI service."""
 
+from pathlib import Path
+
+import pandas as pd
 from fastapi.testclient import TestClient
 
 from src.service.app import app
@@ -56,15 +59,19 @@ def test_report_endpoint():
     assert "share_of_aoi" in data
 
     # Verify values match submission.csv predictions
-    assert data["flood_ha"] == 1478.62
-    assert data["water_pre_ha"] == 8279.83
-    assert data["water_peak_ha"] == 9520.25
+    sub = pd.read_csv(Path("submission.csv"))
+    row = sub[sub["pair_id"] == "flood_2019_07_amur__blagoveshchensk"].iloc[0]
+    assert data["flood_ha"] == float(row["flood_ha"])
+    assert data["water_pre_ha"] == float(row["water_pre_ha"])
+    assert data["water_peak_ha"] == float(row["water_peak_ha"])
 
     # Verify landcover structure
     assert "landcover" in data
     lc = data["landcover"]
     assert "builtup_ha" in lc
     assert "builtup_pct" in lc
+    assert "cropland_ha" in lc
+    assert "cropland_pct" in lc
     assert "natural_vegetation_ha" in lc
     assert "natural_vegetation_pct" in lc
     assert "mean_hand_m" in lc

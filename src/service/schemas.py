@@ -14,6 +14,8 @@ class LandcoverDistribution(BaseModel):
 
     builtup_ha: float = Field(default=0.0, description="Flooded built-up / urban area in hectares")
     builtup_pct: float = Field(default=0.0, description="Percentage of flood area on built-up land")
+    cropland_ha: float = Field(default=0.0, description="Flooded cropland (ESA WorldCover class 40) in hectares")
+    cropland_pct: float = Field(default=0.0, description="Percentage of flood area on cropland")
     natural_vegetation_ha: float = Field(default=0.0, description="Flooded natural land / vegetation in hectares")
     natural_vegetation_pct: float = Field(default=0.0, description="Percentage of flood area on natural land")
     historic_water_extent_ha: float = Field(
@@ -26,7 +28,7 @@ class LandcoverDistribution(BaseModel):
     new_flood_extent_pct: float = Field(default=0.0, description="Percentage of anomalous flood area")
     mean_hand_m: float = Field(default=0.0, description="Mean Height Above Nearest Drainage in flooded area (meters)")
     source: str = Field(
-        default="ESA WorldCover v200 Built-up & JRC GSW v1.4",
+        default="ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4",
         description="Data sources for landcover and baseline water",
     )
 
@@ -139,6 +141,7 @@ class PredictResponse(BaseModel):
     status: str = Field(default="success", description="Status indicator")
     pair_id: str = Field(description="Resolved pair identifier")
     query_bounds: list[float] | None = Field(default=None, description="User queried bounds")
+    query_polygon: dict[str, Any] | None = Field(default=None, description="User queried GeoJSON polygon")
     query_dates: dict[str, str | None] | None = Field(default=None, description="User requested query dates")
     scene_dates: dict[str, str | None] | None = Field(default=None, description="Actual SAR scene dates used")
     requested_dates: dict[str, str | None] | None = Field(default=None, description="Validated requested dates")
@@ -169,6 +172,9 @@ class PredictRequest(BaseModel):
 
     pair_id: str | None = Field(default=None, description="Pair identifier, e.g. flood_2019_07_amur__blagoveshchensk")
     bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
+    polygon: dict[str, Any] | None = Field(
+        default=None, description="GeoJSON geometry (Polygon) in EPSG:4326; takes precedence over bounds"
+    )
     date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
     date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
     task_id: str | None = Field(default=None, description="Optional asynchronous tracking task identifier")

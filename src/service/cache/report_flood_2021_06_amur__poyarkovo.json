@@ -37,13 +37,15 @@
   "landcover": {
     "builtup_ha": 0.42,
     "builtup_pct": 0.02,
-    "natural_vegetation_ha": 2045.81,
-    "natural_vegetation_pct": 99.98,
+    "cropland_ha": 626.21,
+    "cropland_pct": 30.6,
+    "natural_vegetation_ha": 1419.6,
+    "natural_vegetation_pct": 69.38,
     "historic_water_extent_ha": 2046.23,
     "historic_water_extent_pct": 100.0,
     "new_flood_extent_ha": 0.0,
     "new_flood_extent_pct": 0.0,
     "mean_hand_m": 0.21,
-    "source": "ESA WorldCover v200 Built-up & JRC GSW v1.4"
+    "source": "ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4"
   }
 }
