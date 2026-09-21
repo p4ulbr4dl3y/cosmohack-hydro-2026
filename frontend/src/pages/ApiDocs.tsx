@@ -794,7 +794,7 @@ export const ApiDocs: React.FC = () => {
   const currentEndpoint =
     ENDPOINTS.find((e) => e.id === selectedEndpointId) || ENDPOINTS[0];
 
-  // Auto-fill body template when switching endpoint
+  // Автозаполнение шаблона тела при переключении эндпоинта
   useEffect(() => {
     if (currentEndpoint.requestBody) {
       setPostBodyText(currentEndpoint.requestBody);

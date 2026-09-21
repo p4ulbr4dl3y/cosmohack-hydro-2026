@@ -5,19 +5,19 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Dashboard } from '../pages/Dashboard';
 
-// Mock ResizeObserver for Recharts in jsdom
+// Мок ResizeObserver для Recharts в jsdom
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 } as any;
 
-// Mock MapContainer to prevent Leaflet canvas requirements in unit test
+// Мок MapContainer, чтобы избежать требований Leaflet к canvas в модульном тесте
 vi.mock('../components/map/MapContainer', () => ({
   MapContainer: () => <div data-testid="mock-map">Map Container</div>,
 }));
 
-// Mock API client
+// Мок API-клиента
 vi.mock('../api/client', () => ({
   apiClient: {
     fetchPairs: vi.fn().mockResolvedValue([
@@ -115,7 +115,7 @@ describe('Dashboard responsive tabs and layout', () => {
     const pairsTabBtn = screen.getAllByRole('button', { name: /Наблюдения/i })[0];
     fireEvent.click(pairsTabBtn);
 
-    // Should show back to map button on mobile
+    // На мобильном должна отображаться кнопка возврата к карте
     const backBtn = screen.getByRole('button', { name: /К карте/i });
     expect(backBtn).toBeDefined();
 

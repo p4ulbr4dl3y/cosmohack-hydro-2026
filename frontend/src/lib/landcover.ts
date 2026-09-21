@@ -1,12 +1,12 @@
 import type { LandcoverBreakdown, LandcoverItem } from '../types/domain';
 
 /**
- * Derives display items from the aggregates returned by the API report.
+ * Выводит элементы отображения из агрегатов, возвращаемых отчётом API.
  *
- * The service exposes `builtup_ha` / `cropland_ha` / `natural_vegetation_ha`
- * (mutually exclusive, summing to the flood area) but no per-class `items`.
- * Returns `null` when the payload has no usable aggregates so callers can
- * fall back to their own placeholder set.
+ * Сервис отдаёт `builtup_ha` / `cropland_ha` / `natural_vegetation_ha`
+ * (взаимоисключающие, в сумме дающие площадь затопления), но без `items`
+ * по каждому классу. Возвращает `null`, когда в payload нет пригодных
+ * агрегатов, чтобы вызывающий код мог перейти на свой набор заглушек.
  */
 export function deriveLandcoverItems(
   landcover?: LandcoverBreakdown | null

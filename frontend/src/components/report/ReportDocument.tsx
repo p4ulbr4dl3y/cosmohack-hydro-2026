@@ -15,7 +15,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
   comparison,
   forPdf = false,
 }) => {
-  // Prefer the class aggregates returned by /api/v1/report/{pair_id}
+  // Предпочтение агрегатам по классам, возвращаемым /api/v1/report/{pair_id}
   const landcoverItems = React.useMemo(
     () =>
       deriveLandcoverItems(report.landcover)?.map((it) => ({
@@ -41,7 +41,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
     ? `${report.date_pre_opt} -> ${report.date_peak_opt}`
     : 'нет перекрывающей сцены';
 
-  // API returns bare sensor codes ("sentinel1"); render them as readable names.
+  // API возвращает голые коды сенсоров ("sentinel1"); они отображаются как читаемые имена.
   const sensorSar = React.useMemo(() => {
     const code = (report.sensor_sar || '').toLowerCase().replace(/[-_\s]/g, '');
     if (code === 'sentinel1') return 'Sentinel-1';
@@ -353,7 +353,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
                 className="w-full h-full pointer-events-none select-none"
               />
             ) : (
-              /* High-fidelity Vector Map Snapshot for PDF rendering */
+              /* Высокоточный снимок векторной карты для рендеринга PDF */
               <div className="w-full h-full relative bg-[#0F172A] p-4 flex flex-col justify-between overflow-hidden">
                 <svg className="absolute inset-0 w-full h-full opacity-30" xmlns="http://www.w3.org/2000/svg">
                   <defs>

@@ -9,10 +9,10 @@ export function preloadAppCache() {
 
   const runPreload = async () => {
     try {
-      // 1. Preload pairs metadata
+      // 1. Предзагрузка метаданных пар
       const pairs = await apiClient.fetchPairs();
 
-      // 2. Preload AOI and Base Hydrology vectors
+      // 2. Предзагрузка векторов AOI и базовой гидрографии
       if (!geojsonCache.has('aoi')) {
         apiClient.fetchAoi().then((aoi) => {
           if (aoi) geojsonCache.set('aoi', aoi);
@@ -25,18 +25,18 @@ export function preloadAppCache() {
         }).catch(() => {});
       }
 
-      // 3. Preload top 3 pairs (including the default active pair)
+      // 3. Предзагрузка первых 3 пар (включая активную по умолчанию)
       const topPairs = (pairs || []).slice(0, 3);
       for (const p of topPairs) {
         const pId = p.pair_id;
 
-        // Warm up report, audit, uncertainty, and sar in client & browser cache
+        // Прогрев отчёта, аудита, неопределённости и sar в кэше клиента и браузера
         apiClient.fetchReport(pId).catch(() => {});
         apiClient.fetchAudit(pId).catch(() => {});
         apiClient.fetchUncertainty(pId).catch(() => {});
         apiClient.fetchSarAnalytics(pId).catch(() => {});
 
-        // Preload flood GeoJSON directly into RAM cache
+        // Предзагрузка GeoJSON затопления напрямую в кэш RAM
         const floodKey = `${pId}_flood`;
         if (!geojsonCache.has(floodKey)) {
           apiClient.fetchLayerGeoJson(pId, 'flood').then((gj) => {
@@ -51,19 +51,19 @@ export function preloadAppCache() {
           }).catch(() => {});
         }
 
-        // Preload overlay metadata & raster PNG image into browser cache
+        // Предзагрузка метаданных оверлея и растрового PNG-изображения в кэш браузера
         apiClient.fetchOverlayMeta(pId, 'flood').then(() => {
           const img = new Image();
           img.src = apiClient.getOverlayUrl(pId, 'flood', true);
         }).catch(() => {});
       }
     } catch (err) {
-      // Background preload failures are non-critical
+      // Сбои фоновой предзагрузки не критичны
       console.warn('Background preload skipped:', err);
     }
   };
 
-  // Run in idle period or short timeout so landing render is 100% instant
+  // Запуск в период простоя или по короткому таймауту, чтобы отрисовка посадочной страницы была мгновенной на 100%
   if ('requestIdleCallback' in window) {
     (window as any).requestIdleCallback(runPreload, { timeout: 1200 });
   } else {

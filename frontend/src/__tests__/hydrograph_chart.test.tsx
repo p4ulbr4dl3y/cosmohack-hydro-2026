@@ -4,7 +4,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { HydrographChart } from '../components/analytics/HydrographChart';
 
-// Recharts needs a ResizeObserver in jsdom
+// Recharts требует ResizeObserver в jsdom
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -22,7 +22,7 @@ describe('HydrographChart component', () => {
       />
     );
 
-    // Real delta in days between the SAR scenes, not a hardcoded label
+    // Реальная разница в днях между сценами SAR, а не захардкоженная подпись
     expect(screen.getByText('SAR: 42 суток')).toBeDefined();
     expect(screen.getByText('водное зеркало, га')).toBeDefined();
     expect(container.querySelector('.recharts-responsive-container')).not.toBeNull();

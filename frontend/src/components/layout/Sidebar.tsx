@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
         if (sortBy === 'name') {
           return a.aoi_name.localeCompare(b.aoi_name);
         }
-        // Default by date desc
+        // По умолчанию по убыванию даты
         return (b.date_peak_sar || '').localeCompare(a.date_peak_sar || '');
       });
   }, [pairs, filterKind, filterOnlyOptical, searchQuery, sortBy]);

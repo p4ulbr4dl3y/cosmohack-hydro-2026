@@ -72,10 +72,10 @@ describe('LayerControl component', () => {
     render(<LayerControl />);
 
     const headerBtn = screen.getByRole('button', { name: /СЛОИ/i });
-    fireEvent.click(headerBtn); // collapse
+    fireEvent.click(headerBtn); // сворачивание
     expect(screen.queryByText('Маски затопления')).toBeNull();
 
-    fireEvent.click(headerBtn); // expand
+    fireEvent.click(headerBtn); // разворачивание
     expect(screen.getByText('Маски затопления')).toBeDefined();
   });
 });

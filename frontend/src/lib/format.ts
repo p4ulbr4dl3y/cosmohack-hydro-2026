@@ -1,6 +1,6 @@
 /**
- * Formats numbers according to HydroWatch Amur Design System.
- * Uses thin non-breaking space (\u202F) for thousands and comma for decimal separator.
+ * Форматирует числа согласно HydroWatch Amur Design System.
+ * Использует узкий неразрывный пробел (\u202F) для тысяч и запятую для десятичного разделителя.
  */
 
 export function formatNumber(val: number | null | undefined, decimals = 1): string {
@@ -9,7 +9,7 @@ export function formatNumber(val: number | null | undefined, decimals = 1): stri
   const fixed = val.toFixed(decimals);
   const [intPart, decPart] = fixed.split('.');
   
-  // Group thousands with narrow non-breaking space
+  // Группировка тысяч узким неразрывным пробелом
   const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F');
   
   return decPart !== undefined && decimals > 0 

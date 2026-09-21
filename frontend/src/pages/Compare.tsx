@@ -14,7 +14,7 @@ export const Compare: React.FC = () => {
   const navigate = useNavigate();
   const { compareMode, setCompareMode } = useUiStore();
 
-  const [sliderPos, setSliderPos] = useState<number>(50); // percentage 0 - 100
+  const [sliderPos, setSliderPos] = useState<number>(50); // процент 0 - 100
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [report, setReport] = useState<ReportData | null>(null);
 
@@ -50,7 +50,7 @@ export const Compare: React.FC = () => {
     apiClient.fetchReport(pairId).then(setReport).catch(console.error);
   }, [pairId]);
 
-  // Keyboard navigation: Esc -> back, ArrowLeft / ArrowRight -> nudge slider
+  // Клавиатурная навигация: Esc -> назад, ArrowLeft / ArrowRight -> сдвиг слайдера
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -66,7 +66,7 @@ export const Compare: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate, pairId]);
 
-  // Dragging logic
+  // Логика перетаскивания
   const handlePointerDown = useCallback(() => {
     setIsDragging(true);
   }, []);
@@ -90,7 +90,7 @@ export const Compare: React.FC = () => {
     setSliderPos(50);
   };
 
-  // Initialize Dual Leaflet Maps with Synchronization
+  // Инициализация двух карт Leaflet с синхронизацией
   useEffect(() => {
     if (!mapBeforeRef.current || !mapPeakRef.current) return;
     if (leafletBefore.current || leafletPeak.current) return;
@@ -114,7 +114,7 @@ export const Compare: React.FC = () => {
       attributionControl: false,
     });
 
-    // Synchronize both maps
+    // Синхронизация обеих карт
     let isSyncing = false;
     map1.on('move', () => {
       if (isSyncing) return;
@@ -141,7 +141,7 @@ export const Compare: React.FC = () => {
     };
   }, []);
 
-  // Update Basemaps on both maps
+  // Обновление подложек на обеих картах
   useEffect(() => {
     const map1 = leafletBefore.current;
     const map2 = leafletPeak.current;
@@ -166,7 +166,7 @@ export const Compare: React.FC = () => {
     tilePeakRef.current = L.tileLayer(tileUrl, { maxZoom: 19, subdomains, crossOrigin: true }).addTo(map2);
   }, [compareMode]);
 
-  // Load Real GeoJSON Layers & Fit Bounds
+  // Загрузка реальных слоёв GeoJSON и подгонка границ
   useEffect(() => {
     const map1 = leafletBefore.current;
     const map2 = leafletPeak.current;
@@ -174,7 +174,7 @@ export const Compare: React.FC = () => {
 
     let isMounted = true;
 
-    // Load AOI boundaries for both
+    // Загрузка границ AOI для обеих карт
     apiClient.fetchAoi().then((aoiData) => {
       if (!isMounted || !aoiData) return;
       const aoiStyle = {
@@ -188,7 +188,7 @@ export const Compare: React.FC = () => {
       L.geoJSON(aoiData, { style: aoiStyle }).addTo(map2);
     }).catch(console.error);
 
-    // Load Permanent OSM Hydrography for both maps
+    // Загрузка постоянной гидрографии OSM для обеих карт
     apiClient.fetchVectorLayer('hydrography_osm').then((hydroGeo) => {
       if (!isMounted || !hydroGeo) return;
       const hydroStyle = {
@@ -201,7 +201,7 @@ export const Compare: React.FC = () => {
       layerHydro2Ref.current = L.geoJSON(hydroGeo, { style: hydroStyle }).addTo(map2);
     }).catch(console.error);
 
-    // Load "Before" water mask on Map 1 and Map 2
+    // Загрузка водной маски "до" на карту 1 и карту 2
     apiClient.fetchLayerGeoJson(pairId, 'water_pre').then((preGeo) => {
       if (!isMounted || !preGeo?.features?.length) return;
       layerWaterPre1Ref.current = L.geoJSON(preGeo, {
@@ -223,7 +223,7 @@ export const Compare: React.FC = () => {
       }).addTo(map2);
     }).catch(console.error);
 
-    // Load "Peak" water mask on Map 2
+    // Загрузка водной маски "пик" на карту 2
     apiClient.fetchLayerGeoJson(pairId, 'water_peak').then((peakGeo) => {
       if (!isMounted || !peakGeo?.features?.length) return;
       layerWaterPeakRef.current = L.geoJSON(peakGeo, {
@@ -236,7 +236,7 @@ export const Compare: React.FC = () => {
       }).addTo(map2);
     }).catch(console.error);
 
-    // Load "Flood" new inundation mask (orange) on Map 2
+    // Загрузка маски нового затопления "паводок" (оранжевая) на карту 2
     apiClient.fetchLayerGeoJson(pairId, 'flood').then((floodGeo) => {
       if (!isMounted || !floodGeo?.features?.length) return;
       const floodL = L.geoJSON(floodGeo, {
@@ -249,7 +249,7 @@ export const Compare: React.FC = () => {
       }).addTo(map2);
       layerFloodRef.current = floodL;
 
-      // Fit map bounds to flood zone if available
+      // Подгонка границ карты под зону затопления, если она доступна
       const b = floodL.getBounds();
       if (b.isValid()) {
         map1.fitBounds(b, { padding: [50, 50], maxZoom: 12 });
@@ -262,7 +262,7 @@ export const Compare: React.FC = () => {
     };
   }, [pairId]);
 
-  // Synchronize Layer Toggles
+  // Синхронизация переключателей слоёв
   useEffect(() => {
     const map1 = leafletBefore.current;
     const map2 = leafletPeak.current;

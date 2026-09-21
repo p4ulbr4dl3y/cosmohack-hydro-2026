@@ -4,7 +4,7 @@ import { formatHa, formatKm2, formatPercent, formatNumber } from '../lib/format'
 describe('format utilities', () => {
   describe('formatNumber', () => {
     it('formats real numbers with decimal comma and narrow non-breaking space', () => {
-      // Narrow non-breaking space \u202F
+      // Узкий неразрывный пробел \u202F
       expect(formatNumber(2847.3, 1)).toBe('2\u202F847,3');
       expect(formatNumber(22.86, 2)).toBe('22,86');
       expect(formatNumber(0.23, 2)).toBe('0,23');

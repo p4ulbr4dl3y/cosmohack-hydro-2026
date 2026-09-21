@@ -46,10 +46,10 @@ export const Dashboard: React.FC = () => {
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
-  // Mobile responsive view tab: 'map' | 'pairs' | 'analytics'
+  // Вкладка адаптивного мобильного вида: 'map' | 'pairs' | 'analytics'
   const [mobileTab, setMobileTab] = useState<'map' | 'pairs' | 'analytics'>('map');
 
-  // Sync route param with store
+  // Синхронизация параметра маршрута со стором
   useEffect(() => {
     if (pairId && pairId !== activePairId) {
       setActivePairId(pairId);
@@ -58,7 +58,7 @@ export const Dashboard: React.FC = () => {
     }
   }, [pairId, activePairId, setActivePairId, navigate]);
 
-  // Load pairs on mount
+  // Загрузка пар при монтировании
   const loadPairs = async () => {
     try {
       setLoadingPairs(true);
@@ -78,7 +78,7 @@ export const Dashboard: React.FC = () => {
     loadPairs();
   }, []);
 
-  // Load report and extra analytics when activePairId changes
+  // Загрузка отчёта и дополнительной аналитики при изменении activePairId
   useEffect(() => {
     if (!activePairId) return;
 
@@ -147,7 +147,7 @@ export const Dashboard: React.FC = () => {
 
   const currentPair = pairs.find((p) => p.pair_id === activePairId) || null;
 
-  // Export handlers
+  // Обработчики экспорта
   const handleExportCsv = () => {
     if (!currentReport) return;
     const csvContent = [
@@ -191,13 +191,13 @@ export const Dashboard: React.FC = () => {
   };
 
   const handleExportShp = () => {
-    // Official ESRI Shapefile export endpoint (.shp, .shx, .dbf, .prj)
+    // Официальный эндпоинт экспорта ESRI Shapefile (.shp, .shx, .dbf, .prj)
     window.open(`/api/v1/export/${encodeURIComponent(activePairId)}/shapefile?layer=flood`, '_blank');
     showNotice('SHP архив скачивается');
   };
 
   const handleMchsDispatch = () => {
-    // Official MCHS Emergency Field Dispatch
+    // Официальное экстренное полевое донесение МЧС
     window.open(`/api/v1/report/${encodeURIComponent(activePairId)}/mchs-dispatch?format=html`, '_blank');
     showNotice('Донесение МЧС сформировано');
   };

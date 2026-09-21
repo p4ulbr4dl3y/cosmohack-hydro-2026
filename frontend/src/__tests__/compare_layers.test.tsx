@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Compare } from '../pages/Compare';
 import { apiClient } from '../api/client';
 
-// Mock Leaflet
+// Мок Leaflet
 vi.mock('leaflet', () => {
   const mapMock = {
     on: vi.fn(),
@@ -74,7 +74,7 @@ describe('Compare page and layer visualization', () => {
     expect(preToggle).toBeDefined();
     expect(hydroToggle).toBeDefined();
 
-    // Toggle a layer off and verify click doesn't error
+    // Выключение слоя и проверка, что клик не даёт ошибку
     fireEvent.click(floodToggle);
     fireEvent.click(preToggle);
     fireEvent.click(hydroToggle);

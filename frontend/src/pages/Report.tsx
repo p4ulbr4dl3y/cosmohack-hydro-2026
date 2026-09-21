@@ -35,8 +35,8 @@ export const Report: React.FC = () => {
         if (!isMounted) return;
         setReport(rep);
         setComparison(comp);
-        // A null report means the API returned no data; the spinner must stop
-        // and the failure must be shown instead of hanging forever.
+        // Отчёт со значением null означает, что API не вернул данные; спиннер должен остановиться,
+        // а сбой - отобразиться вместо бесконечного ожидания.
         if (!rep) {
           setLoadError('Отчёт недоступен: сервис не вернул данные для этой пары.');
         }

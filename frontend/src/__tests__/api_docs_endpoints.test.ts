@@ -100,7 +100,7 @@ describe('ApiDocs ENDPOINTS catalog verification', () => {
     expect(screen.getByText('cURL-пример')).toBeDefined();
     const curlPre = container.querySelector('pre.text-slate-800');
     expect(curlPre).toBeDefined();
-    // Confirms no dark background class on cURL container
+    // Подтверждает отсутствие класса тёмного фона у контейнера cURL
     expect(container.querySelector('.bg-\\[\\#0F172A\\]')).toBeNull();
   });
 });

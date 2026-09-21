@@ -41,7 +41,7 @@ export const HydrographChart: React.FC<HydrographChartProps> = ({
   const peakLabel = shortDate(datePeak) ?? 'пик';
   const delta = daysBetween(datePre, datePeak);
 
-  // Only real SAR water extents are plotted; no synthetic interpolation.
+  // Строятся только реальные водные контуры SAR; синтетической интерполяции нет.
   const data = React.useMemo(() => {
     const points: Array<{ date: string; water: number }> = [];
     if (typeof waterPreHa === 'number') points.push({ date: preLabel, water: waterPreHa });

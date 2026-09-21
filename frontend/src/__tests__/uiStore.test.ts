@@ -3,7 +3,7 @@ import { useUiStore } from '../store/uiStore';
 
 describe('uiStore state management', () => {
   beforeEach(() => {
-    // Reset to defaults
+    // Сброс к значениям по умолчанию
     const store = useUiStore.getState();
     store.setActivePairId('flood_2019_07_amur__blagoveshchensk');
     store.setBasemap('msi_true');

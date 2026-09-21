@@ -17,7 +17,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
     setDownloadingPdf(true);
     try {
       const data = report ?? (await apiClient.fetchReport(pairId));
-      // Without a server report there is nothing truthful to export.
+      // Без серверного отчёта экспортировать достоверно нечего.
       if (!data) {
         console.error(`No report available for ${pairId}; PDF export skipped`);
         return;
@@ -38,7 +38,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
     window.open(`/api/v1/geojson/${encodeURIComponent(pairId)}?layer=flood`, '_blank');
   };
 
-  // SHP export: real Shapefile (.zip) endpoint; falls back to GeoJSON when unavailable
+  // Экспорт SHP: реальный эндпоинт Shapefile (.zip); при недоступности откат к GeoJSON
   const downloadShp = () => {
     window.open(`/api/v1/export/${encodeURIComponent(pairId)}/vectors?format=shp`, '_blank');
   };
