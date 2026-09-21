@@ -32,11 +32,13 @@ def test_data_loader_fresh_cache_geojson(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
-    for layer in ["flood", "water_pre", "water_peak", "invalid_layer_defaults_to_flood"]:
+    for layer in ["flood", "water_pre", "water_peak"]:
         gj = loader.get_geojson(pair_id, layer=layer)
         assert gj is not None
         assert gj["type"] == "FeatureCollection"
         assert len(gj["features"]) > 0
+
+    assert loader.get_geojson(pair_id, layer="invalid_layer") is None
 
 
 def test_data_loader_predict_spatial_temporal(tmp_path):

@@ -56,9 +56,9 @@ def test_report_endpoint():
     assert "share_of_aoi" in data
 
     # Verify values match submission.csv predictions
-    assert data["flood_ha"] == 1614.38
-    assert data["water_pre_ha"] == 8413.79
-    assert data["water_peak_ha"] == 9672.04
+    assert data["flood_ha"] == 1478.62
+    assert data["water_pre_ha"] == 8279.83
+    assert data["water_peak_ha"] == 9520.25
 
     # Verify landcover structure
     assert "landcover" in data
@@ -154,12 +154,19 @@ def test_predict_endpoint_valid_dates_echoed():
 
 
 def test_predict_endpoint_arbitrary_bounds():
-    # Bounds outside coverage - should still return 200 with best matching pair or empty features
-    bounds = [10.0, 10.0, 11.0, 11.0]
-    resp = client.post("/api/v1/predict", json={"bounds": bounds})
-    assert resp.status_code == 200
-    res = resp.json()
+    # Bounds outside coverage (e.g. Gulf of Guinea) correctly rejected with 400
+    bounds_outside = [10.0, 10.0, 11.0, 11.0]
+    resp_outside = client.post("/api/v1/predict", json={"bounds": bounds_outside})
+    assert resp_outside.status_code == 400
+    assert "do not overlap" in resp_outside.json()["detail"]
+
+    # Valid overlapping bounds within Blagoveshchensk AOI
+    bounds_inside = [127.3, 50.2, 127.6, 50.4]
+    resp_inside = client.post("/api/v1/predict", json={"bounds": bounds_inside})
+    assert resp_inside.status_code == 200
+    res = resp_inside.json()
     assert res["status"] == "success"
+    assert "flood_clipped" in res["geojson"]["name"]
 
 
 def test_static_index_html():

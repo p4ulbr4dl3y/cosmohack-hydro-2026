@@ -19,11 +19,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from typing import Any
 
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.features import geometry_mask
 
 from src.segmentation import (
+    apply_mmu,
     load_aux_priors,
     segment_optical,
     segment_water,
@@ -52,20 +55,26 @@ def process_pair(
     rasters_dir = data_dir / str(row["rasters_dir"])
     ref_tif_path = data_dir / str(row["reference_mask"])
 
-    # Target geometry is defined by the reference raster grid (EPSG:32652, 10m)
-    with rasterio.open(ref_tif_path) as ref_src:
-        target_shape = ref_src.shape
-        target_transform = ref_src.transform
-        target_crs = ref_src.crs
-
-    height, width = target_shape
-
-    # 1. Load Sentinel-1 rasters
+    # 1. Locate Sentinel-1 rasters first to allow standalone geometry fallback
     s1_pre_files = sorted(glob.glob(str(rasters_dir / "S1_pre_*.tif")))
     s1_peak_files = sorted(glob.glob(str(rasters_dir / "S1_peak_*.tif")))
 
     if not s1_pre_files or not s1_peak_files:
         raise FileNotFoundError(f"Missing S1 pre/peak rasters in {rasters_dir}")
+
+    # Target geometry: use reference raster if present, otherwise derive from S1 scene
+    if ref_tif_path.exists():
+        with rasterio.open(ref_tif_path) as ref_src:
+            target_shape = ref_src.shape
+            target_transform = ref_src.transform
+            target_crs = ref_src.crs
+    else:
+        with rasterio.open(s1_pre_files[0]) as s1_src:
+            target_shape = s1_src.shape
+            target_transform = s1_src.transform
+            target_crs = s1_src.crs
+
+    height, width = target_shape
 
     with rasterio.open(s1_pre_files[0]) as src:
         vv_pre = src.read(1)
@@ -158,9 +167,34 @@ def process_pair(
     )
 
     flood_mask = temporal["flood"]
-    flood_ha = temporal["flood_ha"]
-    water_pre_ha = temporal["water_pre_ha"]
-    water_peak_ha = temporal["water_peak_ha"]
+    water_pre_mask = temporal["water_pre"]
+    water_peak_mask = temporal["water_peak"]
+
+    # 6b. AOI polygon boundary clipping (eliminates out-of-boundary predictions)
+    aoi_geojson_path = data_dir / "vectors" / "aoi.geojson"
+    if aoi_geojson_path.exists():
+        try:
+            aoi_gdf = gpd.read_file(aoi_geojson_path)
+            aoi_id = str(row.get("aoi_id", ""))
+            matched = aoi_gdf[aoi_gdf["aoi_id"] == aoi_id]
+            if not matched.empty:
+                geom = matched.to_crs(target_crs).geometry.values[0]
+                aoi_inside_mask = geometry_mask([geom], out_shape=target_shape, transform=target_transform, invert=True)
+                flood_mask = (flood_mask & aoi_inside_mask).astype(np.uint8)
+                water_pre_mask = (water_pre_mask & aoi_inside_mask).astype(np.uint8)
+                water_peak_mask = (water_peak_mask & aoi_inside_mask).astype(np.uint8)
+        except Exception as e:
+            logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
+
+    # 6c. Apply MMU to final flood mask in full pipeline mode (Mode 4)
+    if ablation_mode == 4:
+        flood_mask = apply_mmu(flood_mask, min_size=25).astype(np.uint8)
+
+    # Recompute areas in hectares after clipping and MMU
+    px_ha = 0.01  # 10m x 10m = 100 m² = 0.01 ha
+    flood_ha = round(float(np.sum(flood_mask == 1) * px_ha), 2)
+    water_pre_ha = round(float(np.sum(water_pre_mask == 1) * px_ha), 2)
+    water_peak_ha = round(float(np.sum(water_peak_mask == 1) * px_ha), 2)
 
     # 7. Write GeoTIFF prediction
     predictions_dir.mkdir(parents=True, exist_ok=True)
@@ -181,6 +215,7 @@ def process_pair(
         dst.write(flood_mask, 1)
 
     # 7b. Write own water mask GeoTIFFs (served by the FastAPI service)
+    water_masks_map = {"water_pre": water_pre_mask, "water_peak": water_peak_mask}
     for water_layer in ("water_pre", "water_peak"):
         out_tif = predictions_dir / f"{pair_id}_{water_layer}.tif"
         with rasterio.open(
@@ -196,7 +231,7 @@ def process_pair(
             compress="deflate",
             nodata=0,
         ) as dst:
-            dst.write(temporal[water_layer], 1)
+            dst.write(water_masks_map[water_layer], 1)
 
     # 8. Strict Area Verification (< 2% difference between CSV and raster mask)
     raster_flood_px = int(np.sum(flood_mask == 1))

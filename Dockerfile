@@ -22,10 +22,10 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies using uv sync
 RUN uv sync --frozen --no-install-project
 
-# Copy application source and data
 COPY src/ ./src/
 COPY hydrowatch_amur/ ./hydrowatch_amur/
 COPY config.yaml ./
+COPY data/ ./data/
 COPY submission.csv ./
 COPY predictions/ ./predictions/
 COPY README.md ./

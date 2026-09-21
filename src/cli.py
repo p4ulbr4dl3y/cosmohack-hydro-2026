@@ -6,6 +6,7 @@ import argparse
 import contextlib
 import json
 import logging
+import resource
 import sys
 import time
 from pathlib import Path
@@ -142,6 +143,10 @@ def run_benchmark(
     total_time = sum(times)
     fps = len(times) / total_time
 
+    # Peak RSS: macOS returns bytes, Linux returns KiB
+    ru_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    peak_mb = (ru_maxrss / (1024.0 * 1024.0)) if sys.platform == "darwin" else (ru_maxrss / 1024.0)
+
     print("\n" + "=" * 50)
     print("BENCHMARK RESULTS")
     print("=" * 50)
@@ -149,6 +154,7 @@ def run_benchmark(
     print(f"Total pipeline time:    {total_time:.2f} s")
     print(f"Average latency:        {avg_time:.3f} s / pair")
     print(f"Throughput:             {fps:.2f} pairs / sec")
+    print(f"Peak RAM (ru_maxrss):   {peak_mb:.1f} MB")
     print("=" * 50 + "\n")
 
 

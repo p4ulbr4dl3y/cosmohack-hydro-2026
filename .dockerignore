@@ -11,6 +11,5 @@ __pycache__
 *.tar*
 .DS_Store
 predictions_ablation/
-data/
 # Heavy Sentinel-1 GRD scenes stay external (download via gdown)
 hydrowatch_amur/rasters/**/S1_*.tif

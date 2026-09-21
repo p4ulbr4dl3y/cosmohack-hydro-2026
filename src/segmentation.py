@@ -233,8 +233,11 @@ def load_aux_priors(
             resampling=Resampling.nearest,
         )
 
-    topo_mask = (slope <= slope_max) & (hand <= hand_max)
-    permanent_mask = occurrence >= gsw_min
+    # Sanitize invalid or corrupted nodata values (e.g. -inf in Svobodny 2021-08)
+    valid_slope = np.isfinite(slope) & (slope >= 0.0)
+    valid_hand = np.isfinite(hand) & (hand >= 0.0)
+    topo_mask = valid_slope & valid_hand & (slope <= slope_max) & (hand <= hand_max)
+    permanent_mask = (occurrence >= gsw_min) & np.isfinite(occurrence)
 
     return {
         "slope": slope,

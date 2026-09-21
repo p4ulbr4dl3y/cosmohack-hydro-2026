@@ -18,6 +18,7 @@ from src.service.data_loader import data_loader
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+PREDICTIONS_DIR = BASE_DIR / "predictions"
 
 app = FastAPI(
     title="HydroWatch Amur API",
@@ -131,9 +132,15 @@ async def get_geojson(
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> dict[str, Any]:
     """Vector polygons of flood zone in GeoJSON format (EPSG:4326 for web maps)."""
-    geojson = data_loader.get_geojson(pair_id, layer=layer)
+    norm_layer = layer.strip().lower()
+    if norm_layer not in ("flood", "water_pre", "water_peak"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+        )
+    geojson = data_loader.get_geojson(pair_id, layer=norm_layer)
     if geojson is None:
-        raise HTTPException(status_code=404, detail=f"GeoJSON for pair '{pair_id}' (layer: {layer}) not found")
+        raise HTTPException(status_code=404, detail=f"GeoJSON for pair '{pair_id}' (layer: {norm_layer}) not found")
     return geojson
 
 
@@ -143,13 +150,41 @@ async def get_shapefile(
     layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
 ) -> Response:
     """Vector polygons exported as a zipped ESRI Shapefile archive (EPSG:4326)."""
-    shp_bytes = data_loader.get_shapefile_zip(pair_id, layer=layer)
+    norm_layer = layer.strip().lower()
+    if norm_layer not in ("flood", "water_pre", "water_peak"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+        )
+    shp_bytes = data_loader.get_shapefile_zip(pair_id, layer=norm_layer)
     if shp_bytes is None:
-        raise HTTPException(status_code=404, detail=f"Shapefile for pair '{pair_id}' (layer: {layer}) not found")
+        raise HTTPException(status_code=404, detail=f"Shapefile for pair '{pair_id}' (layer: {norm_layer}) not found")
     return Response(
         content=shp_bytes,
         media_type="application/zip",
         headers={"Content-Disposition": f"attachment; filename={pair_id}_{layer}_shp.zip"},
+    )
+
+
+@app.get("/api/v1/geotiff/{pair_id}")
+async def get_geotiff(
+    pair_id: str,
+    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+) -> FileResponse:
+    """Download raster mask for the given pair and layer in GeoTIFF format (EPSG:32652)."""
+    norm_layer = layer.strip().lower()
+    if norm_layer not in ("flood", "water_pre", "water_peak"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+        )
+    tif_path = PREDICTIONS_DIR / f"{pair_id}_{norm_layer}.tif"
+    if not tif_path.exists():
+        raise HTTPException(status_code=404, detail=f"GeoTIFF for pair '{pair_id}' (layer: {norm_layer}) not found")
+    return FileResponse(
+        path=str(tif_path),
+        media_type="image/tiff",
+        filename=f"{pair_id}_{norm_layer}.tif",
     )
 
 
@@ -170,28 +205,32 @@ async def predict_flood(request: PredictRequest) -> dict[str, Any]:
             except ValueError:
                 raise HTTPException(status_code=400, detail=f"Некорректная дата {name}: '{val}' (ожидается YYYY-MM-DD)")
             requested_dates[name] = requested_date
-            if pair_meta is not None:
-                scene_val = pair_meta.get(f"{name}_sar")
-                if scene_val:
-                    try:
-                        scene_dt = datetime.strptime(str(scene_val), "%Y-%m-%d").date()
-                    except ValueError:
-                        continue  # unparseable scene metadata date: skip plausibility
-                    if abs((requested_date - scene_dt).days) > 30:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=(
-                                f"Некорректная дата {name}: '{val}' выходит за пределы ±30 дней "
-                                f"от даты съёмки {scene_val}"
-                            ),
-                        )
-
         result = data_loader.predict_spatial_temporal(
             pair_id=request.pair_id,
             bounds=request.bounds,
             date_pre=request.date_pre,
             date_peak=request.date_peak,
         )
+        resolved_pair_id = result.get("pair_id")
+        pair_meta = data_loader.get_pair_meta(resolved_pair_id) if resolved_pair_id else None
+        if pair_meta is not None:
+            for name in ("date_pre", "date_peak"):
+                req_d = requested_dates[name]
+                if req_d is not None:
+                    scene_val = pair_meta.get(f"{name}_sar")
+                    if scene_val:
+                        try:
+                            scene_dt = datetime.strptime(str(scene_val), "%Y-%m-%d").date()
+                        except ValueError:
+                            continue
+                        if abs((req_d - scene_dt).days) > 30:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=(
+                                    f"Некорректная дата {name}: '{getattr(request, name)}' выходит за пределы ±30 дней "
+                                    f"от даты съёмки {scene_val}"
+                                ),
+                            )
         result.setdefault("requested_dates", {k: (v.isoformat() if v else None) for k, v in requested_dates.items()})
         return result
     except HTTPException:

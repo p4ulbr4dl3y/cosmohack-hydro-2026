@@ -15,7 +15,7 @@ def test_cli_report_single_pair(capsys):
     run_report(pair_id=pair_id)
     captured = capsys.readouterr()
     assert "REPORT: flood_2019_07_amur__blagoveshchensk" in captured.out
-    assert "Flood: 1614.38 ha" in captured.out
+    assert "Flood: 1478.62 ha" in captured.out
     assert "Water Gain:" in captured.out
 
 
@@ -26,7 +26,7 @@ def test_cli_report_output_json(tmp_path):
     with open(out_json, encoding="utf-8") as f:
         data = json.load(f)
     assert data["pair_id"] == "flood_2019_07_amur__blagoveshchensk"
-    assert data["flood_ha"] == 1614.38
+    assert data["flood_ha"] == 1478.62
 
 
 def test_cli_report_output_csv(tmp_path):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import glob
 import json
 import logging
 from pathlib import Path
@@ -15,7 +16,7 @@ import shapely.geometry
 from rasterio.enums import Resampling
 from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
-from shapely.geometry import box, shape
+from shapely.geometry import box, mapping, shape
 
 from src.temporal import compute_receded_ha
 
@@ -60,8 +61,10 @@ class DataLoader:
             ref_tif = self.data_dir / str(row["reference_mask"])
 
             bounds_4326 = [127.0, 50.0, 128.0, 51.0]
-            target_tif = pred_tif if pred_tif.exists() else ref_tif
-            if target_tif.exists():
+            s1_pre_matches = sorted(glob.glob(str(self.data_dir / str(row["rasters_dir"]) / "S1_pre_*.tif")))
+            s1_tif = Path(s1_pre_matches[0]) if s1_pre_matches else None
+            target_tif = pred_tif if pred_tif.exists() else (s1_tif if (s1_tif and s1_tif.exists()) else ref_tif)
+            if target_tif and target_tif.exists():
                 with rasterio.open(target_tif) as src:
                     b = transform_bounds(src.crs, "EPSG:4326", *src.bounds)
                     bounds_4326 = [round(x, 6) for x in b]
@@ -120,7 +123,6 @@ class DataLoader:
 
         row = self.pairs_df[self.pairs_df["pair_id"] == pair_id].iloc[0]
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
-        ref_tif = self.data_dir / str(row["reference_mask"])
         aux_tif = self.data_dir / str(row["rasters_dir"]) / "AUX_terrain_gsw.tif"
 
         # Load areas from submission.csv if available
@@ -137,8 +139,8 @@ class DataLoader:
                 water_pre_ha = float(r0["water_pre_ha"])
                 water_peak_ha = float(r0["water_peak_ha"])
 
-        # Target flood raster: prefer model prediction over reference
-        target_flood_tif = pred_tif if pred_tif.exists() else (ref_tif if ref_tif.exists() else None)
+        # Target flood raster: use model prediction (do not fall back to organizer reference)
+        target_flood_tif = pred_tif if pred_tif.exists() else None
 
         # Compute or extract landcover distribution from AUX
         built_ha = 0.0
@@ -150,6 +152,7 @@ class DataLoader:
         new_flood_ha = flood_ha if flood_ha is not None else 0.0
         hist_pct = 0.0
         new_pct = 100.0
+        permanent_ha = 0.0
 
         if target_flood_tif and target_flood_tif.exists() and aux_tif.exists():
             with rasterio.open(target_flood_tif) as ref:
@@ -166,6 +169,7 @@ class DataLoader:
             builtup = np.zeros(ref_shape, dtype=np.float32)
             max_extent = np.zeros(ref_shape, dtype=np.float32)
             hand = np.zeros(ref_shape, dtype=np.float32)
+            occurrence = np.zeros(ref_shape, dtype=np.float32)
 
             with rasterio.open(aux_tif) as aux:
                 reproject(
@@ -195,6 +199,15 @@ class DataLoader:
                     dst_crs=ref_crs,
                     resampling=Resampling.bilinear,
                 )
+                reproject(
+                    source=rasterio.band(aux, 3),
+                    destination=occurrence,
+                    src_transform=aux.transform,
+                    src_crs=aux.crs,
+                    dst_transform=ref_transform,
+                    dst_crs=ref_crs,
+                    resampling=Resampling.nearest,
+                )
 
             flood_pts = flood_mask == 1
             tot_pix = int(flood_pts.sum())
@@ -214,6 +227,12 @@ class DataLoader:
                 valid_hand = hand[flood_pts]
                 valid_hand = valid_hand[np.isfinite(valid_hand) & (valid_hand >= 0)]
                 mean_hand = round(float(np.mean(valid_hand)), 2) if len(valid_hand) > 0 else 0.0
+
+            # Permanent water from GSW occurrence >= 80% (standard hydrological baseline)
+            perm_pts = (occurrence >= 80.0) & np.isfinite(occurrence)
+            permanent_ha = round(float(perm_pts.sum() * px_ha), 2)
+        else:
+            permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2) if (water_pre_ha and flood_ha) else 0.0
 
         if flood_ha is None:
             flood_ha = 0.0
@@ -245,7 +264,6 @@ class DataLoader:
         water_gain_pct = round((water_gain_ha / water_pre_ha * 100.0), 2) if water_pre_ha > 0 else 0.0
         aoi_ha = pair_meta["aoi_ha"]
         share_of_aoi = round(flood_ha / aoi_ha, 6) if aoi_ha > 0 else 0.0
-        permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2)
 
         report_data = {
             "pair_id": pair_id,
@@ -296,9 +314,9 @@ class DataLoader:
         return report_data
 
     def get_geojson(self, pair_id: str, layer: str = "flood") -> dict[str, Any] | None:
-        layer = layer.lower()
+        layer = layer.strip().lower()
         if layer not in ("flood", "water_pre", "water_peak"):
-            layer = "flood"
+            return None
 
         cache_file = self.cache_dir / f"{pair_id}_{layer}.geojson"
         if cache_file.exists():
@@ -309,12 +327,9 @@ class DataLoader:
         if not pair_meta:
             return None
 
-        row = self.pairs_df[self.pairs_df["pair_id"] == pair_id].iloc[0]
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
-        ref_tif = self.data_dir / str(row["reference_mask"])
 
-        # Prioritize the team's own model outputs; fall back to reference masks
-        band_map = {"flood": 1, "water_pre": 2, "water_peak": 3}
+        # Use the team's own model outputs only (never serve organizer reference masks)
         own_tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
         if layer == "flood" and pred_tif.exists():
             src_tif = pred_tif
@@ -322,9 +337,6 @@ class DataLoader:
         elif own_tif.exists():
             src_tif = own_tif
             band_idx = 1
-        elif ref_tif.exists():
-            src_tif = ref_tif
-            band_idx = band_map[layer]
         else:
             return None
 
@@ -422,7 +434,9 @@ class DataLoader:
                 if overlap > best_overlap:
                     best_overlap = overlap
                     best_pair = p["pair_id"]
-            target_pair_id = best_pair or self._pairs_cache[0]["pair_id"]
+            if not best_pair or best_overlap <= 0.0:
+                raise ValueError(f"Requested bounds {bounds} do not overlap any monitored Amur basin AOI")
+            target_pair_id = best_pair
         elif not target_pair_id:
             target_pair_id = self._pairs_cache[0]["pair_id"]
 
@@ -432,18 +446,30 @@ class DataLoader:
 
         geojson = self.get_geojson(target_pair_id, layer="flood")
 
-        # If bounds provided, filter features that intersect bounds
+        # If bounds provided, clip feature geometries to intersection and update area_ha
         if bounds and len(bounds) == 4 and geojson and geojson.get("features"):
             req_box = box(bounds[0], bounds[1], bounds[2], bounds[3])
-            filtered_features = []
+            clipped_features = []
             for feat in geojson["features"]:
                 geom = shape(feat["geometry"])
                 if geom.intersects(req_box):
-                    filtered_features.append(feat)
+                    clipped_geom = geom.intersection(req_box)
+                    if not clipped_geom.is_empty:
+                        new_feat = dict(feat)
+                        new_feat["geometry"] = mapping(clipped_geom)
+                        props = dict(feat.get("properties") or {})
+                        # Approximate area in hectares in EPSG:4326 using degree conversion at ~50°N
+                        lat_mid = (bounds[1] + bounds[3]) / 2.0
+                        m_per_deg_lat = 111320.0
+                        m_per_deg_lon = 111320.0 * np.cos(np.radians(lat_mid))
+                        area_sqm = clipped_geom.area * (m_per_deg_lat * m_per_deg_lon)
+                        props["area_ha"] = round(area_sqm / 10000.0, 2)
+                        new_feat["properties"] = props
+                        clipped_features.append(new_feat)
             geojson = {
                 "type": "FeatureCollection",
                 "name": f"{target_pair_id}_flood_clipped",
-                "features": filtered_features,
+                "features": clipped_features,
             }
 
         return {
