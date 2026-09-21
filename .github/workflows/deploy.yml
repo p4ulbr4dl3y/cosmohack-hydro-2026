@@ -1,0 +1,83 @@
+name: CI and Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  backend-checks:
+    name: Backend Lint & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Ruff Linter
+        run: uv run ruff check
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pytest Suite
+        run: uv run pytest
+
+  deploy-vps:
+    name: Deploy to VPS
+    needs: [backend-checks]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+          BACKEND_DIR: ${{ secrets.VPS_BACKEND_DIR || '/opt/hydrowatch-amur' }}
+          BACKEND_PORT: ${{ secrets.VPS_BACKEND_PORT || '8010' }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ] || [ -z "$VPS_HOST" ] || [ -z "$VPS_USER" ]; then
+            echo "VPS secrets not configured. Skipping VPS deploy."
+            exit 0
+          fi
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          ssh -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p $BACKEND_DIR"
+          rsync -avz -e "ssh -p $VPS_PORT" --delete \
+            --exclude ".git" \
+            --exclude ".venv" \
+            --exclude "__pycache__" \
+            --exclude ".pytest_cache" \
+            --exclude "data_cache" \
+            --exclude "*.zip" \
+            . "$VPS_USER@$VPS_HOST:$BACKEND_DIR/"
+          ssh -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "cd $BACKEND_DIR && BACKEND_PORT=$BACKEND_PORT docker compose up -d --build hydrowatch-service"
