@@ -33,12 +33,14 @@ from src.filters import (
     apply_hydrological_connectivity,
     apply_mmu,
     apply_morphological_closing,
+    apply_planar_hand_filter,
 )
 from src.geo_utils import clip_by_aoi
 from src.indices import segment_optical
 from src.segmentation import (
     detect_flooded_vegetation,
     load_aux_priors,
+    load_config,
     segment_water,
 )
 from src.temporal import compute_temporal_dynamics
@@ -294,6 +296,16 @@ def process_pair(
 
         if seed_mask is not None and np.any(seed_mask):
             flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
+            cfg = load_config()
+            if hand_arr is not None and bool(cfg.get("planar_hand_filter_enabled", True)):
+                flood_mask = apply_planar_hand_filter(
+                    flood_mask=flood_mask,
+                    seed_mask=seed_mask,
+                    hand=hand_arr,
+                    percentile=float(cfg.get("planar_hand_percentile", 90.0)),
+                    tolerance_m=float(cfg.get("planar_hand_tolerance_m", 1.5)),
+                )
+                flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 

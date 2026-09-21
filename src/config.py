@@ -34,6 +34,9 @@ SAR_DUAL_POL_VV_WEIGHT: float = 0.7
 SAR_DUAL_POL_VH_WEIGHT: float = 0.3
 SLOPE_MAX_DEG: float = 3.0
 HAND_MAX_M: float = 10.0
+PLANAR_HAND_FILTER_ENABLED: bool = True
+PLANAR_HAND_PERCENTILE: float = 90.0
+PLANAR_HAND_TOLERANCE_M: float = 1.5
 
 
 # Radar-shadow geometry (orbit/aspect-aware guard). Sentinel-1 IW carries no per-pixel
@@ -81,6 +84,9 @@ class HydroConfig:
     sar_dual_pol_vh_weight: float = SAR_DUAL_POL_VH_WEIGHT
     slope_max_deg: float = SLOPE_MAX_DEG
     hand_max_m: float = HAND_MAX_M
+    planar_hand_filter_enabled: bool = PLANAR_HAND_FILTER_ENABLED
+    planar_hand_percentile: float = PLANAR_HAND_PERCENTILE
+    planar_hand_tolerance_m: float = PLANAR_HAND_TOLERANCE_M
 
     sar_nominal_incidence_deg: float = SAR_NOMINAL_INCIDENCE_DEG
     radar_shadow_min_incidence_deg: float = RADAR_SHADOW_MIN_INCIDENCE_DEG

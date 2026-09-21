@@ -168,3 +168,45 @@ def apply_morphological_closing(
     kernel = (x**2 + y**2) <= (kernel_size // 2) ** 2
     closed = binary_closing(mask > 0, structure=kernel)
     return closed.astype(mask.dtype)
+
+
+def apply_planar_hand_filter(
+    flood_mask: np.ndarray,
+    seed_mask: np.ndarray,
+    hand: np.ndarray | None,
+    percentile: float = 90.0,
+    tolerance_m: float = 1.5,
+) -> np.ndarray:
+    """Filter flood water elevation exceeding river boundary HAND + tolerance.
+
+    A hydraulic river flood has a contiguous planar water surface.
+    Flood water elevation cannot exceed the 90th percentile HAND of the
+    immediate river boundary (+ 1.5m tolerance).
+
+    Args:
+        flood_mask: 2D boolean or integer binary array of flood candidate pixels.
+        seed_mask: 2D boolean array of permanent/seasonal river seed network.
+        hand: 2D float array of Height Above Nearest Drainage in meters.
+        percentile: Boundary percentile to reconstruct water surface level (default 90.0).
+        tolerance_m: Height tolerance above river boundary in meters (default 1.5m).
+
+    Returns:
+        Filtered binary flood mask.
+    """
+    if hand is None or not np.any(flood_mask) or not np.any(seed_mask):
+        return flood_mask.copy()
+
+    structure = np.ones((3, 3), dtype=bool)
+    from scipy.ndimage import binary_dilation
+
+    seed_dilated = binary_dilation(seed_mask > 0, structure=structure)
+    river_boundary = seed_dilated & (~(seed_mask > 0))
+
+    boundary_hand = hand[river_boundary & np.isfinite(hand) & (hand >= 0.0)]
+    if len(boundary_hand) == 0:
+        return flood_mask.copy()
+
+    max_hand = float(np.percentile(boundary_hand, percentile)) + float(tolerance_m)
+    valid_elev = np.isfinite(hand) & (hand <= max_hand)
+
+    return (flood_mask & valid_elev).astype(flood_mask.dtype)

@@ -734,3 +734,28 @@ def test_segment_water_partial_sar_fallback_is_config_driven():
         assert not np.array_equal(water_no_fallback, water), "disabling the fallback changes the mask"
     finally:
         seg._CONFIG_CACHE = None
+
+
+def test_apply_planar_hand_filter():
+    from src.segmentation import apply_planar_hand_filter
+
+    # Seed is a 3x3 block in the center (rows 4..6, cols 4..6)
+    seed = np.zeros((10, 10), dtype=bool)
+    seed[4:7, 4:7] = True
+
+    # HAND: seed has 0.0, boundary has 1.0, distant points have varying HAND
+    hand = np.full((10, 10), 5.0, dtype=np.float32)
+    hand[4:7, 4:7] = 0.0
+    hand[3:8, 3:8] = 1.0  # boundary has HAND = 1.0
+    hand[4:7, 4:7] = 0.0
+
+    # Flood candidate: entire 10x10 array
+    flood = np.ones((10, 10), dtype=np.uint8)
+
+    # With p90 on boundary = 1.0 and tolerance = 1.5 -> limit = 2.5m
+    # Pixels with hand = 1.0 stay (<= 2.5m), pixels with hand = 5.0 are filtered out (> 2.5m)
+    filtered = apply_planar_hand_filter(flood, seed, hand, percentile=90.0, tolerance_m=1.5)
+
+    assert np.all(filtered[3:8, 3:8] == 1)
+    assert np.all(filtered[0, :] == 0)
+    assert np.all(filtered[:, 0] == 0)
