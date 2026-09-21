@@ -1,4 +1,4 @@
-"""Unit and integration tests for MCHS emergency dispatch and ESRI Shapefile export."""
+"""Модульные и интеграционные тесты диспетчеризации МЧС и экспорта ESRI Shapefile."""
 
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ BASELINE_PAIR = "baseline_2018_09_low__blagoveshchensk"
 
 
 def test_mchs_dispatch_json_default() -> None:
-    """Default request returns structured JSON conforming to EMERCOM standard field reports."""
+    """Запрос по умолчанию возвращает структурированный JSON, соответствующий стандартным полевым донесениям МЧС."""
     resp = client.get(f"/api/v1/report/{FLOOD_PAIR}/mchs-dispatch")
     assert resp.status_code == 200
     data = resp.json()
 
-    # Core required fields per specification
+    # Основные обязательные поля согласно спецификации
     assert "event_type" in data
     assert "affected_municipalities" in data
     assert "flooded_builtup_area_ha" in data
@@ -32,7 +32,7 @@ def test_mchs_dispatch_json_default() -> None:
     assert "estimated_cutoff_transport_segments" in data
     assert "depth_risk_breakdown" in data
 
-    # Type & content validations
+    # Проверки типов и содержимого
     assert isinstance(data["event_type"], str) and len(data["event_type"]) > 0
     assert isinstance(data["affected_municipalities"], list)
     assert len(data["affected_municipalities"]) > 0
@@ -46,13 +46,13 @@ def test_mchs_dispatch_json_default() -> None:
     assert isinstance(data["estimated_cutoff_transport_segments"], int)
     assert data["estimated_cutoff_transport_segments"] >= 1
 
-    # Transport infrastructure detail
+    # Детализация транспортной инфраструктуры
     trans = data["transport_infrastructure"]
     assert trans["cutoff_segments_count"] == data["estimated_cutoff_transport_segments"]
     assert trans["estimated_cutoff_km"] > 0
     assert trans["risk_level"] in ("критический", "высокий", "умеренный", "штатный")
 
-    # Depth risk breakdown
+    # Разбивка по риску глубины
     depth = data["depth_risk_breakdown"]
     for tier in ("high_risk", "moderate_risk", "low_risk"):
         assert tier in depth
@@ -63,14 +63,14 @@ def test_mchs_dispatch_json_default() -> None:
         assert "description" in item
         assert item["area_ha"] >= 0.0
 
-    # Operational summary and actions
+    # Оперативная сводка и действия
     assert len(data["operational_summary"]) > 0
     assert isinstance(data["recommended_actions"], list)
     assert len(data["recommended_actions"]) >= 3
 
 
 def test_mchs_dispatch_format_param_json() -> None:
-    """Explicit ?format=json returns valid JSON."""
+    """Явный ?format=json возвращает корректный JSON."""
     resp = client.get(f"/api/v1/report/{FLOOD_PAIR}/mchs-dispatch?format=json")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("application/json")
@@ -79,7 +79,7 @@ def test_mchs_dispatch_format_param_json() -> None:
 
 
 def test_mchs_dispatch_html_view() -> None:
-    """?format=html returns operational HTML printable summary."""
+    """?format=html возвращает оперативную HTML-сводку для печати."""
     resp = client.get(f"/api/v1/report/{FLOOD_PAIR}/mchs-dispatch?format=html")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
@@ -95,7 +95,7 @@ def test_mchs_dispatch_html_view() -> None:
 
 
 def test_mchs_dispatch_baseline_pair() -> None:
-    """Baseline pair reports normal situation with 0 cut-off segments."""
+    """Базовая пара сообщает о штатной обстановке с 0 отрезанных участков."""
     resp = client.get(f"/api/v1/report/{BASELINE_PAIR}/mchs-dispatch")
     assert resp.status_code == 200
     data = resp.json()
@@ -107,14 +107,14 @@ def test_mchs_dispatch_baseline_pair() -> None:
 
 
 def test_mchs_dispatch_404_on_invalid_pair() -> None:
-    """Invalid pair returns HTTP 404."""
+    """Некорректная пара возвращает HTTP 404."""
     resp = client.get("/api/v1/report/unknown_pair_xyz/mchs-dispatch")
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"].lower()
 
 
 def test_export_shapefile_endpoint_flood() -> None:
-    """ESRI Shapefile endpoint returns zip archive with .shp, .shx, .dbf, .prj and standard attributes."""
+    """Эндпоинт ESRI Shapefile возвращает zip-архив с .shp, .shx, .dbf, .prj и стандартными атрибутами."""
     resp = client.get(f"/api/v1/export/{FLOOD_PAIR}/shapefile?layer=flood")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/zip"
@@ -123,7 +123,7 @@ def test_export_shapefile_endpoint_flood() -> None:
     zf = zipfile.ZipFile(io.BytesIO(resp.content))
     names = zf.namelist()
 
-    # Ensure all required ESRI Shapefile components exist
+    # Проверка наличия всех обязательных компонентов ESRI Shapefile
     assert any(n.endswith(".shp") for n in names), f"Missing .shp in {names}"
     assert any(n.endswith(".shx") for n in names), f"Missing .shx in {names}"
     assert any(n.endswith(".dbf") for n in names), f"Missing .dbf in {names}"
@@ -133,7 +133,7 @@ def test_export_shapefile_endpoint_flood() -> None:
         zf.extractall(tmpdir)
         gdf = gpd.read_file(tmpdir)
 
-        # Attribute validation per prompt requirements: (feature_id, class, area_ha, date_peak, crs)
+        # Проверка атрибутов согласно требованиям задания: (feature_id, class, area_ha, date_peak, crs)
         for attr in ("feature_id", "class", "area_ha", "date_peak", "crs"):
             assert attr in gdf.columns, f"Missing required attribute '{attr}' in Shapefile attributes {gdf.columns}"
 
@@ -144,7 +144,7 @@ def test_export_shapefile_endpoint_flood() -> None:
 
 
 def test_export_shapefile_layers() -> None:
-    """Shapefile export works across different layer types."""
+    """Экспорт Shapefile работает для различных типов слоёв."""
     for layer in ("water_pre", "water_peak"):
         resp = client.get(f"/api/v1/export/{FLOOD_PAIR}/shapefile?layer={layer}")
         assert resp.status_code == 200
@@ -156,20 +156,20 @@ def test_export_shapefile_layers() -> None:
 
 
 def test_export_shapefile_invalid_layer() -> None:
-    """Invalid layer returns HTTP 400."""
+    """Некорректный слой возвращает HTTP 400."""
     resp = client.get(f"/api/v1/export/{FLOOD_PAIR}/shapefile?layer=invalid_foo")
     assert resp.status_code == 400
     assert "Invalid layer" in resp.json()["detail"]
 
 
 def test_export_shapefile_invalid_pair() -> None:
-    """Invalid pair returns HTTP 404."""
+    """Некорректная пара возвращает HTTP 404."""
     resp = client.get("/api/v1/export/unknown_pair_xyz/shapefile")
     assert resp.status_code == 404
 
 
 def test_export_shapefile_empty_baseline() -> None:
-    """Empty baseline layer exports valid Shapefile with standard attributes without error."""
+    """Пустой слой базовой линии экспортируется в корректный Shapefile со стандартными атрибутами без ошибок."""
     resp = client.get(f"/api/v1/export/{BASELINE_PAIR}/shapefile?layer=flood")
     assert resp.status_code == 200
     zf = zipfile.ZipFile(io.BytesIO(resp.content))
@@ -188,7 +188,7 @@ def test_export_shapefile_empty_baseline() -> None:
 
 
 def test_mchs_report_unit_helpers() -> None:
-    """Unit test for mchs_report module functions."""
+    """Модульный тест функций модуля mchs_report."""
     mock_report = {
         "pair_id": "test_pair",
         "aoi_id": "blagoveshchensk",

@@ -1,4 +1,4 @@
-"""Integration tests for HydroWatch Amur FastAPI service."""
+"""Интеграционные тесты сервиса HydroWatch Amur на FastAPI."""
 
 from pathlib import Path
 
@@ -23,7 +23,7 @@ def test_pairs_endpoint():
     assert isinstance(pairs, list)
     assert len(pairs) == 11
 
-    # Check fields of first pair
+    # Проверка полей первой пары
     first = pairs[0]
     required_keys = [
         "pair_id",
@@ -58,14 +58,14 @@ def test_report_endpoint():
     assert "water_gain_pct" in data
     assert "share_of_aoi" in data
 
-    # Verify values match submission.csv predictions
+    # Проверка, что значения совпадают с прогнозами из submission.csv
     sub = pd.read_csv(Path("submission.csv"))
     row = sub[sub["pair_id"] == "flood_2019_07_amur__blagoveshchensk"].iloc[0]
     assert data["flood_ha"] == float(row["flood_ha"])
     assert data["water_pre_ha"] == float(row["water_pre_ha"])
     assert data["water_peak_ha"] == float(row["water_peak_ha"])
 
-    # Verify landcover structure
+    # Проверка структуры землепользования
     assert "landcover" in data
     lc = data["landcover"]
     assert "builtup_ha" in lc
@@ -76,7 +76,7 @@ def test_report_endpoint():
     assert "natural_vegetation_pct" in lc
     assert "mean_hand_m" in lc
 
-    # Verify depth_statistics structure
+    # Проверка структуры depth_statistics
     assert "depth_statistics" in data
     ds = data["depth_statistics"]
     assert "low_risk_ha" in ds
@@ -87,7 +87,7 @@ def test_report_endpoint():
     assert "high_risk_pct" in ds
     assert "mchs_traversability" in ds
 
-    # Verify gauge_status structure
+    # Проверка структуры gauge_status
     assert "gauge_status" in data
     assert data["gauge_status"] is not None
     gs = data["gauge_status"]
@@ -119,7 +119,7 @@ def test_geojson_endpoint():
         assert gj.get("type") == "FeatureCollection"
         assert "features" in gj
 
-    # Verify GeoJSON properties on flood layer from predictions
+    # Проверка свойств GeoJSON для слоя паводка из прогнозов
     flood_resp = client.get(f"/api/v1/geojson/{pair_id}?layer=flood")
     flood_gj = flood_resp.json()
     assert len(flood_gj["features"]) > 0
@@ -144,7 +144,7 @@ def test_predict_endpoint_by_pair_id():
 
 
 def test_predict_endpoint_by_bounds():
-    # Bounds near Blagoveshchensk
+    # Границы вблизи Благовещенска
     bounds = [127.21, 50.12, 127.85, 50.45]
     resp = client.post("/api/v1/predict", json={"bounds": bounds})
     assert resp.status_code == 200
@@ -155,7 +155,7 @@ def test_predict_endpoint_by_bounds():
 
 
 def test_predict_endpoint_invalid_date_format():
-    # Validation runs before cache lookup, so no raster data is needed
+    # Валидация выполняется до обращения к кэшу, поэтому растровые данные не требуются
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     resp = client.post("/api/v1/predict", json={"pair_id": pair_id, "date_pre": "2019/06/13"})
     assert resp.status_code == 400
@@ -163,7 +163,7 @@ def test_predict_endpoint_invalid_date_format():
 
 
 def test_predict_endpoint_date_out_of_range():
-    # 2019-06-13 + more than 30 days -> rejected against scene date
+    # 2019-06-13 + более 30 дней -> отклоняется относительно даты снимка
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     resp = client.post("/api/v1/predict", json={"pair_id": pair_id, "date_pre": "2019-01-01"})
     assert resp.status_code == 400
@@ -184,13 +184,13 @@ def test_predict_endpoint_valid_dates_echoed():
 
 
 def test_predict_endpoint_arbitrary_bounds():
-    # Bounds outside coverage (e.g. Gulf of Guinea) correctly rejected with 400
+    # Границы вне зоны покрытия (например, Гвинейский залив) корректно отклоняются с кодом 400
     bounds_outside = [10.0, 10.0, 11.0, 11.0]
     resp_outside = client.post("/api/v1/predict", json={"bounds": bounds_outside})
     assert resp_outside.status_code == 400
     assert "do not overlap" in resp_outside.json()["detail"]
 
-    # Valid overlapping bounds within Blagoveshchensk AOI
+    # Корректные перекрывающиеся границы внутри AOI Благовещенска
     bounds_inside = [127.3, 50.2, 127.6, 50.4]
     resp_inside = client.post("/api/v1/predict", json={"bounds": bounds_inside})
     assert resp_inside.status_code == 200
@@ -213,11 +213,11 @@ def test_404_not_found_endpoints():
 
 
 def test_predict_endpoint_errors(monkeypatch):
-    # Test ValueError handling (400)
+    # Проверка обработки ValueError (400)
     resp = client.post("/api/v1/predict", json={"pair_id": "non_existent_pair"})
     assert resp.status_code == 400
 
-    # Test unhandled Exception handling (500)
+    # Проверка обработки необработанного Exception (500)
     def mock_predict(*args, **kwargs):
         raise RuntimeError("Mock failure")
 
@@ -249,18 +249,18 @@ def test_shapefile_invalid_layer():
 
 def test_geotiff_endpoint():
     pair_id = "flood_2019_07_amur__blagoveshchensk"
-    # Success
+    # Успешный случай
     resp = client.get(f"/api/v1/geotiff/{pair_id}?layer=flood")
     assert resp.status_code == 200
     assert "image/tiff" in resp.headers["content-type"]
     assert len(resp.content) > 0
 
-    # Invalid layer
+    # Некорректный слой
     resp_inv = client.get(f"/api/v1/geotiff/{pair_id}?layer=invalid_layer")
     assert resp_inv.status_code == 400
     assert "Invalid layer" in resp_inv.json()["detail"]
 
-    # 404 not found
+    # 404 не найдено
     resp_404 = client.get("/api/v1/geotiff/non_existent_pair?layer=flood")
     assert resp_404.status_code == 404
     assert "not found" in resp_404.json()["detail"]
@@ -287,9 +287,9 @@ def test_predict_endpoint_unparseable_scene_date(monkeypatch):
 
 
 def test_missing_asset_returns_404_not_index_html():
-    # A stale index.html can reference an old hashed chunk. Serving the SPA
-    # shell as text/html for a .js request makes the module import fail and the
-    # page render blank, so missing assets must 404 instead.
+    # Устаревший index.html может ссылаться на старый хешированный чанк. Отдача оболочки SPA
+    # с типом text/html на запрос .js нарушает импорт модуля и приводит к пустой странице,
+    # поэтому отсутствующие ресурсы должны возвращать 404.
     for path in (
         "/assets/index-BVnVLfPl.js",
         "/assets/does-not-exist.css",
@@ -319,12 +319,12 @@ def test_static_index_html_not_found(monkeypatch, tmp_path):
 def test_prediction_task_status_lifecycle(monkeypatch):
     from src.service.app import tasks_db
 
-    # 404 on nonexistent task
+    # 404 для несуществующей задачи
     resp = client.get("/api/v1/predict/status/nonexistent_task_123")
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"]
 
-    # Submit task with task_id
+    # Отправка задачи с task_id
     task_id = "test_task_success_456"
     resp = client.post(
         "/api/v1/predict",
@@ -333,7 +333,7 @@ def test_prediction_task_status_lifecycle(monkeypatch):
     assert resp.status_code == 200
     assert task_id in tasks_db
 
-    # Query status
+    # Запрос статуса
     status_resp = client.get(f"/api/v1/predict/status/{task_id}")
     assert status_resp.status_code == 200
     task_data = status_resp.json()
@@ -343,7 +343,7 @@ def test_prediction_task_status_lifecycle(monkeypatch):
     assert task_data["result"] is not None
     assert task_data["error"] is None
 
-    # Test failure on ValueError
+    # Проверка сбоя по ValueError
     fail_task_id = "test_task_fail_val_error"
     fail_resp = client.post(
         "/api/v1/predict",
@@ -355,7 +355,7 @@ def test_prediction_task_status_lifecycle(monkeypatch):
     assert fail_status.json()["status"] == "failed"
     assert fail_status.json()["error"] is not None
 
-    # Test failure on 500 runtime error
+    # Проверка сбоя с ошибкой времени выполнения 500
     def mock_predict(*args, **kwargs):
         raise RuntimeError("Async crash")
 
@@ -464,14 +464,14 @@ def test_data_loader_cache_resolution(tmp_path, monkeypatch):
 
     from src.service.data_loader import DataLoader
 
-    # Test env var config
+    # Проверка конфигурации через переменную окружения
     custom_cache = tmp_path / "env_cache"
     monkeypatch.setenv("HYDROWATCH_CACHE_DIR", str(custom_cache))
     loader = DataLoader(cache_dir=None)
     assert loader.cache_dir == custom_cache
     assert custom_cache.exists()
 
-    # Explicit cache_dir override wins over the env var
+    # Явное переопределение cache_dir имеет приоритет над переменной окружения
     override_cache = tmp_path / "explicit_cache"
     loader_override = DataLoader(cache_dir=override_cache)
     assert loader_override.cache_dir == override_cache
@@ -544,21 +544,21 @@ def test_recompute_single_pair_measures_real_time_and_invalidates_cache():
     assert first_body["pairs"] == [pair_id]
     assert second_body["pairs"] == [pair_id]
 
-    # Times are measured, not hard-coded, and vary between identical calls
+    # Время измеряется, а не задаётся жёстко, и различается между идентичными вызовами
     assert first_body["processing_time_sec"] != 12.4
     assert second_body["processing_time_sec"] != 12.4
     assert first_body["processing_time_sec"] > 0.0
     assert second_body["processing_time_sec"] > 0.0
     assert first_body["timestamp_utc"] != "2026-09-21 14:32:00 UTC"
 
-    # The rebuilt report is served again and matches the on-disk prediction
+    # Пересобранный отчёт снова отдаётся и совпадает с прогнозом на диске
     report = client.get(f"/api/v1/report/{pair_id}")
     assert report.status_code == 200
     sub = pd.read_csv(Path("submission.csv"))
     row = sub[sub["pair_id"] == pair_id].iloc[0]
     assert report.json()["flood_ha"] == float(row["flood_ha"])
 
-    # Caches were invalidated and rebuilt on disk
+    # Кэши были инвалидированы и пересобраны на диске
     assert (data_loader.cache_dir / f"report_{pair_id}.json").exists()
     assert pair_id in data_loader._reports_cache
 

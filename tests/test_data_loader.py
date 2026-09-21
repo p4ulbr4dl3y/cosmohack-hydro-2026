@@ -6,11 +6,11 @@ from src.service.data_loader import DataLoader
 
 
 def test_data_loader_fresh_cache_report(tmp_path):
-    # Initialize DataLoader with a clean temporary cache directory
+    # Инициализация DataLoader с чистым временным каталогом кэша
     loader = DataLoader(cache_dir=tmp_path / "cache")
 
     pair_id = "flood_2019_07_amur__blagoveshchensk"
-    # Computing report directly from prediction & AUX rasters
+    # Расчёт отчёта напрямую по растрам прогноза и AUX
     rep = loader.get_report(pair_id)
     assert rep is not None
     assert rep["pair_id"] == pair_id
@@ -19,11 +19,11 @@ def test_data_loader_fresh_cache_report(tmp_path):
     assert rep["landcover"]["natural_vegetation_ha"] > 0
     assert rep["landcover"]["builtup_pct"] >= 0
 
-    # Ensure cache file was written
+    # Проверка, что файл кэша был записан
     cache_file = tmp_path / "cache" / f"report_{pair_id}.json"
     assert cache_file.exists()
 
-    # Second call uses memory/disk cache
+    # Второй вызов использует кэш в памяти/на диске
     rep2 = loader.get_report(pair_id)
     assert rep2 == rep
 
@@ -35,19 +35,19 @@ def test_data_loader_report_exposes_sensor_and_generation_metadata(tmp_path):
 
     assert rep["sensor_sar"] == "sentinel1"
     assert rep["sensor_optical"] == ""
-    # UTC ISO-8601 timestamp produced at report build time
+    # Отметка времени UTC ISO-8601, формируемая во время сборки отчёта
     assert rep["generated_at"].endswith("+00:00")
 
 
 def test_data_loader_backfills_legacy_cached_report(tmp_path):
-    """Reports cached before the sensor/generated_at fields existed are upgraded on read."""
+    """Отчёты, закэшированные до появления полей sensor/generated_at, обновляются при чтении."""
     import json
 
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
-    # Simulate a stale cache entry written by an older schema version
+    # Имитация устаревшей записи кэша, записанной более старой версией схемы
     stale = {
         "pair_id": pair_id,
         "aoi_id": "blagoveshchensk",
@@ -61,7 +61,7 @@ def test_data_loader_backfills_legacy_cached_report(tmp_path):
 
     assert rep["sensor_sar"] == "sentinel1"
     assert rep["generated_at"].endswith("+00:00")
-    # Original metrics are preserved
+    # Исходные метрики сохранены
     assert rep["flood_ha"] == 996.37
 
 
@@ -82,19 +82,19 @@ def test_data_loader_predict_spatial_temporal(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
-    # 1. By pair_id
+    # 1. По pair_id
     res1 = loader.predict_spatial_temporal(pair_id=pair_id)
     assert res1["status"] == "success"
     assert res1["pair_id"] == pair_id
     assert "summary" in res1
 
-    # 2. By overlapping bounds without pair_id
+    # 2. По перекрывающимся границам без pair_id
     bounds = [127.21, 50.12, 127.85, 50.45]
     res2 = loader.predict_spatial_temporal(bounds=bounds)
     assert res2["status"] == "success"
     assert "blagoveshchensk" in res2["pair_id"]
 
-    # 3. Unknown pair_id raises ValueError
+    # 3. Неизвестный pair_id вызывает ValueError
     with pytest.raises(ValueError):
         loader.predict_spatial_temporal(pair_id="non_existent_pair")
 
@@ -119,14 +119,14 @@ def test_data_loader_report_no_submission_csv(tmp_path):
     )
     rep = loader.get_report("flood_2019_07_amur__blagoveshchensk")
     assert rep is not None
-    # Areas come from the rasters, so they are present even with no submission.csv
+    # Площади берутся из растров, поэтому они присутствуют даже без submission.csv
     assert rep["flood_ha"] > 0
     assert rep["water_pre_ha"] > 0
     assert rep["water_peak_ha"] > 0
 
 
 def test_data_loader_report_ignores_wrong_submission_csv(tmp_path):
-    """Served areas come from the rasters, not from submission.csv (audit D10)."""
+    """Отдаваемые площади берутся из растров, а не из submission.csv (аудит D10)."""
     import json
 
     import rasterio
@@ -151,11 +151,11 @@ def test_data_loader_report_ignores_wrong_submission_csv(tmp_path):
     assert rep["flood_ha"] == raster_ha("flood")
     assert rep["water_pre_ha"] == raster_ha("water_pre")
     assert rep["water_peak_ha"] == raster_ha("water_peak")
-    # Deliberately wrong CSV values are never served
+    # Намеренно неверные значения CSV никогда не отдаются
     assert rep["flood_ha"] != 1.0
     assert rep["water_pre_ha"] != 2.0
 
-    # The cached whole-AOI report also carries the raster-measured values
+    # Кэшированный отчёт по всему AOI также содержит измеренные по растру значения
     cache_file = cache_dir / f"report_{pair_id}.json"
     assert cache_file.exists()
     cached = json.loads(cache_file.read_text(encoding="utf-8"))
@@ -175,7 +175,7 @@ def test_data_loader_report_disk_cache_hit(tmp_path):
     rep1 = loader1.get_report("flood_2019_07_amur__blagoveshchensk")
     assert rep1 is not None
 
-    # Instantiate new DataLoader with same cache_dir to hit disk cache
+    # Создание нового DataLoader с тем же cache_dir для попадания в дисковый кэш
     loader2 = DataLoader(cache_dir=tmp_path / "cache")
     rep2 = loader2.get_report("flood_2019_07_amur__blagoveshchensk")
     assert rep2 == rep1
@@ -197,7 +197,7 @@ def test_data_loader_report_missing_rasters(tmp_path):
     fake_data.mkdir()
     shutil.copy(DATA_DIR / "pairs.csv", fake_data / "pairs.csv")
 
-    # With submission.csv present: line 235 with valid numbers
+    # При наличии submission.csv: строка 235 с корректными числами
     loader = DataLoader(
         data_dir=fake_data,
         predictions_dir=tmp_path / "empty_preds",
@@ -207,7 +207,7 @@ def test_data_loader_report_missing_rasters(tmp_path):
     assert rep is not None
     assert rep["permanent_ha"] >= 0.0
 
-    # Without submission.csv: line 235 fallback and lines 238, 240, 242
+    # Без submission.csv: резервный путь строки 235 и строки 238, 240, 242
     loader_no_sub = DataLoader(
         data_dir=fake_data,
         predictions_dir=tmp_path / "empty_preds",
@@ -240,10 +240,10 @@ def test_data_loader_geojson_missing_rasters(tmp_path):
 
 
 def test_geojson_total_area_matches_raster(tmp_path):
-    """Exported contours must not silently truncate the mapped flood area.
+    """Экспортированные контуры не должны молча усекать картированную площадь паводка.
 
-    The default config disables the contour cap, so the summed polygon area has to
-    stay within a small tolerance of the raster pixel area.
+    Конфигурация по умолчанию отключает ограничение числа контуров, поэтому суммарная
+    площадь полигонов должна оставаться в пределах малого допуска от площади пикселей растра.
     """
     import rasterio
 
@@ -257,20 +257,20 @@ def test_geojson_total_area_matches_raster(tmp_path):
 
     contour_ha = sum(f["properties"]["area_ha"] for f in geojson["features"])
     assert contour_ha <= raster_ha * 1.02
-    # Both limits are lossy in principle: tiny clusters (<500 m²) and polygon
-    # simplification. Aggregate loss must stay small (< 5% of mapped area).
+    # Оба ограничения в принципе приводят к потерям: крошечные кластеры (<500 m²) и упрощение
+    # полигонов. Совокупные потери должны оставаться малыми (< 5% картированной площади).
     assert contour_ha >= raster_ha * 0.95
 
 
 def test_geojson_contour_cap_is_config_driven(tmp_path, monkeypatch):
-    """A non-zero geojson_max_contours caps the export; 0 keeps every contour."""
+    """Ненулевое значение geojson_max_contours ограничивает экспорт; 0 сохраняет все контуры."""
     from src.config import HydroConfig
 
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
     real_from_yaml = HydroConfig.from_yaml
 
-    # Default config: no cap -> every contour exported
+    # Конфигурация по умолчанию: без ограничения -> экспортируются все контуры
     uncapped = DataLoader(cache_dir=tmp_path / "cache_uncapped").get_geojson(pair_id, layer="flood")
     assert uncapped is not None
     assert len(uncapped["features"]) > 5
@@ -338,7 +338,7 @@ def test_data_loader_predict_default_first_pair(tmp_path):
 
 
 def test_data_loader_morphological_micro_island_filtering(tmp_path):
-    """Micro-islands (single pixels and sub-threshold clusters) are filtered before shapes()."""
+    """Микроострова (одиночные пиксели и кластеры ниже порога) отфильтровываются перед shapes()."""
     from rasterio.transform import from_origin
 
     pair_id = "flood_2019_07_amur__blagoveshchensk"
@@ -347,9 +347,9 @@ def test_data_loader_morphological_micro_island_filtering(tmp_path):
     flood_tif = preds_dir / f"{pair_id}_flood.tif"
 
     arr = np.zeros((50, 50), dtype=np.uint8)
-    # Real large flood feature (10x10 = 100 pixels = 10,000 sqm)
+    # Реальный крупный объект паводка (10x10 = 100 пикселей = 10,000 sqm)
     arr[10:20, 10:20] = 1
-    # Isolated single-pixel micro-islands (speckle noise)
+    # Изолированные микроострова размером в один пиксель (спекл-шум)
     arr[2, 2] = 1
     arr[2, 40] = 1
     arr[40, 2] = 1
@@ -375,6 +375,6 @@ def test_data_loader_morphological_micro_island_filtering(tmp_path):
     )
     gj = loader.get_geojson(pair_id, layer="flood")
     assert gj is not None
-    # Only 1 feature (the large 10x10 blob), micro-islands were filtered out!
+    # Только 1 объект (крупное пятно 10x10), микроострова были отфильтрованы!
     assert len(gj["features"]) == 1
     assert gj["features"][0]["properties"]["area_ha"] == 1.0  # 100 px * 0.01 ha/px

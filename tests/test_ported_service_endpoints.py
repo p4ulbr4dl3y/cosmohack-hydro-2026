@@ -1,4 +1,4 @@
-"""Unit tests for newly ported REST API endpoints in HydroWatch service."""
+"""Модульные тесты недавно портированных эндпоинтов REST API сервиса HydroWatch."""
 
 from __future__ import annotations
 
@@ -71,7 +71,7 @@ def test_api_sar_analytics_404():
 
 
 def test_api_overlay_meta_and_png():
-    # 1. Metadata endpoint
+    # 1. Эндпоинт метаданных
     res_meta = client.get(f"/api/v1/overlay/{SAMPLE_PAIR}/meta?layer=flood")
     assert res_meta.status_code == 200
     meta = res_meta.json()
@@ -82,13 +82,13 @@ def test_api_overlay_meta_and_png():
     assert len(meta["bounds"]) == 2
     assert "overlay_url" in meta
 
-    # 2. Direct PNG render endpoint (default gradient)
+    # 2. Эндпоинт прямого рендеринга PNG (градиент по умолчанию)
     res_png = client.get(f"/api/v1/overlay/{SAMPLE_PAIR}?layer=flood")
     assert res_png.status_code == 200
     assert res_png.headers["content-type"] == "image/png"
     assert res_png.content.startswith(b"\x89PNG\r\n\x1a\n")
 
-    # 3. Direct PNG render endpoint with gradient=false
+    # 3. Эндпоинт прямого рендеринга PNG с gradient=false
     res_png_flat = client.get(f"/api/v1/overlay/{SAMPLE_PAIR}?layer=flood&gradient=false")
     assert res_png_flat.status_code == 200
     assert res_png_flat.headers["content-type"] == "image/png"

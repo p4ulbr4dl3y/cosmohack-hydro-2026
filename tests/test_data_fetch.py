@@ -1,4 +1,4 @@
-"""Tests for dataset fetching/unpacking helpers (src.data_fetch)."""
+"""Тесты вспомогательных функций загрузки/распаковки набора данных (src.data_fetch)."""
 
 import zipfile
 
@@ -45,16 +45,16 @@ def test_missing_s1_pairs(tmp_path):
         "pair_id,rasters_dir\na,rasters/a\nb,rasters/b\n",
         encoding="utf-8",
     )
-    # Data for pair 'a': pre exists, peak missing -> 'a' missing
+    # Данные для пары 'a': pre присутствует, peak отсутствует -> 'a' отсутствует
     (tmp_path / "rasters" / "a").mkdir(parents=True)
     (tmp_path / "rasters" / "a" / "S1_pre_1.tif").touch()
-    # Data for pair 'b': both missing
+    # Данные для пары 'b': отсутствуют оба снимка
     (tmp_path / "rasters" / "b").mkdir(parents=True)
 
     missing = missing_s1_pairs(pairs, tmp_path)
     assert missing == ["a", "b"]
 
-    # Complete pair 'a': peak now present -> only 'b' missing
+    # Пара 'a' укомплектована: peak теперь присутствует -> отсутствует только 'b'
     (tmp_path / "rasters" / "a" / "S1_peak_1.tif").touch()
     assert missing_s1_pairs(pairs, tmp_path) == ["b"]
 

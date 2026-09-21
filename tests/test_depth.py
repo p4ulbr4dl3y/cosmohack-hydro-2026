@@ -1,5 +1,5 @@
-"""Comprehensive unit tests for water depth estimation, MCHS traversability risk classification,
-and hydrological station gauge records.
+"""Комплексные модульные тесты оценки глубины воды, классификации риска проходимости МЧС
+и записей уровней гидрологических постов.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class TestDepthEstimation:
         mask = np.zeros(shape, dtype=bool)
         mask[2:8, 2:8] = True
         dem = np.full(shape, 10.0, dtype=np.float32)
-        # Inside center is lower: 8.0 m (depth should be 2.0 m)
+        # Внутри центра ниже: 8.0 м (глубина должна быть 2.0 м)
         dem[4:6, 4:6] = 8.0
 
         depth = estimate_water_depth(mask, dem, method="global_edge", edge_percentile=95.0)
@@ -52,7 +52,7 @@ class TestDepthEstimation:
         shape = (20, 20)
         mask = np.zeros(shape, dtype=bool)
         mask[5:15, 5:15] = True
-        # Ramp elevation from 10 to 20
+        # Линейное возрастание высоты от 10 до 20
         y, _x = np.indices(shape)
         dem = y.astype(np.float32) + 10.0
 
@@ -65,13 +65,13 @@ class TestDepthEstimation:
         shape = (10, 10)
         mask = np.ones(shape, dtype=bool)
         dem = np.full(shape, 15.0, dtype=np.float32)
-        # Full mask has no edge with default zero-padding erosion if borders are True
-        # binary_erosion(np.ones(...), border_value=1) -> all True, edge is all False
+        # Полная маска не имеет краёв при эрозии с заполнением нулями по умолчанию, если borders равны True
+        # binary_erosion(np.ones(...), border_value=1) -> все True, край полностью False
         from scipy.ndimage import binary_erosion
 
         eroded = binary_erosion(mask, border_value=1)
         assert np.all(eroded)
-        # Test our function fallback when mask is completely filled
+        # Проверка резервного пути функции, когда маска заполнена целиком
         depth = estimate_water_depth(mask, dem)
         assert depth.shape == shape
 
@@ -116,9 +116,9 @@ class TestRiskClassification:
     def test_classify_depth_risk_distribution(self):
         depth = np.array(
             [
-                [0.2, 0.4],  # 2 pixels < 0.5 m (Low)
-                [1.0, 1.2],  # 2 pixels 0.5 - 1.5 m (Medium)
-                [2.0, 3.0],  # 2 pixels > 1.5 m (High)
+                [0.2, 0.4],  # 2 пикселя < 0.5 м (низкий риск)
+                [1.0, 1.2],  # 2 пикселя 0.5 - 1.5 м (средний риск)
+                [2.0, 3.0],  # 2 пикселя > 1.5 м (высокий риск)
             ],
             dtype=np.float32,
         )
@@ -162,7 +162,7 @@ class TestHydroGauges:
         assert get_gauge_for_aoi("unknown_place") is None
 
     def test_get_gauge_status_stages(self):
-        # Blagoveshchensk 2021-06 event: 839 cm (> OYA 800) -> danger_oya
+        # Событие Благовещенск 2021-06: 839 см (> OYA 800) -> danger_oya
         st_2021 = get_gauge_status("blagoveshchensk", "flood_2021_06_amur")
         assert st_2021 is not None
         assert st_2021["observed_level_cm"] == 839
@@ -170,13 +170,13 @@ class TestHydroGauges:
         assert st_2021["exceeds_npu"] is True
         assert st_2021["stage_risk"] == "danger_oya"
 
-        # Baseline 2018 event: 240 cm (< NPU 600) -> normal
+        # Событие базовой линии 2018: 240 см (< NPU 600) -> normal
         st_base = get_gauge_status("blagoveshchensk", "baseline_2018_09_low")
         assert st_base is not None
         assert st_base["observed_level_cm"] == 240
         assert st_base["exceeds_npu"] is False
         assert st_base["stage_risk"] == "normal"
 
-        # Non-existent event or aoi
+        # Несуществующее событие или AOI
         assert get_gauge_status("blagoveshchensk", "non_existent_event") is None
         assert get_gauge_status("non_existent_aoi", "flood_2019_07_amur") is None

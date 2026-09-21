@@ -1,4 +1,4 @@
-"""Tests for multimodal water segmentation and speckle filtering."""
+"""Тесты мультимодальной сегментации воды и спекл-фильтрации."""
 
 import warnings
 
@@ -21,39 +21,39 @@ from src.segmentation import (
 
 
 def test_load_config_defaults(tmp_path):
-    # Test load_config with non-existent file falls back to defaults
+    # Проверка load_config: при отсутствующем файле используются значения по умолчанию
     cfg = load_config(tmp_path / "non_existent.yaml")
     assert "otsu_min_db" in cfg
     assert cfg["otsu_min_db"] == -22.0
     assert cfg["mmu_min_pixels"] == 25
 
-    # Test load_config with custom file
+    # Проверка load_config с пользовательским файлом
     custom_yaml = tmp_path / "custom.yaml"
     custom_yaml.write_text("otsu_min_db: -25.0\nmmu_min_pixels: 50\n", encoding="utf-8")
     cfg_custom = load_config(custom_yaml)
     assert cfg_custom["otsu_min_db"] == -25.0
     assert cfg_custom["mmu_min_pixels"] == 50
-    assert cfg_custom["slope_max_deg"] == 3.0  # default filled in
+    assert cfg_custom["slope_max_deg"] == 3.0  # значение по умолчанию подставлено
 
-    # Reset cache so other tests use project defaults
+    # Сброс кэша, чтобы другие тесты использовали значения проекта по умолчанию
     import src.segmentation as seg
 
     seg._CONFIG_CACHE = None
 
 
 def test_refined_lee_filter_basic():
-    # Constant data: filtered should match input
+    # Постоянные данные: отфильтрованное изображение должно совпадать с исходным
     data = np.full((20, 20), -15.0, dtype=np.float32)
     filtered = refined_lee_filter(data, size=5)
     assert filtered.shape == (20, 20)
     assert np.allclose(filtered, -15.0, atol=0.1)
 
-    # Edge case: all invalid (e.g. nodata -999.0)
+    # Граничный случай: все значения некорректны (например, nodata -999.0)
     invalid = np.full((10, 10), -999.0, dtype=np.float32)
     filtered_inv = refined_lee_filter(invalid)
     assert np.array_equal(filtered_inv, invalid)
 
-    # Partially invalid
+    # Частично некорректные данные
     data[0, 0] = -999.0
     filtered_part = refined_lee_filter(data, size=5)
     assert filtered_part[0, 0] == -999.0
@@ -77,14 +77,14 @@ def test_speckle_filter_methods():
     res_uni = speckle_filter(arr, method="uniform", size=5)
     assert res_uni.shape == arr.shape
 
-    # All invalid
+    # Все значения некорректны
     all_nan = np.full((5, 5), np.nan, dtype=np.float32)
     res_nan = speckle_filter(all_nan, method="uniform")
     assert np.all(np.isnan(res_nan))
 
 
 def test_compute_otsu_threshold():
-    # Bimodal distribution: water around -20 dB, land around -14 dB
+    # Бимодальное распределение: вода около -20 dB, суша около -14 dB
     rng = np.random.default_rng(42)
     water_vals = rng.normal(-20.0, 0.5, 500)
     land_vals = rng.normal(-14.5, 0.5, 500)
@@ -93,26 +93,26 @@ def test_compute_otsu_threshold():
     th = compute_otsu_threshold(data)
     assert -21.0 < th < -15.0
 
-    # With mask
+    # С маской
     mask = np.zeros(data.shape, dtype=bool)
     mask[:, :25] = True
     th_masked = compute_otsu_threshold(data, mask=mask)
     assert -22.0 <= th_masked <= -14.0
 
-    # Small array (< 50 valid pixels) -> fallback -16.5
+    # Малый массив (< 50 корректных пикселей) -> резервное значение -16.5
     tiny = np.full((5, 5), -18.0, dtype=np.float32)
     assert compute_otsu_threshold(tiny) == -16.5
 
 
 def test_compute_otsu_threshold_configurable_gates():
-    """Validity gates, minimum sample count and fallback value are caller-configurable."""
+    """Пороги допустимости, минимальное число выборок и резервное значение настраиваются вызывающим кодом."""
     rng = np.random.default_rng(7)
     data = (
         np.concatenate([rng.normal(-20.0, 0.4, 200), rng.normal(-14.5, 0.4, 200)]).reshape((20, 20)).astype(np.float32)
     )
 
-    # Narrowing the validity window removes the "land" population and, with a
-    # minimum sample requirement above the remaining population, forces the fallback
+    # Сужение окна допустимости убирает популяцию "суши" и при требовании к минимальному
+    # числу выборок выше оставшейся популяции вынуждает использовать резервное значение
     th_narrow = compute_otsu_threshold(
         data,
         valid_min_db=-100.0,
@@ -122,21 +122,21 @@ def test_compute_otsu_threshold_configurable_gates():
     )
     assert th_narrow == -19.0
 
-    # Same data, wide window -> real Otsu threshold inside the physical corridor
+    # Те же данные, широкое окно -> реальный порог Otsu внутри физического коридора
     th_wide = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-12.0)
     assert -22.0 <= th_wide <= -14.0
 
-    # min_valid_pixels below population size keeps the real threshold
+    # min_valid_pixels ниже размера популяции сохраняет реальный порог
     th_min_px = compute_otsu_threshold(data, min_valid_pixels=10)
     assert -22.0 <= th_min_px <= -14.0
 
-    # min_valid_pixels above population size forces the fallback
+    # min_valid_pixels выше размера популяции вынуждает использовать резервное значение
     th_need_more = compute_otsu_threshold(data, min_valid_pixels=10**6, fallback_db=-13.0)
     assert th_need_more == -13.0
 
 
 def test_otsu_gates_come_from_yaml():
-    """Load-config exposes the Otsu validity gate as data, not as literals in code."""
+    """Load-config предоставляет порог допустимости Otsu как данные, а не как литералы в коде."""
     import src.segmentation as seg
 
     cfg = seg.load_config()
@@ -148,34 +148,34 @@ def test_otsu_gates_come_from_yaml():
 
 
 def test_otsu_histogram_spans_full_validity_window():
-    """Regression: the histogram must cover the whole validity window, not just
-    the [-22, -14] corridor, so the dry-land mode can separate the two classes."""
+    """Регрессия: гистограмма должна охватывать всё окно допустимости, а не только
+    коридор [-22, -14], чтобы мода сухой суши могла разделить два класса."""
     rng = np.random.default_rng(11)
-    # Water mode ~ -20 dB, dry-land mode ~ -13 dB. Both live inside the supplied
-    # validity window, but the dry-land mode is ABOVE the legacy -14 dB corridor.
+    # Мода воды ~ -20 dB, мода сухой суши ~ -13 dB. Обе находятся внутри заданного
+    # окна допустимости, но мода сухой суши ВЫШЕ прежнего коридора -14 dB.
     data = (
         np.concatenate([rng.normal(-20.0, 0.3, 400), rng.normal(-13.0, 0.3, 400)]).reshape((20, 40)).astype(np.float32)
     )
 
     th = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-8.0, min_db=-22.0, max_db=-8.0)
-    # The threshold must separate the two modes. With the legacy truncated range
-    # (-22, -14) the dry-land mode fell outside np.histogram's range and was
-    # silently dropped, producing a bias towards the water mode.
+    # Порог должен разделять две моды. При прежнем усечённом диапазоне (-22, -14)
+    # мода сухой суши выходила за пределы диапазона np.histogram и молча
+    # отбрасывалась, порождая смещение в сторону моды воды.
     assert -19.5 < th < -13.5
 
-    # Sanity: a truncated histogram range loses the bright mode entirely, so the
-    # resulting threshold collapses onto the water (dark) side.
+    # Проверка здравости: усечённый диапазон гистограммы полностью теряет яркую моду,
+    # поэтому результирующий порог смещается на сторону воды (тёмную).
     th_truncated = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-8.0, min_db=-22.0, max_db=-14.0)
     assert th_truncated <= -14.0
 
 
 def test_otsu_contracts_corridor_but_keeps_full_histogram():
-    """Threshold is clipped into [_min_db, _max_db] while the histogram stays full."""
+    """Порог ограничивается диапазоном [_min_db, _max_db], тогда как гистограмма остаётся полной."""
     rng = np.random.default_rng(3)
     data = (
         np.concatenate([rng.normal(-19.0, 0.3, 300), rng.normal(-8.0, 0.3, 300)]).reshape((20, 30)).astype(np.float32)
     )
-    # -8 dB lies outside the validity window and is excluded entirely
+    # -8 dB лежит вне окна допустимости и полностью исключается
     th = compute_otsu_threshold(data, valid_min_db=-30.0, valid_max_db=-12.0, min_db=-22.0, max_db=-12.0)
     assert -22.0 <= th <= -12.0
 
@@ -185,12 +185,12 @@ def test_load_aux_priors(tmp_path):
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
     crs = "EPSG:32652"
 
-    # Create dummy 6-band GeoTIFF
-    # band 1: slope, band 2: hand, band 3: occurrence, band 6: builtup
+    # Создание фиктивного 6-полосного GeoTIFF
+    # полоса 1: slope, полоса 2: hand, полоса 3: occurrence, полоса 6: builtup
     data = np.zeros((6, 20, 20), dtype=np.float32)
     data[0, :, :] = 2.0  # slope 2 deg <= 5
     data[1, :, :] = 10.0  # hand 10m <= 25
-    data[2, :, :] = 90.0  # occurrence 90% >= 80% (permanent)
+    data[2, :, :] = 90.0  # occurrence 90% >= 80% (постоянная вода)
     data[5, :, :] = 0.0  # builtup 0 < 0.5
 
     with rasterio.open(
@@ -214,12 +214,12 @@ def test_load_aux_priors(tmp_path):
 
 
 def test_segment_optical(tmp_path):
-    # Non-existent path
+    # Несуществующий путь
     w, v = segment_optical(tmp_path / "absent.tif", (10, 10))
     assert w is None
     assert not np.any(v)
 
-    # File with fewer than 8 bands
+    # Файл с числом полос меньше 8
     short_tif = tmp_path / "short.tif"
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
     with rasterio.open(
@@ -239,16 +239,16 @@ def test_segment_optical(tmp_path):
     assert w is None
     assert not np.any(v)
 
-    # Valid 8-band raster
+    # Корректный 8-полосный растр
     opt_tif = tmp_path / "valid_s2.tif"
     s2_data = np.full((8, 10, 10), -999.0, dtype=np.float32)
-    # Band 6 (index 5): MNDWI, Band 7 (index 6): NDVI, Band 8 (index 7): AWEIsh
-    # Pixel (2, 2) is clear water: MNDWI=0.3 (>0.1), NDVI=0.1 (<=0.3), AWEIsh=0.2 (>0.0)
+    # Полоса 6 (индекс 5): MNDWI, Полоса 7 (индекс 6): NDVI, Полоса 8 (индекс 7): AWEIsh
+    # Пиксель (2, 2) - чистая вода: MNDWI=0.3 (>0.1), NDVI=0.1 (<=0.3), AWEIsh=0.2 (>0.0)
     s2_data[5, 2, 2] = 0.3
     s2_data[6, 2, 2] = 0.1
     s2_data[7, 2, 2] = 0.2
 
-    # Pixel (4, 4) is vegetation: MNDWI=-0.2, NDVI=0.8, AWEIsh=-0.5
+    # Пиксель (4, 4) - растительность: MNDWI=-0.2, NDVI=0.8, AWEIsh=-0.5
     s2_data[5, 4, 4] = -0.2
     s2_data[6, 4, 4] = 0.8
     s2_data[7, 4, 4] = -0.5
@@ -276,12 +276,12 @@ def test_segment_optical(tmp_path):
 
 def test_segment_water_comprehensive():
     shape = (30, 30)
-    # Background SAR: land at -12 dB, water patch at -22 dB
+    # Фон SAR: суша на -12 dB, водный участок на -22 dB
     vv = np.full(shape, -12.0, dtype=np.float32)
     vv[10:20, 10:20] = -22.0
     vh = vv - 6.0
 
-    # 1. Pre date segmentation with Otsu
+    # 1. Сегментация даты pre с Otsu
     water_pre = segment_water(
         vv=vv,
         vh=vh,
@@ -294,10 +294,10 @@ def test_segment_water_comprehensive():
     assert water_pre[15, 15] == 1
     assert water_pre[0, 0] == 0
 
-    # 2. Peak date with drop detection
+    # 2. Дата peak с обнаружением падения сигнала
     vv_peak = np.full(shape, -12.0, dtype=np.float32)
-    vv_peak[10:20, 10:20] = -22.0  # pre water
-    vv_peak[22:28, 22:28] = -18.0  # flooded: was -12 in ref, now -18 -> drop = 6 dB >= 3 dB
+    vv_peak[10:20, 10:20] = -22.0  # вода до паводка
+    vv_peak[22:28, 22:28] = -18.0  # затоплено: было -12 в ref, стало -18 -> падение = 6 dB >= 3 dB
     vh_peak = vv_peak - 6.0
 
     water_peak = segment_water(
@@ -313,9 +313,9 @@ def test_segment_water_comprehensive():
     )
     assert water_peak[25, 25] == 1
 
-    # 3. Double-bounce (flooded vegetation) is a separate layer, NOT open water.
-    #    Pre-date VV is dry/bright (-16 dB >= -14? no -> set brighter) and VH rises.
-    vv_db = np.full(shape, -8.0, dtype=np.float32)  # dry vegetation before/at peak
+    # 3. Двойное отражение (затопленная растительность) - отдельный слой, а НЕ открытая вода.
+    #    VV на дату pre сухая/яркая (-16 dB >= -14? нет -> делаем ярче) и VH растёт.
+    vv_db = np.full(shape, -8.0, dtype=np.float32)  # сухая растительность до/на момент пика
     vh_ref = np.full(shape, -22.0, dtype=np.float32)
     vh_db = np.full(shape, -18.0, dtype=np.float32)  # delta_vh = +4 dB >= 2.0 dB
     hand = np.full(shape, 1.0, dtype=np.float32)
@@ -336,7 +336,7 @@ def test_segment_water_comprehensive():
         use_mmu=False,
         use_permanent=False,
     )
-    # Open-water mirror must not contain the flooded-vegetation triple-bounce pixel
+    # Зеркало открытой воды не должно содержать пиксель тройного отражения от затопленной растительности
     assert water_db[5, 5] == 0
 
     fv = detect_flooded_vegetation(
@@ -350,7 +350,7 @@ def test_segment_water_comprehensive():
     )
     assert fv[5, 5]
 
-    # A pixel that was already water before the peak cannot double-bounce
+    # Пиксель, который уже был водой до пика, не может дать двойное отражение
     fv_already_water = detect_flooded_vegetation(
         vv=vv_db,
         vh=vh_db,
@@ -362,7 +362,7 @@ def test_segment_water_comprehensive():
     )
     assert not fv_already_water[5, 5]
 
-    # 4. Partial / nodata SAR fallback
+    # 4. Резервный путь для частичных данных или nodata SAR
     sar_nodata = np.full(shape, -999.0, dtype=np.float32)
     permanent_mask = np.zeros(shape, dtype=bool)
     permanent_mask[5:8, 5:8] = True
@@ -381,7 +381,7 @@ def test_segment_water_comprehensive():
     )
     assert np.all(water_fallback[5:8, 5:8] == 1)
 
-    # 5. Optical fusion
+    # 5. Оптическое объединение
     opt_water = np.zeros(shape, dtype=bool)
     opt_water[2, 2] = True
     opt_valid = np.zeros(shape, dtype=bool)
@@ -399,36 +399,36 @@ def test_segment_water_comprehensive():
 
 
 def test_radar_shadow_mask_flat_and_facing_slopes_are_not_shadowed():
-    """Flat terrain and the radar-facing slope are never flagged as radar shadow."""
+    """Плоский рельеф и склон, обращённый к радару, никогда не помечаются как радиолокационная тень."""
     shape = (20, 20)
     flat_slope = np.zeros(shape, dtype=np.float32)
-    # Even a wildly varying aspect cannot create shadow on a flat facet
+    # Даже сильно изменчивый аспект не может создать тень на плоской поверхности
     noise_aspect = np.linspace(0.0, 359.0, shape[0] * shape[1]).reshape(shape).astype(np.float32)
 
     assert not np.any(radar_shadow_mask(flat_slope, noise_aspect, orbit_pass="DESCENDING"))
     assert not np.any(radar_shadow_mask(flat_slope, noise_aspect, orbit_pass="ASCENDING"))
 
-    # A steep slope, but facing the radar stays illuminated: the descending pass looks
-    # west (~270 deg), so a west-facing (downslope azimuth 270 deg) facet is lit.
+    # Крутой склон, но обращённый к радару, остаётся освещённым: нисходящий проход смотрит
+    # на запад (~270 deg), поэтому поверхность с западным уклоном (азимут склона 270 deg) освещена.
     steep_slope = np.full(shape, 70.0, dtype=np.float32)
     facing_az = np.full(shape, 270.0, dtype=np.float32)
     assert not np.any(radar_shadow_mask(steep_slope, facing_az, orbit_pass="DESCENDING"))
 
-    # Missing metadata (orbit_pass/slope/aspect) disables the guard entirely
+    # Отсутствие метаданных (orbit_pass/slope/aspect) полностью отключает защиту
     assert radar_shadow_mask(steep_slope, None, orbit_pass="DESCENDING") is None
     assert radar_shadow_mask(None, facing_az, orbit_pass="DESCENDING") is None
     assert radar_shadow_mask(steep_slope, facing_az, orbit_pass=None) is None
 
 
 def test_radar_shadow_mask_follows_orbit_pass():
-    """A steep slope facing away from the look direction is shadowed; ascending flips it.
+    """Крутой склон, обращённый в сторону от направления обзора, затенён; восходящий проход меняет это.
 
-    Right-looking Sentinel-1 descending looks west (~270 deg), ascending looks east
-    (~90 deg), so a steep east-facing (downslope azimuth 90 deg) facet is in shadow on
-    the descending pass and fully illuminated on the ascending one.
+    Sentinel-1 с правосторонним обзором: нисходящий проход смотрит на запад (~270 deg),
+    восходящий - на восток (~90 deg), поэтому крутая поверхность с восточным уклоном
+    (азимут склона 90 deg) затенена на нисходящем проходе и полностью освещена на восходящем.
     """
     shape = (10, 10)
-    steep = np.full(shape, 70.0, dtype=np.float32)  # steeper than 90 - 38 = 52 deg
+    steep = np.full(shape, 70.0, dtype=np.float32)  # круче, чем 90 - 38 = 52 deg
     east_facing = np.full(shape, 90.0, dtype=np.float32)
 
     desc = radar_shadow_mask(steep, east_facing, orbit_pass="DESCENDING")
@@ -437,23 +437,23 @@ def test_radar_shadow_mask_follows_orbit_pass():
     asc = radar_shadow_mask(steep, east_facing, orbit_pass="ASCENDING")
     assert asc is not None and not np.any(asc)
 
-    # Threshold is honoured: sub-grazing incidence angles are not rejected
+    # Порог соблюдается: углы падения ниже скользящего не отклоняются
     gentle = np.full(shape, 30.0, dtype=np.float32)
     assert not np.any(radar_shadow_mask(gentle, east_facing, orbit_pass="DESCENDING"))
 
-    # Flat facets are never shadowed, whatever the aspect says
+    # Плоские поверхности никогда не затеняются, что бы ни говорил аспект
     assert not np.any(radar_shadow_mask(np.zeros(shape, dtype=np.float32), east_facing, orbit_pass="DESCENDING"))
 
 
 def test_radar_shadow_mask_non_finite_bands_are_not_shadowed():
-    """NaN/inf slope or aspect pixels stay unshadowed and emit no numpy warning.
+    """Пиксели с slope или aspect NaN/inf остаются незатенёнными и не порождают предупреждение numpy.
 
-    Real AOIs (e.g. flood_2021_08_zeya__svobodny) carry non-finite values in the slope
-    band, which used to make the incidence trig raise RuntimeWarning even though the
-    pixel was already excluded by the finiteness guard.
+    Реальные AOI (например, flood_2021_08_zeya__svobodny) содержат неконечные значения в полосе
+    slope, из-за чего тригонометрия угла падения ранее вызывала RuntimeWarning, хотя пиксель уже
+    был исключён проверкой конечности.
     """
     shape = (8, 8)
-    steep = np.full(shape, 70.0, dtype=np.float32)  # would shadow an east-facing facet
+    steep = np.full(shape, 70.0, dtype=np.float32)  # затенял бы поверхность с восточным уклоном
     east_facing = np.full(shape, 90.0, dtype=np.float32)
     steep[0, 0] = np.nan
     steep[0, 1] = np.inf
@@ -465,24 +465,24 @@ def test_radar_shadow_mask_non_finite_bands_are_not_shadowed():
         mask = radar_shadow_mask(steep, east_facing, orbit_pass="DESCENDING")
 
     assert mask is not None
-    # Non-finite pixels are never flagged as shadow ...
+    # Неконечные пиксели никогда не помечаются как тень ...
     assert not mask[0, 0] and not mask[0, 1]
     assert not mask[1, 0] and not mask[1, 1]
-    # ... while the remaining finite, away-facing facets still are.
+    # ... тогда как остальные конечные поверхности, обращённые в сторону, всё равно затеняются.
     assert mask[2:, :].all()
 
 
 def test_segment_water_radar_shadow_guard_is_orbit_aware():
-    """Radar-shadow guard: inert without metadata, suppresses only the away-facing slope."""
+    """Защита от радиолокационной тени: без метаданных без эффекта, подавляет только обратный склон."""
     shape = (40, 40)
     vv = np.full(shape, -12.0, dtype=np.float32)
-    vv[10:30, 10:30] = -26.0  # dark backscatter, Otsu would call it open water
+    vv[10:30, 10:30] = -26.0  # тёмное обратное рассеяние, Otsu посчитал бы это открытой водой
     vh = vv - 6.0
 
     slope = np.zeros(shape, dtype=np.float32)
-    aspect = np.full(shape, 90.0, dtype=np.float32)  # east-facing: away from the descending look (~270 deg)
+    aspect = np.full(shape, 90.0, dtype=np.float32)  # восточный уклон: в сторону от обзора нисходящего прохода (~270 deg)
 
-    # 1. No orbit_pass -> guard is a no-op, the dark patch is segmented as water
+    # 1. Без orbit_pass -> защита без эффекта, тёмный участок сегментируется как вода
     baseline = segment_water(
         vv=vv,
         vh=vh,
@@ -495,7 +495,7 @@ def test_segment_water_radar_shadow_guard_is_orbit_aware():
     )
     assert baseline[20, 20] == 1
 
-    # 2. Flat terrain + orbit_pass -> still no suppression (slope below the shadow limit)
+    # 2. Плоский рельеф + orbit_pass -> по-прежнему без подавления (slope ниже предела тени)
     flat_orbit = segment_water(
         vv=vv,
         vh=vh,
@@ -509,7 +509,7 @@ def test_segment_water_radar_shadow_guard_is_orbit_aware():
     )
     assert np.array_equal(flat_orbit, baseline)
 
-    # 3. Steep shadow-facing slope + orbit_pass -> suppression
+    # 3. Крутой склон, обращённый в тень + orbit_pass -> подавление
     steep_slope = np.zeros(shape, dtype=np.float32)
     steep_slope[10:30, 10:30] = 70.0
     steep_aspect = np.zeros(shape, dtype=np.float32)
@@ -527,9 +527,9 @@ def test_segment_water_radar_shadow_guard_is_orbit_aware():
         use_permanent=False,
     )
     assert shadowed[20, 20] == 0
-    assert shadowed[0, 0] == baseline[0, 0]  # outside-patch pixels untouched
+    assert shadowed[0, 0] == baseline[0, 0]  # пиксели вне участка не затронуты
 
-    # 4. Same geometry under an ascending pass -> the away-facing slope is illuminated
+    # 4. Та же геометрия при восходящем проходе -> обратный склон освещён
     ascended = segment_water(
         vv=vv,
         vh=vh,
@@ -545,7 +545,7 @@ def test_segment_water_radar_shadow_guard_is_orbit_aware():
 
 
 def test_segment_water_radar_shadow_guard_keeps_near_range_slope():
-    """The near-range slope facing the radar is never suppressed, even when steep."""
+    """Ближний к радару склон, обращённый к нему, никогда не подавляется, даже будучи крутым."""
     shape = (40, 40)
     vv = np.full(shape, -12.0, dtype=np.float32)
     vv[10:30, 10:30] = -26.0
@@ -554,7 +554,7 @@ def test_segment_water_radar_shadow_guard_keeps_near_range_slope():
     slope = np.zeros(shape, dtype=np.float32)
     slope[10:30, 10:30] = 70.0
     aspect = np.zeros(shape, dtype=np.float32)
-    aspect[10:30, 10:30] = 270.0  # facing the descending pass look direction (west)
+    aspect[10:30, 10:30] = 270.0  # обращён к направлению обзора нисходящего прохода (запад)
 
     water = segment_water(
         vv=vv,
@@ -571,12 +571,12 @@ def test_segment_water_radar_shadow_guard_keeps_near_range_slope():
 
 
 def test_load_aux_priors_provides_aspect(tmp_path):
-    """AUX priors expose a terrain aspect layer for the orbit-aware shadow guard."""
+    """AUX-приоры предоставляют слой аспекта рельефа для защиты от тени с учётом орбиты."""
     aux_path = tmp_path / "aux_aspect.tif"
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
     data = np.zeros((6, 20, 20), dtype=np.float32)
-    # HAND grows southwards (row index increases southwards), so the steepest descent
-    # points north -> downslope azimuth = 0 deg.
+    # HAND растёт к югу (индекс строки увеличивается к югу), поэтому наискорейший спуск
+    # направлен на север -> азимут склона = 0 deg.
     data[1, :, :] = np.arange(20, dtype=np.float32)[:, None]
     data[0, :, :] = 2.0
 
@@ -597,13 +597,13 @@ def test_load_aux_priors_provides_aspect(tmp_path):
     assert "aspect" in res
     aspect = res["aspect"]
     assert aspect.shape == (20, 20)
-    # HAND rises towards the south, so the steepest descent points north (0 deg)
+    # HAND растёт к югу, поэтому наискорейший спуск направлен на север (0 deg)
     assert np.allclose(aspect, 0.0, atol=1.0)
     assert np.all(np.isfinite(aspect))
 
 
 def test_segment_optical_no_valid(tmp_path):
-    """All invalid pixels in optical bands return None and zeros valid mask (line 289)."""
+    """Все некорректные пиксели в оптических полосах возвращают None и нулевую маску valid (строка 289)."""
     shape = (10, 10)
     opt_tif = tmp_path / "all_invalid_s2.tif"
     s2_data = np.full((8, 10, 10), -999.0, dtype=np.float32)
@@ -629,30 +629,30 @@ def test_segment_optical_no_valid(tmp_path):
 
 
 def test_apply_mmu_config_fallback_and_zero_features(monkeypatch):
-    """apply_mmu loads config when min_size is None (lines 303-304) and handles 0 features (line 312)."""
-    # 0. Empty mask early return (line 307)
+    """apply_mmu загружает конфигурацию при min_size=None (строки 303-304) и обрабатывает 0 объектов (строка 312)."""
+    # 0. Ранний возврат при пустой маске (строка 307)
     empty = np.zeros((5, 5), dtype=bool)
     assert np.array_equal(apply_mmu(empty), empty)
 
     mask = np.zeros((10, 10), dtype=bool)
     mask[2:5, 2:5] = True
 
-    # 1. min_size is None -> calls load_config()
+    # 1. min_size равен None -> вызов load_config()
     cleaned = apply_mmu(mask, min_size=None)
     assert cleaned.shape == mask.shape
 
-    # 2. num_features == 0 fallback
+    # 2. Резервный путь при num_features == 0
     monkeypatch.setattr("src.filters.label", lambda m, structure=None: (np.zeros_like(m), 0))
     res = apply_mmu(mask, min_size=10)
     assert np.array_equal(res, mask)
 
 
 def test_segment_water_sar_nodata_non_peak():
-    """When SAR is nodata and permanent_mask present, but is_peak=False, returns permanent_mask copy (line 407)."""
+    """Когда SAR равен nodata и есть permanent_mask, но is_peak=False, возвращается копия permanent_mask (строка 407)."""
     shape = (20, 20)
     vv_nodata = np.full(shape, -999.0, dtype=np.float32)
     perm_mask = np.zeros(shape, dtype=bool)
-    perm_mask[5:11, 5:11] = True  # 36 pixels > 25 mmu threshold
+    perm_mask[5:11, 5:11] = True  # 36 пикселей > порога mmu 25
 
     water = segment_water(
         vv=vv_nodata,
@@ -665,15 +665,15 @@ def test_segment_water_sar_nodata_non_peak():
 
 
 def test_segment_water_partial_sar_fallback_is_config_driven():
-    """Sparse-SAR fallback expansion must follow config thresholds, not in-code literals.
+    """Расширение резервного пути при разреженном SAR должно следовать порогам конфигурации, а не литералам в коде.
 
-    The Poyarkovo-style branch (sar_valid fraction below threshold) expands the water
-    mask over ``topo_mask & (hand <= fallback_hand_max_m) & (occurrence >= fallback_occurrence_min_pct)``.
+    Ветвь в стиле Пояркова (доля sar_valid ниже порога) расширяет маску воды
+    по ``topo_mask & (hand <= fallback_hand_max_m) & (occurrence >= fallback_occurrence_min_pct)``.
     """
     import src.segmentation as seg
 
     shape = (20, 20)
-    # Only 1% of pixels carry valid SAR -> below the 10% coverage gate
+    # Лишь 1% пикселей содержат корректный SAR -> ниже порога покрытия 10%
     vv = np.full(shape, -999.0, dtype=np.float32)
     vv[0, 0] = -15.0
 
@@ -681,12 +681,12 @@ def test_segment_water_partial_sar_fallback_is_config_driven():
     perm_mask[2:5, 2:5] = True
 
     topo_mask = np.ones(shape, dtype=bool)
-    hand = np.full(shape, 0.5, dtype=np.float32)  # <= 1.0 m -> inside fallback envelope
-    occurrence = np.full(shape, 10.0, dtype=np.float32)  # >= 5% -> inside fallback envelope
+    hand = np.full(shape, 0.5, dtype=np.float32)  # <= 1.0 m -> внутри оболочки резервного пути
+    occurrence = np.full(shape, 10.0, dtype=np.float32)  # >= 5% -> внутри оболочки резервного пути
 
     original = seg.load_config()
     try:
-        # Baseline config: HAND 0.5 <= 1.0 and occurrence 10 >= 5 -> expansion active
+        # Базовая конфигурация: HAND 0.5 <= 1.0 и occurrence 10 >= 5 -> расширение активно
         seg._CONFIG_CACHE = None
         water = segment_water(
             vv=vv,
@@ -701,7 +701,7 @@ def test_segment_water_partial_sar_fallback_is_config_driven():
         assert water.sum() > perm_mask.sum(), "expansion should add floodplain pixels"
         assert water[10, 10] == 1
 
-        # Tighten the configurable gates so the expansion envelope becomes empty
+        # Ужесточение настраиваемых порогов делает оболочку расширения пустой
         tightened = dict(original)
         tightened["fallback_hand_max_m"] = 0.1
         seg._CONFIG_CACHE = tightened
@@ -717,7 +717,7 @@ def test_segment_water_partial_sar_fallback_is_config_driven():
         )
         assert np.array_equal(water_tight, perm_mask.astype(np.uint8))
 
-        # Raising the coverage gate above the actual valid fraction still keeps the fallback
+        # Поднятие порога покрытия выше фактической доли корректных данных всё равно сохраняет резервный путь
         loosened = dict(original)
         loosened["sar_valid_frac_min"] = 0.0
         seg._CONFIG_CACHE = loosened

@@ -1,4 +1,4 @@
-"""Tests for predict module and end-to-end inference pipeline."""
+"""Тесты модуля predict и сквозного конвейера вывода."""
 
 import runpy
 
@@ -27,10 +27,10 @@ def synthetic_pair_env(tmp_path):
     crs = "EPSG:32652"
     shape = (30, 30)
 
-    # 1. Reference mask (10m res, 30x30)
+    # 1. Референсная маска (разрешение 10m, 30x30)
     ref_tif = ref_dir / "ref_pair1.tif"
     ref_data = np.zeros(shape, dtype=np.uint8)
-    ref_data[10:20, 10:20] = 1  # 100 pixels flood
+    ref_data[10:20, 10:20] = 1  # 100 пикселей паводка
     with rasterio.open(
         ref_tif,
         "w",
@@ -44,7 +44,7 @@ def synthetic_pair_env(tmp_path):
     ) as dst:
         dst.write(ref_data, 1)
 
-    # 2. S1 pre & peak
+    # 2. S1 pre и peak
     s1_pre_tif = rasters_dir / "S1_pre_20200101.tif"
     s1_peak_tif = rasters_dir / "S1_peak_20200115.tif"
 
@@ -52,7 +52,7 @@ def synthetic_pair_env(tmp_path):
     s1_pre[1, :, :] = -18.0  # VH
 
     s1_peak = np.full((2, 30, 30), -12.0, dtype=np.float32)
-    s1_peak[0, 10:20, 10:20] = -22.0  # VV drop: flooded
+    s1_peak[0, 10:20, 10:20] = -22.0  # падение VV: затоплено
     s1_peak[1, :, :] = -20.0  # VH
 
     for path, data in [(s1_pre_tif, s1_pre), (s1_peak_tif, s1_peak)]:
@@ -69,7 +69,7 @@ def synthetic_pair_env(tmp_path):
         ) as dst:
             dst.write(data)
 
-    # 3. AUX terrain gsw (6 bands)
+    # 3. AUX terrain gsw (6 полос)
     aux_tif = rasters_dir / "AUX_terrain_gsw.tif"
     aux_data = np.zeros((6, 30, 30), dtype=np.float32)
     aux_data[0, :, :] = 1.0  # slope
@@ -89,7 +89,7 @@ def synthetic_pair_env(tmp_path):
     ) as dst:
         dst.write(aux_data)
 
-    # 4. S2 optical pre & peak (8 bands)
+    # 4. Оптические S2 pre и peak (8 полос)
     s2_data = np.full((8, 30, 30), 0.0, dtype=np.float32)
     s2_data[5, :, :] = 0.3  # MNDWI
     s2_data[6, :, :] = 0.1  # NDVI
@@ -128,7 +128,7 @@ def test_process_pair_all_ablations(synthetic_pair_env):
     row = synthetic_pair_env["row"]
     pred_dir = synthetic_pair_env["predictions_dir"]
 
-    # Test ablation modes 1, 2, 3, 4
+    # Тест режимов абляции 1, 2, 3, 4
     for mode in [1, 2, 3, 4]:
         res = process_pair(row, data_dir, pred_dir, ablation_mode=mode)
         assert res["pair_id"] == "pair_test"
@@ -137,7 +137,7 @@ def test_process_pair_all_ablations(synthetic_pair_env):
         assert (pred_dir / "pair_test_flood.tif").exists()
         assert (pred_dir / "pair_test_water_pre.tif").exists()
         assert (pred_dir / "pair_test_water_peak.tif").exists()
-        # Sub-canopy flooded vegetation is always emitted as a separate layer
+        # Затопленная под пологом растительность всегда выдаётся отдельным слоем
         assert (pred_dir / "pair_test_flooded_vegetation.tif").exists()
         with rasterio.open(pred_dir / "pair_test_flooded_vegetation.tif") as src:
             fv = src.read(1)
@@ -146,7 +146,7 @@ def test_process_pair_all_ablations(synthetic_pair_env):
 
 
 def test_flooded_vegetation_layer_emitted_separately(synthetic_pair_env):
-    """Sub-canopy flooded vegetation is a distinct product layer, not merged in."""
+    """Затопленная под пологом растительность - отдельный продукт, а не объединённый слой."""
     data_dir = synthetic_pair_env["data_dir"]
     row = synthetic_pair_env["row"]
     pred_dir = synthetic_pair_env["predictions_dir"]
@@ -158,12 +158,12 @@ def test_flooded_vegetation_layer_emitted_separately(synthetic_pair_env):
     with rasterio.open(pred_dir / "pair_test_flood.tif") as flood_src, rasterio.open(fv_path) as fv_src:
         flood_src.read(1)
         fv_src.read(1)
-        # Same grid as the flood product
+        # Та же сетка, что и у продукта паводка
         assert flood_src.transform == fv_src.transform
         assert flood_src.crs == fv_src.crs
 
-    # The returned summary carries only the open-water areas; flooded vegetation
-    # is deliberately excluded from flood_ha / water_peak_ha.
+    # Возвращаемая сводка содержит только площади открытой воды; затопленная растительность
+    # намеренно исключена из flood_ha / water_peak_ha.
     assert "flooded_vegetation_ha" not in res
 
 
@@ -209,7 +209,7 @@ def test_run_prediction_and_main(synthetic_pair_env, tmp_path, monkeypatch):
 
 
 def test_process_pair_missing_s1_rasters_raises(synthetic_pair_env):
-    """Missing S1 pre/peak rasters raises FileNotFoundError (line 63)."""
+    """Отсутствие растров S1 pre/peak вызывает FileNotFoundError (строка 63)."""
     empty_rasters = synthetic_pair_env["data_dir"] / "rasters" / "empty_pair"
     empty_rasters.mkdir(parents=True, exist_ok=True)
     bad_row = pd.Series(
@@ -224,7 +224,7 @@ def test_process_pair_missing_s1_rasters_raises(synthetic_pair_env):
 
 
 def test_process_pair_no_reference_mask_fallback(synthetic_pair_env):
-    """Reference mask non-existent derives geometry from s1_pre (lines 72-75)."""
+    """При отсутствии референсной маски геометрия выводится из s1_pre (строки 72-75)."""
     row = synthetic_pair_env["row"].copy()
     row["pair_id"] = "no_ref_pair"
     row["reference_mask"] = "reference_masks/non_existent.tif"
@@ -234,11 +234,11 @@ def test_process_pair_no_reference_mask_fallback(synthetic_pair_env):
 
 
 def test_process_pair_geometry_comes_from_s1_not_reference(synthetic_pair_env):
-    """Output grid is the native Sentinel-1 grid even when a mismatched reference exists."""
+    """Выходная сетка - нативная сетка Sentinel-1, даже при наличии несовпадающего референса."""
     data_dir = synthetic_pair_env["data_dir"]
     rasters_dir = data_dir / "rasters" / "pair1"
 
-    # Rewrite BOTH S1 scenes onto a coarser grid (20x20, 20 m pixels)
+    # Перезапись ОБОИХ снимков S1 на более грубую сетку (20x20, пиксели 20 м)
     coarse_transform = from_origin(127.0, 50.0, 20.0, 20.0)
     for name, band0 in [("S1_pre_20200101.tif", -13.0), ("S1_peak_20200115.tif", -20.0)]:
         coarse = np.full((2, 20, 20), band0, dtype=np.float32)
@@ -261,19 +261,19 @@ def test_process_pair_geometry_comes_from_s1_not_reference(synthetic_pair_env):
     res = process_pair(row, data_dir, synthetic_pair_env["predictions_dir"], ablation_mode=1)
     assert res["pair_id"] == "grid_from_s1"
 
-    # Reference grid is 30x30 / 10 m: the prediction must follow S1 instead
+    # Референсная сетка 30x30 / 10 m: прогноз должен следовать за S1
     with rasterio.open(synthetic_pair_env["predictions_dir"] / "grid_from_s1_flood.tif") as out:
         assert out.shape == (20, 20)
         assert out.transform == coarse_transform
 
 
 def test_process_pair_aoi_geojson_clipping(synthetic_pair_env):
-    """AOI polygon boundary clipping filters out pixels outside AOI (lines 176-185)."""
+    """Обрезка по границе полигона AOI отфильтровывает пиксели вне AOI (строки 176-185)."""
     data_dir = synthetic_pair_env["data_dir"]
     vectors_dir = data_dir / "vectors"
     vectors_dir.mkdir(parents=True, exist_ok=True)
 
-    # Polygon covering half the domain: x from 127 to 200, y from -100 to 50
+    # Полигон, покрывающий половину области: x от 127 до 200, y от -100 до 50
     poly = Polygon([(127.0, 50.0), (200.0, 50.0), (200.0, -100.0), (127.0, -100.0)])
     gdf = gpd.GeoDataFrame({"aoi_id": ["aoi_clip_test"]}, geometry=[poly], crs="EPSG:32652")
     gdf.to_file(vectors_dir / "aoi.geojson", driver="GeoJSON")
@@ -288,11 +288,11 @@ def test_process_pair_aoi_geojson_clipping(synthetic_pair_env):
 
 
 def test_process_pair_aoi_clipping_exception(synthetic_pair_env, monkeypatch):
-    """Exception during AOI clipping is logged and handled gracefully (lines 186-187)."""
+    """Исключение при обрезке по AOI логируется и обрабатывается без сбоя (строки 186-187)."""
     data_dir = synthetic_pair_env["data_dir"]
     vectors_dir = data_dir / "vectors"
     vectors_dir.mkdir(parents=True, exist_ok=True)
-    # Corrupt aoi.geojson file
+    # Повреждение файла aoi.geojson
     (vectors_dir / "aoi.geojson").write_text("invalid json content", encoding="utf-8")
 
     row = synthetic_pair_env["row"].copy()
@@ -304,7 +304,7 @@ def test_process_pair_aoi_clipping_exception(synthetic_pair_env, monkeypatch):
 
 
 def test_process_pair_area_mismatch_warning_and_assert(synthetic_pair_env, monkeypatch):
-    """Area mismatch >= 2.0% logs warning and raises AssertionError (line 243)."""
+    """Несовпадение площади >= 2.0% логирует предупреждение и вызывает AssertionError (строка 243)."""
     calls = 0
     real_sum = np.sum
 
@@ -312,7 +312,7 @@ def test_process_pair_area_mismatch_warning_and_assert(synthetic_pair_env, monke
         nonlocal calls
         calls += 1
         val = real_sum(a, *args, **kwargs)
-        if calls == 9:  # raster_flood_px in area verification
+        if calls == 9:  # raster_flood_px при проверке площади
             return val + 500
         return val
 
@@ -325,7 +325,7 @@ def test_process_pair_area_mismatch_warning_and_assert(synthetic_pair_env, monke
 
 
 def test_predict_main_module_execution(synthetic_pair_env, monkeypatch):
-    """Execute predict.py as __main__ (line 305)."""
+    """Запуск predict.py как __main__ (строка 305)."""
     pairs_csv = synthetic_pair_env["data_dir"] / "pairs.csv"
     pd.DataFrame([synthetic_pair_env["row"].to_dict()]).to_csv(pairs_csv, index=False)
     sub_csv = synthetic_pair_env["predictions_dir"] / "dummy_main_sub.csv"
@@ -351,7 +351,7 @@ def test_predict_main_module_execution(synthetic_pair_env, monkeypatch):
 
 
 def test_read_sar_bands_is_bit_identical_to_whole_array_read(synthetic_pair_env):
-    """D9: windowed SAR reads must reproduce src.read() byte for byte, block-size agnostic."""
+    """D9: оконное чтение SAR должно побитово воспроизводить src.read(), независимо от размера блока."""
     s1_pre_tif = synthetic_pair_env["data_dir"] / "rasters" / "pair1" / "S1_pre_20200101.tif"
 
     with rasterio.open(s1_pre_tif) as src:
@@ -367,7 +367,7 @@ def test_read_sar_bands_is_bit_identical_to_whole_array_read(synthetic_pair_env)
 
 
 def test_read_sar_bands_streams_in_row_windows(synthetic_pair_env, monkeypatch):
-    """D9: the read path must issue one windowed read per row block, not one whole-array read."""
+    """D9: путь чтения должен выполнять одно оконное чтение на блок строк, а не одно чтение всего массива."""
     s1_pre_tif = synthetic_pair_env["data_dir"] / "rasters" / "pair1" / "S1_pre_20200101.tif"
     windows: list[object] = []
 
@@ -380,17 +380,17 @@ def test_read_sar_bands_streams_in_row_windows(synthetic_pair_env, monkeypatch):
     monkeypatch.setattr(rasterio.io.DatasetReader, "read", spy_read)
     read_sar_bands(s1_pre_tif, block_rows=7)
 
-    # 30 rows / 7 per block -> 5 blocks (7,7,7,7,2), each read for 2 bands
+    # 30 строк / 7 на блок -> 5 блоков (7,7,7,7,2), каждое чтение для 2 полос
     assert len(windows) == 10
     assert all(w is not None for w in windows)
-    # Every window is a partial strip; no window spans the whole scene (30 rows)
+    # Каждое окно - частичная полоса; ни одно окно не охватывает весь снимок (30 строк)
     heights = [w.height for w in windows]
     assert max(heights) == 7 and min(heights) == 2
     assert {w.width for w in windows} == {30}
 
 
 def test_read_sar_bands_single_band_raster_has_no_vh(tmp_path):
-    """A single-band S1 scene yields vh=None, matching the previous src.count check."""
+    """Однополосный снимок S1 даёт vh=None, что соответствует прежней проверке src.count."""
     tif = tmp_path / "single_band.tif"
     with rasterio.open(
         tif,
@@ -411,7 +411,7 @@ def test_read_sar_bands_single_band_raster_has_no_vh(tmp_path):
 
 
 def test_resolve_orbit_pass_reads_pairs_row():
-    """D3: the pairs-row orbit_pass label is threaded to the segmentation guard."""
+    """D3: метка orbit_pass из строки pairs передаётся в защиту сегментации."""
     assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "DESCENDING"})) == "DESCENDING"
     assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "ascending"})) == "ascending"
     assert predict_resolve_orbit_pass(pd.Series({"orbit_pass": "  "})) is None
@@ -419,7 +419,7 @@ def test_resolve_orbit_pass_reads_pairs_row():
 
 
 def test_process_pair_threads_orbit_pass_into_segmentation(synthetic_pair_env, monkeypatch):
-    """D3: process_pair forwards the row's orbit_pass to segment_water for both dates."""
+    """D3: process_pair передаёт orbit_pass строки в segment_water для обеих дат."""
     from src.predict import process_pair as real_process_pair
     from src.segmentation import segment_water as real_segment_water
 
@@ -437,12 +437,12 @@ def test_process_pair_threads_orbit_pass_into_segmentation(synthetic_pair_env, m
 
     real_process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=4)
 
-    # Two calls: pre and peak acquisitions of the same pair
+    # Два вызова: pre и peak съёмки одной пары
     assert captured == ["DESCENDING", "DESCENDING"]
 
 
 def test_process_pair_without_orbit_pass_column_is_inert(synthetic_pair_env, monkeypatch):
-    """D3: a pairs row lacking orbit_pass disables the guard (no-op, default None)."""
+    """D3: отсутствие orbit_pass в строке pairs отключает защиту (без эффекта, по умолчанию None)."""
     from src.predict import process_pair as real_process_pair
     from src.segmentation import segment_water as real_segment_water
 
@@ -464,7 +464,7 @@ def test_process_pair_without_orbit_pass_column_is_inert(synthetic_pair_env, mon
 
 
 def test_run_prediction_parallel_vs_sequential_identity(synthetic_pair_env, tmp_path):
-    """Parallel batch inference results must be strictly identical to sequential inference."""
+    """Результаты параллельного пакетного вывода должны строго совпадать с последовательным выводом."""
     data_dir = synthetic_pair_env["data_dir"]
     base_row = synthetic_pair_env["row"].to_dict()
 
@@ -479,7 +479,7 @@ def test_run_prediction_parallel_vs_sequential_identity(synthetic_pair_env, tmp_
     sub_seq_csv = tmp_path / "sub_seq.csv"
     sub_par_csv = tmp_path / "sub_par.csv"
 
-    # Sequential run (1 worker)
+    # Последовательный запуск (1 воркер)
     df_seq = run_prediction(
         pairs_csv_path=pairs_csv,
         data_dir=data_dir,
@@ -489,7 +489,7 @@ def test_run_prediction_parallel_vs_sequential_identity(synthetic_pair_env, tmp_
         workers=1,
     )
 
-    # Parallel run (2 workers)
+    # Параллельный запуск (2 воркера)
     df_par = run_prediction(
         pairs_csv_path=pairs_csv,
         data_dir=data_dir,
@@ -504,7 +504,7 @@ def test_run_prediction_parallel_vs_sequential_identity(synthetic_pair_env, tmp_
 
 
 def test_predict_cli_workers_flag(synthetic_pair_env, tmp_path, monkeypatch):
-    """Test that --workers and --jobs flags are correctly handled by CLI main."""
+    """Проверка корректной обработки флагов --workers и --jobs в CLI main."""
     data_dir = synthetic_pair_env["data_dir"]
     row = synthetic_pair_env["row"]
     pairs_csv = data_dir / "pairs.csv"
