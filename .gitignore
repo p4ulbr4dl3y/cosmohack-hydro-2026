@@ -4,12 +4,12 @@ data/*
 rasters/
 vectors/
 reference_masks/
-predictions/
 predictions_ablation/
 hydrowatch_amur/rasters/
 hydrowatch_amur/reference_masks/
 *.zip
 *.tif
+!predictions/*.tif
 *.tiff
 *.tar
 *.tar.gz
