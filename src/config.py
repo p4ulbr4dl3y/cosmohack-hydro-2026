@@ -20,17 +20,18 @@ OTSU_MIN_VALID_PIXELS: int = 50
 OTSU_FALLBACK_DB: float = -16.5
 SAR_NODATA_MAX_DB: float = -100.0
 BUILTUP_MAX_FRACTION: float = 0.5
-SAR_FLOOD_DROP_DB: float = 3.0
+SAR_FLOOD_DROP_DB: float = 4.5
 VH_THRESHOLD_DB: float = -16.5
 SAR_DROP_VV_MAX_DB: float = -14.0
 SAR_DROP_VH_MIN_DB: float = 1.5
 SAR_DROP_VH_MAX_DB: float = -17.0
-DOUBLE_BOUNCE_DELTA_VH_DB: float = 2.0
+DOUBLE_BOUNCE_DELTA_VH_DB: float = 2.5
 DOUBLE_BOUNCE_HAND_MAX_M: float = 3.0
 DOUBLE_BOUNCE_SLOPE_MAX_DEG: float = 3.0
 DOUBLE_BOUNCE_VV_PRE_MIN_DB: float = -14.0
-SLOPE_MAX_DEG: float = 5.0
-HAND_MAX_M: float = 25.0
+SLOPE_MAX_DEG: float = 3.0
+HAND_MAX_M: float = 10.0
+
 # Radar-shadow geometry (orbit/aspect-aware guard). Sentinel-1 IW carries no per-pixel
 # incidence-angle band in this dataset, so the nominal mid-swath look angle is used
 # together with the orbit pass; facets at/above the shadow limit are geometrically dark.

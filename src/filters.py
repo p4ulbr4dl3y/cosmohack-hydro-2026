@@ -118,3 +118,37 @@ def apply_mmu(
     remove_mask = (counts < min_size)[labeled]
     cleaned = mask & (~remove_mask)
     return cleaned
+
+
+def apply_hydrological_connectivity(
+    flood_mask: np.ndarray,
+    seed_mask: np.ndarray,
+) -> np.ndarray:
+    """Filter flood clusters by hydrological connectivity to a seed water network.
+
+    Retains only connected components (8-connectivity) of flood_mask that touch
+    or intersect the seed_mask (typically permanent river water, e.g. GSW occurrence >= 80%).
+    Isolated puddles and false alarms far from the river drainage network are eliminated.
+    """
+    if not np.any(flood_mask) or not np.any(seed_mask):
+        return np.zeros_like(flood_mask)
+
+    binary_flood = flood_mask > 0
+    structure = np.ones((3, 3), dtype=bool)
+    labeled, num_features = label(binary_flood, structure=structure)
+    if num_features == 0:
+        return flood_mask.copy()
+
+    # Dilate seed by 1 pixel (3x3) so adjacent flood components touch the seed
+    from scipy.ndimage import binary_dilation
+
+    seed_dilated = binary_dilation(seed_mask > 0, structure=structure)
+
+    seed_labels = np.unique(labeled[seed_dilated])
+    seed_labels = seed_labels[seed_labels != 0]
+
+    if len(seed_labels) == 0:
+        return np.zeros_like(flood_mask)
+
+    keep_mask = np.isin(labeled, seed_labels)
+    return (binary_flood & keep_mask).astype(flood_mask.dtype)

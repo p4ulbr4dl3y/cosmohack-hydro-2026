@@ -33,7 +33,7 @@ def test_load_config_defaults(tmp_path):
     cfg_custom = load_config(custom_yaml)
     assert cfg_custom["otsu_min_db"] == -25.0
     assert cfg_custom["mmu_min_pixels"] == 50
-    assert cfg_custom["slope_max_deg"] == 5.0  # default filled in
+    assert cfg_custom["slope_max_deg"] == 3.0  # default filled in
 
     # Reset cache so other tests use project defaults
     import src.segmentation as seg

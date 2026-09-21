@@ -16,6 +16,7 @@ import rasterio
 from rasterio.warp import Resampling
 
 from src.config import HydroConfig
+from src.filters import apply_hydrological_connectivity as _filters_apply_hydrological_connectivity
 from src.filters import apply_mmu as _filters_apply_mmu
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
@@ -34,12 +35,14 @@ __all__ = [
     "radar_shadow_mask",
     "segment_optical",
     "apply_mmu",
+    "apply_hydrological_connectivity",
     "detect_flooded_vegetation",
     "segment_water",
     "read_raster_with_meta",
     "resample_to_target",
     "clip_by_aoi",
 ]
+
 
 # Default config cache
 _CONFIG_CACHE: dict[str, Any] | None = None
@@ -277,6 +280,14 @@ def apply_mmu(
         cfg = load_config()
         min_size = int(cfg["mmu_min_pixels"])
     return _filters_apply_mmu(mask, min_size=min_size)
+
+
+def apply_hydrological_connectivity(
+    flood_mask: np.ndarray,
+    seed_mask: np.ndarray,
+) -> np.ndarray:
+    """Filter flood clusters by hydrological connectivity to permanent seed network."""
+    return _filters_apply_hydrological_connectivity(flood_mask=flood_mask, seed_mask=seed_mask)
 
 
 def detect_flooded_vegetation(

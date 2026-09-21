@@ -18,7 +18,7 @@ sar_nodata_max_db: -100.0
 builtup_max_fraction: 0.5
 
 # SAR change detection and backscatter thresholds
-sar_flood_drop_db: 3.0
+sar_flood_drop_db: 4.5
 vh_threshold_db: -16.5
 sar_drop_vv_max_db: -14.0
 sar_drop_vh_min_db: 1.5
@@ -29,12 +29,13 @@ sar_drop_vh_max_db: -17.0
 # (vegetated, brighter) pixel. Hence the pre-date VV must be >= double_bounce_vv_pre_min_db
 # (not already open water). The resulting mask is a separate "flooded vegetation" product
 # layer and is NEVER merged into the open-water mirror (task spec: section 5).
-double_bounce_delta_vh_db: 2.0
+double_bounce_delta_vh_db: 2.5
 double_bounce_hand_max_m: 3.0
 double_bounce_slope_max_deg: 3.0
 double_bounce_vv_pre_min_db: -14.0
-slope_max_deg: 5.0
-hand_max_m: 25.0
+slope_max_deg: 3.0
+hand_max_m: 10.0
+
 
 # Orbit-aware radar-shadow guard (D3). Sentinel-1 is right-looking: descending passes
 # look west (~270 deg), ascending passes look east (~90 deg), so the shadowed terrain

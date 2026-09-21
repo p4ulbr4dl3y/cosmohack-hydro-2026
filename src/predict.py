@@ -26,7 +26,7 @@ import rasterio
 from rasterio.windows import Window
 
 from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M, SAR_READ_BLOCK_ROWS
-from src.filters import apply_mmu
+from src.filters import apply_hydrological_connectivity, apply_mmu
 from src.geo_utils import clip_by_aoi
 from src.indices import segment_optical
 from src.segmentation import (
@@ -257,12 +257,15 @@ def process_pair(
         except Exception as e:
             logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
 
-    # 6c. Apply MMU to final flood mask in full pipeline mode (Mode 4)
+    # 6c. Hydrological connectivity filter and MMU in full pipeline mode (Mode 4)
     if ablation_mode == 4:
+        # Filter flood clusters by hydrological connectivity to the permanent river network
+        if perm_mask is not None and np.any(perm_mask):
+            flood_mask = apply_hydrological_connectivity(flood_mask, perm_mask)
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
-    # Recompute areas in hectares after clipping and MMU
+    # Recompute areas in hectares after clipping, connectivity and MMU
     flood_ha = round(float(np.sum(flood_mask == 1) * PIXEL_SIZE_HA), 2)
     water_pre_ha = round(float(np.sum(water_pre_mask == 1) * PIXEL_SIZE_HA), 2)
     water_peak_ha = round(float(np.sum(water_peak_mask == 1) * PIXEL_SIZE_HA), 2)
