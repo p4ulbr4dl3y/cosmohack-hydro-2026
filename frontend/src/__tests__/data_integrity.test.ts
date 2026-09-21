@@ -101,14 +101,14 @@ describe('Data Integrity & pairs.csv Validation', () => {
       expect(row.event_id).toBeTruthy();
       expect(row.event_name).toBeTruthy();
 
-      // Validate SAR dates
+      // Проверка дат SAR
       expect(row.date_pre_sar).toMatch(isoDatePattern);
       expect(row.date_peak_sar).toMatch(isoDatePattern);
       expect(new Date(row.date_pre_sar).getTime()).toBeLessThanOrEqual(
         new Date(row.date_peak_sar).getTime()
       );
 
-      // Optical dates (if optical sensor present)
+      // Оптические даты (если оптический сенсор присутствует)
       if (row.sensor_optical) {
         expect(row.date_pre_opt).toMatch(isoDatePattern);
         expect(row.date_peak_opt).toMatch(isoDatePattern);
@@ -117,7 +117,7 @@ describe('Data Integrity & pairs.csv Validation', () => {
         );
       }
 
-      // aoi_km2 must be positive number
+      // aoi_km2 должно быть положительным числом
       const km2 = parseFloat(row.aoi_km2);
       expect(isNaN(km2)).toBe(false);
       expect(km2).toBeGreaterThan(0);
@@ -138,7 +138,7 @@ describe('Data Integrity & pairs.csv Validation', () => {
       }
     });
 
-    // Each pair's aoi_id must exist in aoi.geojson with valid polygon coordinates in Amur basin
+    // aoi_id каждой пары должен существовать в aoi.geojson с корректными координатами полигона в Амурском бассейне
     rows.forEach((row) => {
       const feature = aoiFeaturesById.get(row.aoi_id);
       expect(feature, `AOI feature for ${row.aoi_id} not found in aoi.geojson`).toBeDefined();
@@ -148,7 +148,7 @@ describe('Data Integrity & pairs.csv Validation', () => {
       expect(Array.isArray(geom.coordinates)).toBe(true);
       expect(geom.coordinates.length).toBeGreaterThan(0);
 
-      // Check coordinates lie within Amur oblast bounding region (~48..55°N, 125..135°E)
+      // Проверка, что координаты лежат в границах Амурской области (~48..55°N, 125..135°E)
       geom.coordinates[0].forEach(([lon, lat]: [number, number]) => {
         expect(typeof lon).toBe('number');
         expect(typeof lat).toBe('number');

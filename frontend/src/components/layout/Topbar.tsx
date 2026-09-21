@@ -47,7 +47,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
 
   return (
     <header className="h-14 bg-surface border-b border-border px-3 sm:px-4 flex items-center justify-between z-30 shrink-0 relative">
-      {/* Brand & Mobile Hamburger */}
+      {/* Логотип и мобильная кнопка меню */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -68,12 +68,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
         </span>
       </div>
 
-      {/* Mode Switcher on Desktop */}
+      {/* Переключатель режима на десктопе */}
       <div className="hidden md:flex items-center justify-center">
         <ModeSwitcher />
       </div>
 
-      {/* Actions */}
+      {/* Действия */}
       <div className="flex items-center gap-2 sm:gap-3">
         {recomputeSeconds !== null && (
           <div className="hidden sm:flex items-center gap-1 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 animate-in fade-in duration-200">
@@ -107,7 +107,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onRefresh, isRefreshing = false 
         </button>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Мобильное выдвижное меню */}
       {mobileMenuOpen && (
         <div className="md:hidden absolute top-14 left-0 right-0 bg-white/98 backdrop-blur-md border-b border-border shadow-xl p-4 z-50 animate-in slide-in-from-top-2 duration-150">
           <div className="text-[11px] font-bold text-text-muted uppercase tracking-wider mb-2 px-1">

@@ -794,7 +794,7 @@ export const ApiDocs: React.FC = () => {
   const currentEndpoint =
     ENDPOINTS.find((e) => e.id === selectedEndpointId) || ENDPOINTS[0];
 
-  // Auto-fill body template when switching endpoint
+  // Автозаполнение шаблона тела при переключении эндпоинта
   useEffect(() => {
     if (currentEndpoint.requestBody) {
       setPostBodyText(currentEndpoint.requestBody);
@@ -865,7 +865,7 @@ export const ApiDocs: React.FC = () => {
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#FAFBFC] text-text-primary font-sans flex flex-col">
-      {/* Topbar */}
+      {/* Верхняя панель */}
       <header className="h-14 bg-white border-b border-[#EAECF0] px-4 sm:px-6 flex items-center justify-between shrink-0 z-30 relative">
         <div className="flex items-center gap-3">
           <button
@@ -906,7 +906,7 @@ export const ApiDocs: React.FC = () => {
           </a>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Мобильное навигационное меню */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-14 left-0 right-0 bg-white/98 backdrop-blur-md border-b border-[#EAECF0] shadow-xl p-4 z-50 animate-in slide-in-from-top-2 duration-150">
             <div className="space-y-1">
@@ -939,7 +939,7 @@ export const ApiDocs: React.FC = () => {
         )}
       </header>
 
-      {/* Mobile Switcher Bar */}
+      {/* Мобильная панель переключения */}
       <div className="xl:hidden flex items-center justify-around bg-white border-b border-[#EAECF0] px-2 py-1.5 shrink-0 z-20 select-none">
         <button
           onClick={() => setMobileTab('docs')}
@@ -976,9 +976,9 @@ export const ApiDocs: React.FC = () => {
         </button>
       </div>
 
-      {/* 3-Column Layout */}
+      {/* Трёхколоночная раскладка */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Column: Endpoints Catalog Navigation */}
+        {/* Левая колонка: навигация по каталогу эндпоинтов */}
         <aside
           className={`bg-white border-r border-[#EAECF0] p-4 overflow-y-auto space-y-5 text-xs select-none shrink-0 ${
             mobileTab === 'list' ? 'w-full flex-1' : 'hidden xl:block xl:w-72'
@@ -1004,7 +1004,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           </div>
 
-          {/* Endpoints Groups */}
+          {/* Группы эндпоинтов */}
           <div className="space-y-2">
             <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase">
               ЭНДПОИНТЫ ({ENDPOINTS.length})
@@ -1044,7 +1044,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           </div>
 
-          {/* Status Codes Legend */}
+          {/* Легенда кодов состояния */}
           <div className="pt-2 border-t border-[#F1F5F9] space-y-1.5">
             <div className="text-[10px] font-bold text-text-muted tracking-wider uppercase">
               КОДЫ ОШИБОК
@@ -1070,13 +1070,13 @@ export const ApiDocs: React.FC = () => {
           </div>
         </aside>
 
-        {/* Center Column: Selected Endpoint Specification */}
+        {/* Центральная колонка: спецификация выбранного эндпоинта */}
         <main
           className={`overflow-y-auto p-4 sm:p-6 md:p-8 space-y-6 ${
             mobileTab === 'docs' ? 'flex-1 block' : 'hidden xl:block xl:flex-1'
           }`}
         >
-          {/* Mobile Quick Dropdown */}
+          {/* Мобильный быстрый список */}
           <div className="xl:hidden pb-3 border-b border-[#EAECF0]">
             <label className="text-[11px] font-bold text-text-muted uppercase tracking-wider block mb-1">
               Выберите эндпоинт:
@@ -1098,7 +1098,7 @@ export const ApiDocs: React.FC = () => {
             </select>
           </div>
 
-          {/* Breadcrumb */}
+          {/* Хлебные крошки */}
           <div className="text-xs text-text-muted flex items-center gap-1.5 font-mono">
             <span>api</span>
             <span>/</span>
@@ -1107,7 +1107,7 @@ export const ApiDocs: React.FC = () => {
             <span className="text-text-primary font-semibold">{currentEndpoint.id}</span>
           </div>
 
-          {/* Endpoint Title & Badge */}
+          {/* Заголовок эндпоинта и бейдж */}
           <div className="flex items-center gap-3">
             <span
               className={`px-3 py-1 rounded-md font-bold text-xs font-mono tracking-wide ${
@@ -1131,7 +1131,7 @@ export const ApiDocs: React.FC = () => {
             {currentEndpoint.description}
           </p>
 
-          {/* Parameters Table (if any) */}
+          {/* Таблица параметров (если есть) */}
           {currentEndpoint.params && currentEndpoint.params.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-bold text-text-primary">
@@ -1170,7 +1170,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           )}
 
-          {/* Request Body preview (if POST) */}
+          {/* Превью тела запроса (для POST) */}
           {currentEndpoint.requestBody && (
             <div className="space-y-2">
               <div className="text-xs font-bold text-text-primary">
@@ -1198,7 +1198,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           )}
 
-          {/* Response 200 */}
+          {/* Ответ 200 */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-text-primary">Ответ</span>
@@ -1227,7 +1227,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           </div>
 
-          {/* Error Codes Table */}
+          {/* Таблица кодов ошибок */}
           {currentEndpoint.errorCodes && currentEndpoint.errorCodes.length > 0 && (
             <div className="space-y-2">
               <div className="text-xs font-bold text-text-primary">
@@ -1256,7 +1256,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           )}
 
-          {/* Dynamic cURL Example (Light Theme) */}
+          {/* Динамический пример cURL (светлая тема) */}
           <div className="space-y-2">
             <div className="text-xs font-bold text-text-primary flex items-center gap-1.5">
               <Terminal className="w-3.5 h-3.5 text-text-muted" />
@@ -1289,7 +1289,7 @@ export const ApiDocs: React.FC = () => {
           </div>
         </main>
 
-        {/* Right Column: "Try it" Live Interactive Tester */}
+        {/* Правая колонка: живой интерактивный тестер "Try it" */}
         <aside
           className={`bg-white border-l border-[#EAECF0] p-4 sm:p-5 flex flex-col space-y-4 shrink-0 overflow-y-auto ${
             mobileTab === 'try' ? 'w-full flex-1' : 'hidden xl:flex xl:w-[420px]'
@@ -1325,7 +1325,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           </div>
 
-          {/* Interactive Inputs for Params */}
+          {/* Интерактивные поля для параметров */}
           {currentEndpoint.params && currentEndpoint.params.length > 0 && (
             <div className="space-y-3 bg-[#F8FAFC] p-3 rounded-xl border border-[#EAECF0]">
               <div className="text-[11px] font-bold text-text-secondary uppercase tracking-wider">
@@ -1362,7 +1362,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           )}
 
-          {/* POST Request Body Editor */}
+          {/* Редактор тела POST-запроса */}
           {currentEndpoint.method === 'POST' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-text-secondary flex items-center justify-between">
@@ -1378,7 +1378,7 @@ export const ApiDocs: React.FC = () => {
             </div>
           )}
 
-          {/* Send Button */}
+          {/* Кнопка отправки */}
           <button
             onClick={handleRunLiveRequest}
             disabled={isLoadingTest}
@@ -1392,7 +1392,7 @@ export const ApiDocs: React.FC = () => {
             </span>
           </button>
 
-          {/* Result Output */}
+          {/* Вывод результата */}
           <div className="flex-1 flex flex-col space-y-1.5 min-h-[220px]">
             <div className="flex items-center justify-between text-xs font-bold text-text-primary">
               <span>Результат</span>

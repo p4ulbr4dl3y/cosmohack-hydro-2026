@@ -66,7 +66,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const canvasRendererRef = useRef<L.Canvas | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
 
-  // Layer groups
+  // Группы слоёв
   const aoiLayerGroup = useRef<L.GeoJSON | null>(null);
   const floodLayerGroup = useRef<L.GeoJSON | null>(null);
   const waterPeakLayerGroup = useRef<L.GeoJSON | null>(null);
@@ -95,7 +95,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const effectivePairId = currentPair?.pair_id || activePairId;
   const activeGradientConfig = gradientMode !== 'none' ? GRADIENT_CONFIGS[gradientMode] : null;
 
-  // Initialize Leaflet Map
+  // Инициализация карты Leaflet
   useEffect(() => {
     if (!mapRef.current || leafletMap.current) return;
 
@@ -141,7 +141,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     };
   }, [interactive]);
 
-  // Update Basemap Tiles
+  // Обновление тайлов подложки
   useEffect(() => {
     const map = leafletMap.current;
     if (!map) return;
@@ -173,7 +173,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     tileLayerRef.current = newTile;
   }, [basemap]);
 
-  // Load AOI Polygons once (with caching)
+  // Однократная загрузка полигонов AOI (с кэшированием)
   useEffect(() => {
     let isMounted = true;
     const cachedAoi = geojsonCache.get('aoi');
@@ -194,7 +194,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     };
   }, []);
 
-  // Render AOI vector layer and fit bounds when pair or AOI changes
+  // Отрисовка векторного слоя AOI и подгонка границ при смене пары или AOI
   useEffect(() => {
     const map = leafletMap.current;
     if (!map || !aoiFeatures) return;
@@ -224,7 +224,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     aoiLayerGroup.current = layer;
 
-    // Fit bounds only when pair actually changes to prevent jittering
+    // Подгонка границ только при фактической смене пары, чтобы избежать дрожания
     const currentPairId = currentPair?.pair_id;
     if (currentPairId && lastFittedPairIdRef.current !== currentPairId) {
       lastFittedPairIdRef.current = currentPairId;
@@ -254,7 +254,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [aoiFeatures, currentPair?.pair_id, layers.aoi_boundary]);
 
-  // Load and render OSM Hydrography
+  // Загрузка и отрисовка гидрографии OSM
   useEffect(() => {
     const map = leafletMap.current;
     if (!map) return;
@@ -307,7 +307,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }).catch(() => {});
   }, [layers.osm_hydro]);
 
-  // Load and render HydroSHEDS basins
+  // Загрузка и отрисовка бассейнов HydroSHEDS
   useEffect(() => {
     const map = leafletMap.current;
     if (!map) return;
@@ -362,12 +362,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }).catch(() => {});
   }, [layers.hydrosheds]);
 
-  // Load Flood & Water mask layers for pairId (ONLY when pairId changes)
+  // Загрузка слоёв масок затопления и воды для pairId (ТОЛЬКО при смене pairId)
   useEffect(() => {
     const map = leafletMap.current;
     if (!map || !effectivePairId) return;
 
-    // Clear previous mask layers
+    // Очистка предыдущих слоёв масок
     if (floodLayerGroup.current) {
       map.removeLayer(floodLayerGroup.current);
       floodLayerGroup.current = null;
@@ -427,7 +427,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         if (layers.water_pre) gjLayer.addTo(leafletMap.current);
       }
 
-      // Smooth animated fade-in for seamless visual appearance
+      // Плавное анимированное появление для бесшовного визуального восприятия
       const start = performance.now();
       const duration = 250;
       const animateFade = (now: number) => {
@@ -452,7 +452,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     };
   }, [effectivePairId]);
 
-  // Fast style update for opacity without refetching or rebuilding layers
+  // Быстрое обновление стиля прозрачности без повторной загрузки или пересборки слоёв
   useEffect(() => {
     const opacity = layers.opacity;
 
@@ -478,7 +478,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [layers.opacity]);
 
-  // Fast toggle for flood layer
+  // Быстрое переключение слоя затопления
   useEffect(() => {
     const map = leafletMap.current;
     if (!map || !floodLayerGroup.current) return;
@@ -489,7 +489,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [layers.flood]);
 
-  // Fast toggle for water_peak layer
+  // Быстрое переключение слоя water_peak
   useEffect(() => {
     const map = leafletMap.current;
     if (!map || !waterPeakLayerGroup.current) return;
@@ -500,7 +500,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [layers.water_peak]);
 
-  // Fast toggle for water_pre layer
+  // Быстрое переключение слоя water_pre
   useEffect(() => {
     const map = leafletMap.current;
     if (!map || !waterPreLayerGroup.current) return;
@@ -511,7 +511,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [layers.water_pre]);
 
-  // Continuous raster gradient overlay (L.imageOverlay)
+  // Непрерывный растровый градиентный оверлей (L.imageOverlay)
   useEffect(() => {
     const map = leafletMap.current;
     if (!map) return;
@@ -554,7 +554,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
         gradientOverlayRef.current = overlay;
 
-        // Smooth animated fade-in for overlay
+        // Плавное анимированное появление оверлея
         const targetOpacity = gradientOpacity;
         const start = performance.now();
         const duration = 250;
@@ -582,7 +582,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     };
   }, [effectivePairId, gradientMode, currentPair]);
 
-  // Fast opacity update for gradient overlay
+  // Быстрое обновление прозрачности градиентного оверлея
   useEffect(() => {
     if (gradientOverlayRef.current) {
       gradientOverlayRef.current.setOpacity(gradientOpacity);
@@ -591,31 +591,31 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
   return (
     <div className={`relative w-full h-full overflow-hidden ${className}`}>
-      {/* Map Root */}
+      {/* Корень карты */}
       <div ref={mapRef} className="w-full h-full z-0" />
 
-      {/* Floating LayerControl (Top Right) */}
+      {/* Плавающий LayerControl (верхний правый угол) */}
       {showControls && (
         <div className="absolute top-4 right-4 z-[1000]">
           <LayerControl />
         </div>
       )}
 
-      {/* Floating Legend (Bottom Right) */}
+      {/* Плавающая легенда (нижний правый угол) */}
       {showControls && (
         <div className="absolute bottom-4 right-4 z-[1000]">
           <Legend aoiKm2={currentPair?.aoi_km2 || 1245} />
         </div>
       )}
 
-      {/* Floating Swipe Pill (Center) */}
+      {/* Плавающая плашка свайпа (по центру) */}
       {showControls && currentPair && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[990] bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-full px-3 py-1 shadow-floating flex items-center gap-2 text-xs select-none max-w-fit pointer-events-none">
           <span className="text-text-secondary whitespace-nowrap">
             ДО · {currentPair.date_pre_sar ? currentPair.date_pre_sar.slice(5) : '12.07'}
           </span>
           <span className="w-4 h-4 rounded-full bg-[#F1F5F9] flex items-center justify-center text-text-muted font-bold text-[9px]">
-            ↔
+            {'<->'}
           </span>
           <span className="text-text-secondary font-medium whitespace-nowrap">
             ПИК · {currentPair.date_peak_sar ? currentPair.date_peak_sar.slice(5) : '14.07'}
@@ -623,7 +623,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
       )}
 
-      {/* Floating Gradient Legend Card with Opacity Slider */}
+      {/* Плавающая карточка градиентной легенды с ползунком прозрачности */}
       {showControls && activeGradientConfig && (
         <div className="absolute bottom-11 left-4 z-[1000] select-none">
           {showGradientBar ? (
@@ -660,7 +660,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 <span>{activeGradientConfig.max}</span>
               </div>
 
-              {/* Inline opacity slider right inside the map card */}
+              {/* Встроенный ползунок прозрачности прямо в карточке карты */}
               <div className="pt-1 border-t border-slate-100 flex items-center justify-between gap-2 text-[10px] text-text-secondary">
                 <span className="shrink-0 text-text-muted text-[10px]">Прозрачность:</span>
                 <input
@@ -695,7 +695,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
       )}
 
-      {/* Map Status Bar (Bottom Left) */}
+      {/* Строка состояния карты (нижний левый угол) */}
       {showControls && (
         <div className="absolute bottom-2 left-4 z-[1000] bg-white/90 backdrop-blur-xs border border-border/80 rounded-md px-3 py-1 text-[11px] font-mono text-text-secondary flex items-center gap-3 shadow-xs">
           <span>

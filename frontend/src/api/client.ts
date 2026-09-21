@@ -45,9 +45,9 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-// Curated display status per pair_id, used only for sidebar categorisation.
-// Measurement values are deliberately NOT stored here: the API is the single
-// source of truth for areas, and a local number would be a fabricated figure.
+// Курируемый статус отображения по pair_id, используется только для категоризации в боковой панели.
+// Значения измерений здесь намеренно НЕ хранятся: API - единственный
+// источник истины для площадей, а локальное число было бы выдуманной величиной.
 const KNOWN_AREAS: Record<string, 'active' | 'baseline' | 'no_optical' | 'weak_signal'> = {
   baseline_2018_09_low__blagoveshchensk: 'baseline',
   baseline_2018_09_low__konstantinovka: 'baseline',
@@ -83,16 +83,16 @@ export const apiClient = {
             ...p,
             has_optical: hasOptical,
             status,
-            // Areas are omitted when the API does not report them; never invented locally.
+            // Площади опускаются, когда API их не отдаёт; локально они никогда не выдумываются.
             flood_ha: p.flood_ha ?? undefined,
           };
         });
       }
     } catch {
-      // Fallback to static csv
+      // Переход на статичный csv
     }
 
-    // Static fallback: read /data/pairs.csv
+    // Статичный запасной вариант: чтение /data/pairs.csv
     try {
       const csvRes = await fetch('/data/pairs.csv');
       if (csvRes.ok) {
@@ -180,7 +180,7 @@ export const apiClient = {
     } catch (e) {
       console.error(`fetchReport(${pairId}) failed`, e);
     }
-    // No data means no report: substituting invented numbers would fabricate measurements.
+    // Нет данных - нет отчёта: подстановка выдуманных чисел фабриковала бы измерения.
     return null;
   },
 
@@ -205,8 +205,8 @@ export const apiClient = {
     } catch (e) {
       console.error(`fetchComparison(${pairId}) failed`, e);
     }
-    // Reference rows must come from the server; synthesising them from the
-    // prediction would always report a fake "0.0% deviation".
+    // Эталонные строки должны приходить с сервера; их синтез из
+    // прогноза всегда давал бы фальшивое "отклонение 0.0%".
     return null;
   },
 
@@ -240,7 +240,7 @@ export const apiClient = {
       return { status: 'error', message: `Пересчёт не выполнен (HTTP ${res.status})` };
     } catch (e) {
       console.error('recompute failed', e);
-      // Never report a fabricated success or timing when the request did not happen.
+      // Никогда не сообщать выдуманный успех или тайминг, когда запрос не выполнялся.
       return { status: 'error', message: 'Пересчёт не выполнен: сервис недоступен' };
     }
   },
