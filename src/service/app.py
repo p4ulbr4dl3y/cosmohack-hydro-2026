@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -140,13 +141,47 @@ async def get_geojson(
 async def predict_flood(request: PredictRequest) -> dict[str, Any]:
     """Spatial-temporal inference endpoint accepting bounds / pair_id."""
     try:
+        # Validate optional requested dates (YYYY-MM-DD) and plausibility (±30 days
+        # around the pair's scene dates) before any cache lookup
+        requested_dates: dict[str, date | None] = {"date_pre": None, "date_peak": None}
+        pair_meta = data_loader.get_pair_meta(request.pair_id) if request.pair_id else None
+        for name in ("date_pre", "date_peak"):
+            val = getattr(request, name)
+            if val is None or val == "":
+                continue  # dates omitted: behave exactly as before
+            try:
+                requested_date = datetime.strptime(val, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Некорректная дата {name}: '{val}' (ожидается YYYY-MM-DD)")
+            requested_dates[name] = requested_date
+            if pair_meta is not None:
+                scene_val = pair_meta.get(f"{name}_sar")
+                if scene_val:
+                    try:
+                        scene_dt = datetime.strptime(str(scene_val), "%Y-%m-%d").date()
+                    except ValueError:
+                        continue  # unparseable scene metadata date: skip plausibility
+                    if abs((requested_date - scene_dt).days) > 30:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                f"Некорректная дата {name}: '{val}' выходит за пределы ±30 дней "
+                                f"от даты съёмки {scene_val}"
+                            ),
+                        )
+
         result = data_loader.predict_spatial_temporal(
             pair_id=request.pair_id,
             bounds=request.bounds,
             date_pre=request.date_pre,
             date_peak=request.date_peak,
         )
+        result.setdefault(
+            "requested_dates", {k: (v.isoformat() if v else None) for k, v in requested_dates.items()}
+        )
         return result
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

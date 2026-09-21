@@ -9,6 +9,29 @@ from __future__ import annotations
 import numpy as np
 
 
+def compute_receded_ha(
+    water_pre_mask: np.ndarray,
+    water_peak_mask: np.ndarray,
+    px_ha: float,
+) -> float:
+    """Compute the receded water area in hectares.
+
+    Receded pixels are those that were water on the pre-flood date but are no
+    longer water on the peak date: (water_pre == 1) & (water_peak == 0).
+
+    Args:
+        water_pre_mask: Binary mask of water on pre-event date (uint8, 0/1).
+        water_peak_mask: Binary mask of water on peak date (uint8, 0/1).
+        px_ha: Area of a single pixel in hectares.
+
+    Returns:
+        Receded area in hectares, rounded to 2 decimals.
+    """
+    receded_bool = water_pre_mask.astype(bool) & (~water_peak_mask.astype(bool))
+    receded_ha = float(np.sum(receded_bool) * px_ha)
+    return round(receded_ha, 2)
+
+
 def compute_temporal_dynamics(
     water_pre: np.ndarray,
     water_peak: np.ndarray,

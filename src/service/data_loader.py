@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,10 @@ from rasterio.enums import Resampling
 from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
 from shapely.geometry import box, shape
+
+from src.temporal import compute_receded_ha
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "hydrowatch_amur"
@@ -219,7 +224,22 @@ class DataLoader:
         flood_km2 = round(flood_ha / 100.0, 3)
         water_pre_km2 = round(water_pre_ha / 100.0, 3)
         water_peak_km2 = round(water_peak_ha / 100.0, 3)
+
+        # Receded water: water on pre date, gone by peak date (own water masks)
         receded_ha = 0.0
+        own_pre_tif = self.predictions_dir / f"{pair_id}_water_pre.tif"
+        own_peak_tif = self.predictions_dir / f"{pair_id}_water_peak.tif"
+        if own_pre_tif.exists() and own_peak_tif.exists():
+            try:
+                with rasterio.open(own_pre_tif) as pre_src, rasterio.open(own_peak_tif) as peak_src:
+                    pre_mask = pre_src.read(1)
+                    peak_mask = peak_src.read(1)
+                    res = pre_src.res
+                    px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
+                    receded_ha = compute_receded_ha(pre_mask, peak_mask, px_ha)
+            except Exception:
+                logger.warning(f"[{pair_id}] Failed to compute receded_ha from own water masks; falling back to 0.0")
+
         water_gain_ha = round(water_peak_ha - water_pre_ha, 2)
         water_gain_pct = round((water_gain_ha / water_pre_ha * 100.0), 2) if water_pre_ha > 0 else 0.0
         aoi_ha = pair_meta["aoi_ha"]
@@ -292,13 +312,17 @@ class DataLoader:
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         ref_tif = self.data_dir / str(row["reference_mask"])
 
-        # For flood layer: prioritize model predictions (<pair_id>_flood.tif)
+        # Prioritize the team's own model outputs; fall back to reference masks
+        band_map = {"flood": 1, "water_pre": 2, "water_peak": 3}
+        own_tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
         if layer == "flood" and pred_tif.exists():
             src_tif = pred_tif
             band_idx = 1
+        elif own_tif.exists():
+            src_tif = own_tif
+            band_idx = 1
         elif ref_tif.exists():
             src_tif = ref_tif
-            band_map = {"flood": 1, "water_pre": 2, "water_peak": 3}
             band_idx = band_map[layer]
         else:
             return None
@@ -391,6 +415,11 @@ class DataLoader:
             "pair_id": target_pair_id,
             "query_bounds": bounds,
             "query_dates": {"date_pre": date_pre, "date_peak": date_peak},
+            "scene_dates": {
+                "date_pre": report["date_pre_sar"],
+                "date_peak": report["date_peak_sar"],
+            },
+            "requested_dates": {"date_pre": date_pre, "date_peak": date_peak},
             "summary": {
                 "flood_ha": report["flood_ha"],
                 "flood_km2": report["flood_km2"],

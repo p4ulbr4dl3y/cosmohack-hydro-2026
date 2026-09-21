@@ -3,7 +3,30 @@ import os
 import numpy as np
 
 from src.segmentation import apply_mmu
-from src.temporal import compute_temporal_dynamics
+from src.temporal import compute_receded_ha, compute_temporal_dynamics
+
+
+def test_compute_receded_ha():
+    # pre has 10 px water, peak has 6 px water overlapping -> 4 receded px
+    water_pre = np.zeros((10, 10), dtype=np.uint8)
+    water_peak = np.zeros((10, 10), dtype=np.uint8)
+    water_pre[0, :6] = 1  # 6 px overlap region
+    water_pre[0, 6:10] = 1  # 4 px receded (water on pre, gone by peak)
+    water_peak[0, :6] = 1
+
+    # px_ha for 10 m resolution: 10*10 / 10000 = 0.01 ha/px
+    receded_ha = compute_receded_ha(water_pre, water_peak, px_ha=0.01)
+    assert receded_ha == 4 * 0.01
+    assert receded_ha == 0.04
+
+
+def test_compute_receded_ha_zero():
+    water_pre = np.full((5, 5), 1, dtype=np.uint8)
+    water_peak = np.full((5, 5), 1, dtype=np.uint8)
+    assert compute_receded_ha(water_pre, water_peak, px_ha=0.01) == 0.0
+
+    empty = np.zeros((5, 5), dtype=np.uint8)
+    assert compute_receded_ha(empty, empty, px_ha=0.01) == 0.0
 
 
 def test_temporal_dynamics_logic():

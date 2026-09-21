@@ -180,6 +180,24 @@ def process_pair(
     ) as dst:
         dst.write(flood_mask, 1)
 
+    # 7b. Write own water mask GeoTIFFs (served by the FastAPI service)
+    for water_layer in ("water_pre", "water_peak"):
+        out_tif = predictions_dir / f"{pair_id}_{water_layer}.tif"
+        with rasterio.open(
+            out_tif,
+            "w",
+            driver="GTiff",
+            height=height,
+            width=width,
+            count=1,
+            dtype=np.uint8,
+            crs=target_crs,
+            transform=target_transform,
+            compress="deflate",
+            nodata=0,
+        ) as dst:
+            dst.write(temporal[water_layer], 1)
+
     # 8. Strict Area Verification (< 2% difference between CSV and raster mask)
     raster_flood_px = int(np.sum(flood_mask == 1))
     raster_flood_ha = round(raster_flood_px * 0.01, 2)

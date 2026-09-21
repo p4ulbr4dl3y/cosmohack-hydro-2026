@@ -124,6 +124,35 @@ def test_predict_endpoint_by_bounds():
     assert "geojson" in res
 
 
+def test_predict_endpoint_invalid_date_format():
+    # Validation runs before cache lookup, so no raster data is needed
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.post("/api/v1/predict", json={"pair_id": pair_id, "date_pre": "2019/06/13"})
+    assert resp.status_code == 400
+    assert "Некорректная дата" in resp.json()["detail"]
+
+
+def test_predict_endpoint_date_out_of_range():
+    # 2019-06-13 + more than 30 days -> rejected against scene date
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.post("/api/v1/predict", json={"pair_id": pair_id, "date_pre": "2019-01-01"})
+    assert resp.status_code == 400
+    assert "Некорректная дата" in resp.json()["detail"]
+
+
+def test_predict_endpoint_valid_dates_echoed():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.post(
+        "/api/v1/predict",
+        json={"pair_id": pair_id, "date_pre": "2019-06-13", "date_peak": "2019-07-25"},
+    )
+    assert resp.status_code == 200
+    res = resp.json()
+    assert res["status"] == "success"
+    assert res["scene_dates"] == {"date_pre": "2019-06-13", "date_peak": "2019-07-25"}
+    assert res["requested_dates"] == {"date_pre": "2019-06-13", "date_peak": "2019-07-25"}
+
+
 def test_predict_endpoint_arbitrary_bounds():
     # Bounds outside coverage - should still return 200 with best matching pair or empty features
     bounds = [10.0, 10.0, 11.0, 11.0]
