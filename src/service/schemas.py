@@ -75,6 +75,8 @@ class ReportResponse(BaseModel):
     event_name: str = Field(description="Event name")
     event_kind: str = Field(description="Event kind ('flood' or 'baseline')")
     year: int = Field(description="Observation year")
+    sensor_sar: str = Field(default="", description="SAR sensor identifier, e.g. sentinel1")
+    sensor_optical: str = Field(default="", description="Optical sensor identifier, e.g. sentinel2")
     date_pre_sar: str = Field(default="", description="Pre-flood SAR date")
     date_peak_sar: str = Field(default="", description="Peak flood SAR date")
     date_pre_opt: str = Field(default="", description="Pre-flood optical date")
@@ -95,6 +97,7 @@ class ReportResponse(BaseModel):
     water_gain_pct: float = Field(description="Percentage expansion relative to pre-flood water")
     share_of_aoi: float = Field(description="Flood area fraction of entire AOI")
     flood_share_pct: float = Field(description="Flood area percentage of entire AOI")
+    generated_at: str = Field(default="", description="UTC timestamp when the report was generated")
     landcover: LandcoverDistribution = Field(description="Vulnerability and landcover breakdown")
 
 

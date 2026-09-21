@@ -28,6 +28,43 @@ def test_data_loader_fresh_cache_report(tmp_path):
     assert rep2 == rep
 
 
+def test_data_loader_report_exposes_sensor_and_generation_metadata(tmp_path):
+    loader = DataLoader(cache_dir=tmp_path / "cache")
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    rep = loader.get_report(pair_id)
+
+    assert rep["sensor_sar"] == "sentinel1"
+    assert rep["sensor_optical"] == ""
+    # UTC ISO-8601 timestamp produced at report build time
+    assert rep["generated_at"].endswith("+00:00")
+
+
+def test_data_loader_backfills_legacy_cached_report(tmp_path):
+    """Reports cached before the sensor/generated_at fields existed are upgraded on read."""
+    import json
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    # Simulate a stale cache entry written by an older schema version
+    stale = {
+        "pair_id": pair_id,
+        "aoi_id": "blagoveshchensk",
+        "flood_ha": 996.37,
+        "landcover": {},
+    }
+    stale_file = cache_dir / f"report_{pair_id}.json"
+    stale_file.write_text(json.dumps(stale), encoding="utf-8")
+
+    rep = DataLoader(cache_dir=cache_dir).get_report(pair_id)
+
+    assert rep["sensor_sar"] == "sentinel1"
+    assert rep["generated_at"].endswith("+00:00")
+    # Original metrics are preserved
+    assert rep["flood_ha"] == 996.37
+
+
 def test_data_loader_fresh_cache_geojson(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
     pair_id = "flood_2019_07_amur__blagoveshchensk"

@@ -6,6 +6,7 @@ import glob
 import json
 import logging
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -178,6 +179,20 @@ class DataLoader:
     def get_pairs(self) -> list[dict[str, Any]]:
         return self._pairs_cache
 
+    def _backfill_report_metadata(self, data: dict[str, Any], pair_id: str, cache_file: Path) -> None:
+        """Backfill sensor/generation metadata into reports cached before schema v1.1.
+
+        Reports written by older code lack `sensor_*` and `generated_at`; the disk
+        mtime is a faithful stand-in for the generation timestamp.
+        """
+        pair_meta = self.get_pair_meta(pair_id)
+        if pair_meta:
+            data.setdefault("sensor_sar", pair_meta.get("sensor_sar", ""))
+            data.setdefault("sensor_optical", pair_meta.get("sensor_optical", ""))
+        if not data.get("generated_at"):
+            mtime = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=UTC)
+            data["generated_at"] = mtime.isoformat(timespec="seconds")
+
     def get_pair_meta(self, pair_id: str) -> dict[str, Any] | None:
         for p in self._pairs_cache:
             if p["pair_id"] == pair_id:
@@ -192,8 +207,9 @@ class DataLoader:
         if cache_file.exists():
             with open(cache_file, encoding="utf-8") as f:
                 data = json.load(f)
-                self._reports_cache[pair_id] = data
-                return data
+            self._backfill_report_metadata(data, pair_id, cache_file)
+            self._reports_cache[pair_id] = data
+            return data
 
         pair_meta = self.get_pair_meta(pair_id)
         if not pair_meta:
@@ -377,6 +393,9 @@ class DataLoader:
             "event_name": pair_meta["event_name"],
             "event_kind": pair_meta["event_kind"],
             "year": pair_meta["year"],
+            "sensor_sar": pair_meta.get("sensor_sar", ""),
+            "sensor_optical": pair_meta.get("sensor_optical", ""),
+            "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "date_pre_sar": pair_meta["date_pre_sar"],
             "date_peak_sar": pair_meta["date_peak_sar"],
             "date_pre_opt": pair_meta["date_pre_opt"],
