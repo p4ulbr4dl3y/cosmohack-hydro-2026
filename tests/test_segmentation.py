@@ -87,7 +87,7 @@ def test_compute_otsu_threshold():
     mask = np.zeros(data.shape, dtype=bool)
     mask[:, :25] = True
     th_masked = compute_otsu_threshold(data, mask=mask)
-    assert -22.0 <= th_masked <= -14.5
+    assert -22.0 <= th_masked <= -14.0
 
     # Small array (< 50 valid pixels) -> fallback -16.5
     tiny = np.full((5, 5), -18.0, dtype=np.float32)

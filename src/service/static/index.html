@@ -1025,6 +1025,8 @@
             const props = feat.properties || {};
             l.bindPopup(`
               <div class="popup-title"><i class="fa-solid fa-triangle-exclamation"></i> Зона затопления</div>
+              <div class="popup-row"><span>Контур:</span> <span class="popup-val">${props.contour_id || 'N/A'}</span></div>
+              <div class="popup-row"><span>Площадь:</span> <span class="popup-val">${props.area_ha != null ? props.area_ha + ' га' : 'N/A'}</span></div>
               <div class="popup-row"><span>Пара:</span> <span class="popup-val">${props.pair_id || pairId}</span></div>
               <div class="popup-row"><span>Район:</span> <span class="popup-val">${props.aoi_name || ''}</span></div>
               <div class="popup-row"><span>Дата пика:</span> <span class="popup-val">${props.date_peak || ''}</span></div>
@@ -1046,8 +1048,11 @@
             weight: 1
           },
           onEachFeature: (feat, l) => {
+            const props = feat.properties || {};
             l.bindPopup(`
               <div class="popup-title"><i class="fa-solid fa-water"></i> Водное зеркало «До»</div>
+              <div class="popup-row"><span>Контур:</span> <span class="popup-val">${props.contour_id || 'N/A'}</span></div>
+              <div class="popup-row"><span>Площадь:</span> <span class="popup-val">${props.area_ha != null ? props.area_ha + ' га' : 'N/A'}</span></div>
               <div class="popup-row"><span>Слой:</span> <span class="popup-val">Water Pre</span></div>
             `);
           }
@@ -1066,8 +1071,11 @@
             weight: 1
           },
           onEachFeature: (feat, l) => {
+            const props = feat.properties || {};
             l.bindPopup(`
               <div class="popup-title"><i class="fa-solid fa-water"></i> Водное зеркало «Пик»</div>
+              <div class="popup-row"><span>Контур:</span> <span class="popup-val">${props.contour_id || 'N/A'}</span></div>
+              <div class="popup-row"><span>Площадь:</span> <span class="popup-val">${props.area_ha != null ? props.area_ha + ' га' : 'N/A'}</span></div>
               <div class="popup-row"><span>Слой:</span> <span class="popup-val">Water Peak</span></div>
             `);
           }

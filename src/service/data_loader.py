@@ -211,8 +211,9 @@ class DataLoader:
                 hist_water_ha = round(b_hist * px_ha, 2)
                 new_flood_ha = round(b_new * px_ha, 2)
                 hist_pct = round(b_hist / tot_pix * 100.0, 2)
-                new_pct = round(b_new / tot_pix * 100.0, 2)
-                mean_hand = round(float(np.mean(hand[flood_pts])), 2)
+                valid_hand = hand[flood_pts]
+                valid_hand = valid_hand[np.isfinite(valid_hand) & (valid_hand >= 0)]
+                mean_hand = round(float(np.mean(valid_hand)), 2) if len(valid_hand) > 0 else 0.0
 
         if flood_ha is None:
             flood_ha = 0.0
@@ -335,21 +336,29 @@ class DataLoader:
             if poly_shapes:
                 geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
                 gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
-                # Remove single-pixel noise polygons (<100 m²) to optimize web transfer
-                gdf = gdf[gdf.geometry.area >= 100]
+                # Keep polygons >= 500 m² (0.05 ha) to avoid sub-pixel noise while preserving real flood patches
+                gdf = gdf[gdf.geometry.area >= 500].copy()
                 if not gdf.empty:
-                    area_ha = round(float(gdf.geometry.area.sum() / 10000.0), 2)
-                    dissolved = gdf.dissolve().to_crs(epsg=4326).simplify(0.00015)
-                    geojson_dict = json.loads(dissolved.to_json())
-                    for feat in geojson_dict.get("features", []):
-                        feat["properties"] = {
-                            "area_ha": area_ha,
-                            "pair_id": pair_id,
-                            "layer": layer,
-                            "aoi_name": pair_meta["aoi_name"],
-                            "event_name": pair_meta["event_name"],
-                            "date_peak": pair_meta["date_peak_sar"],
-                        }
+                    gdf["area_sqm"] = gdf.geometry.area
+                    gdf = gdf.sort_values(by="area_sqm", ascending=False).reset_index(drop=True)
+                    # Cap to top 300 largest contours to maintain instant web map response
+                    if len(gdf) > 300:
+                        gdf = gdf.iloc[:300].copy()
+
+                    gdf["contour_id"] = [f"{layer}_{i + 1:04d}" for i in range(len(gdf))]
+                    gdf["area_ha"] = (gdf["area_sqm"] / 10000.0).round(2)
+                    gdf = gdf.drop(columns=["area_sqm"])
+                    gdf["pair_id"] = pair_id
+                    gdf["layer"] = layer
+                    gdf["aoi_name"] = pair_meta["aoi_name"]
+                    gdf["event_name"] = pair_meta["event_name"]
+                    gdf["date_peak"] = pair_meta["date_peak_sar"]
+
+                    gdf_4326 = gdf.to_crs(epsg=4326)
+                    gdf_4326["geometry"] = gdf_4326.geometry.simplify(0.00015)
+                    gdf_4326 = gdf_4326[~gdf_4326.geometry.is_empty & gdf_4326.geometry.is_valid]
+
+                    geojson_dict = json.loads(gdf_4326.to_json())
                     geojson_dict["name"] = f"{pair_id}_{layer}"
                     with open(cache_file, "w", encoding="utf-8") as f:
                         json.dump(geojson_dict, f, ensure_ascii=False)

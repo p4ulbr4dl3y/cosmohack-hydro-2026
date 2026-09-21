@@ -233,7 +233,7 @@ def load_aux_priors(
             resampling=Resampling.nearest,
         )
 
-    topo_mask = (slope <= slope_max) & (hand <= hand_max) & (builtup < 0.5)
+    topo_mask = (slope <= slope_max) & (hand <= hand_max)
     permanent_mask = occurrence >= gsw_min
 
     return {
@@ -340,8 +340,13 @@ def segment_water(
     cfg = load_config()
     drop_thresh = float(cfg["sar_flood_drop_db"])
     vh_thresh = float(cfg["vh_threshold_db"])
+    sar_drop_vv_max = float(cfg.get("sar_drop_vv_max_db", -14.0))
+    sar_drop_vh_min = float(cfg.get("sar_drop_vh_min_db", 1.5))
+    sar_drop_vh_max = float(cfg.get("sar_drop_vh_max_db", -17.0))
     db_delta = float(cfg["double_bounce_delta_vh_db"])
     db_hand_max = float(cfg["double_bounce_hand_max_m"])
+    db_slope_max = float(cfg.get("double_bounce_slope_max_deg", 3.0))
+    db_vv_ref_max = float(cfg.get("double_bounce_vv_ref_max_db", -14.0))
     mmu_pixels = mmu_min_size if mmu_min_size is not None else int(cfg["mmu_min_pixels"])
 
     sar_valid = np.isfinite(vv) & (vv > -100.0)
@@ -354,8 +359,9 @@ def segment_water(
     mask_for_otsu = topo_mask if (use_topo and topo_mask is not None) else None
     th_vv = compute_otsu_threshold(vv_filt, mask=mask_for_otsu)
 
-    # Open water by constrained Otsu within floodplain
-    otsu_water = (vv_filt < th_vv) & sar_valid
+    # Open water by constrained Otsu within floodplain (exclude dry built-up asphalt)
+    builtup_clean = (builtup < 0.5) if builtup is not None else True
+    otsu_water = (vv_filt < th_vv) & sar_valid & builtup_clean
     if vh_filt is not None:
         otsu_water = otsu_water & (vh_filt < vh_thresh)
 
@@ -365,11 +371,11 @@ def segment_water(
     if is_peak and vv_ref is not None:
         vv_ref_filt = speckle_filter(vv_ref, method=filter_method, size=filter_size)
         drop = vv_ref_filt - vv_filt
-        drop_cond = (drop >= drop_thresh) & (vv_filt < -14.0)
+        drop_cond = (drop >= drop_thresh) & (vv_filt < sar_drop_vv_max)
         if vh_filt is not None and vh_ref is not None:
             vh_ref_filt = speckle_filter(vh_ref, method=filter_method, size=filter_size)
             drop_vh = vh_ref_filt - vh_filt
-            drop_cond = drop_cond & (drop_vh >= 1.5) & (vh_filt < -17.0)
+            drop_cond = drop_cond & (drop_vh >= sar_drop_vh_min) & (vh_filt < sar_drop_vh_max)
 
         # Peak water combines drop >= 3dB and constrained Otsu water
         sar_water = (sar_water | drop_cond) & sar_valid
@@ -379,14 +385,13 @@ def segment_water(
         if vh_filt is not None and vh_ref is not None and hand is not None and slope is not None:
             vh_ref_filt = speckle_filter(vh_ref, method=filter_method, size=filter_size)
             delta_vh = vh_filt - vh_ref_filt
-            builtup_clean = builtup < 0.5 if builtup is not None else True
             db_cond = (
                 (delta_vh >= db_delta)
                 & (hand <= db_hand_max)
-                & (slope <= 3.0)
+                & (slope <= db_slope_max)
                 & builtup_clean
                 & sar_valid
-                & (vv_ref_filt < -14.0)
+                & (vv_ref_filt < db_vv_ref_max)
             )
             sar_water = (sar_water | db_cond) & sar_valid
 
