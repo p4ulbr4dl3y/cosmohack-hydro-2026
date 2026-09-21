@@ -87,12 +87,44 @@ def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         run_benchmark(tmp_path / "missing.csv", tmp_path, tmp_path)
 
-    # Valid run with mocked process_pair
-    monkeypatch.setattr("src.cli.process_pair", lambda **kwargs: None)
+    # Valid run with mocked process_pair creating a file in predictions_dir
+    def mock_process_pair(predictions_dir, **kwargs):
+        (predictions_dir / "bench_file.tif").write_text("data")
+
+    monkeypatch.setattr("src.cli.process_pair", mock_process_pair)
     run_benchmark(dummy_csv, tmp_path, tmp_path, iterations=1)
     out = capsys.readouterr().out
     assert "BENCHMARK RESULTS" in out
     assert "Throughput:" in out
+
+
+def test_check_s1_data_available_success(tmp_path, monkeypatch):
+    from src.cli import check_s1_data_available
+
+    monkeypatch.setattr("src.cli.missing_s1_pairs", lambda p, d: [])
+    assert check_s1_data_available(tmp_path / "pairs.csv", tmp_path) is True
+
+
+def test_run_fetch_download_and_missing_scenes(tmp_path, monkeypatch, capsys):
+    import sys
+    import types
+
+    from src.cli import run_fetch
+
+    dummy_csv = tmp_path / "pairs.csv"
+    dummy_csv.write_text("pair_id\n", encoding="utf-8")
+    archive = tmp_path / "to_download.zip"
+
+    fake_gdown = types.ModuleType("gdown")
+    fake_gdown.download = lambda url, output, quiet: Path(output).write_bytes(b"PKfake")
+    monkeypatch.setitem(sys.modules, "gdown", fake_gdown)
+    monkeypatch.setattr("src.cli.safe_extract", lambda arc, dest: 3)
+    monkeypatch.setattr("src.cli.missing_s1_pairs", lambda pairs, d: ["missing_pair_1"])
+
+    run_fetch(dummy_csv, tmp_path / "extracted", archive_output=archive, keep_archive=True)
+    captured = capsys.readouterr()
+    assert "Downloading dataset" in captured.err
+    assert "Warning: S1 scenes still missing" in captured.err
 
 
 def test_run_fetch_mocked(tmp_path, monkeypatch, capsys):
@@ -141,3 +173,12 @@ def test_main_subcommand_dispatching(monkeypatch):
     monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "benchmark"])
     main()
     assert called.get("benchmark")
+
+
+def test_cli_main_module_execution(monkeypatch):
+    import runpy
+
+    with pytest.raises(SystemExit) as exc:
+        monkeypatch.setattr("sys.argv", ["hydrowatch-cli", "--help"])
+        runpy.run_module("src.cli", run_name="__main__")
+    assert exc.value.code == 0

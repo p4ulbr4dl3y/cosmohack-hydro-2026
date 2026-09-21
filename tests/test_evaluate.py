@@ -223,3 +223,82 @@ def test_evaluate_main_cli(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "HYDRO-MONITORING EVALUATION RESULTS" in out
     assert "Composite Score: 1.0000" in out
+
+
+def test_evaluate_main_run_ablations(tmp_path, monkeypatch):
+    dummy_pairs = tmp_path / "pairs.csv"
+    dummy_pairs.write_text("pair_id,event_kind,reference_mask,rasters_dir\np1,flood,ref.tif,r1\n", encoding="utf-8")
+    ref_json = tmp_path / "ref.json"
+    ref_json.write_text(
+        json.dumps(
+            {
+                "stats": {
+                    "aoi_ha": 1000.0,
+                    "flood_ha": 50.0,
+                    "water_pre_ha": 100.0,
+                    "water_peak_ha": 150.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    called = {}
+    monkeypatch.setattr("src.evaluate.run_ablation_study", lambda **kwargs: called.setdefault("ablations", True))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "evaluate.py",
+            "--pairs",
+            str(dummy_pairs),
+            "--data_dir",
+            str(tmp_path),
+            "--run_ablations",
+            "--output_json",
+            str(tmp_path / "out.json"),
+        ],
+    )
+    eval_main()
+    assert called.get("ablations")
+
+
+def test_evaluate_main_submission_not_found(tmp_path, monkeypatch):
+    dummy_pairs = tmp_path / "pairs.csv"
+    dummy_pairs.write_text("pair_id,event_kind,reference_mask,rasters_dir\np1,flood,ref.tif,r1\n", encoding="utf-8")
+    ref_json = tmp_path / "ref.json"
+    ref_json.write_text(
+        json.dumps(
+            {
+                "stats": {
+                    "aoi_ha": 1000.0,
+                    "flood_ha": 50.0,
+                    "water_pre_ha": 100.0,
+                    "water_peak_ha": 150.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "evaluate.py",
+            "--pairs",
+            str(dummy_pairs),
+            "--data_dir",
+            str(tmp_path),
+            "--submission",
+            str(tmp_path / "nonexistent_sub.csv"),
+        ],
+    )
+    eval_main()
+
+
+def test_evaluate_main_module_execution(monkeypatch):
+    import runpy
+
+    with pytest.raises(SystemExit) as exc:
+        monkeypatch.setattr("sys.argv", ["evaluate.py", "--help"])
+        runpy.run_module("src.evaluate", run_name="__main__")
+    assert exc.value.code == 0

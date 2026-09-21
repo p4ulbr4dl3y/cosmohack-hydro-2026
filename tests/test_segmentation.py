@@ -5,6 +5,7 @@ import rasterio
 from rasterio.transform import from_origin
 
 from src.segmentation import (
+    apply_mmu,
     compute_otsu_threshold,
     load_aux_priors,
     load_config,
@@ -29,6 +30,11 @@ def test_load_config_defaults(tmp_path):
     assert cfg_custom["otsu_min_db"] == -25.0
     assert cfg_custom["mmu_min_pixels"] == 50
     assert cfg_custom["slope_max_deg"] == 5.0  # default filled in
+
+    # Reset cache so other tests use project defaults
+    import src.segmentation as seg
+
+    seg._CONFIG_CACHE = None
 
 
 def test_refined_lee_filter_basic():
@@ -285,3 +291,65 @@ def test_segment_water_comprehensive():
         use_mmu=False,
     )
     assert fused[2, 2] == 1
+
+
+def test_segment_optical_no_valid(tmp_path):
+    """All invalid pixels in optical bands return None and zeros valid mask (line 289)."""
+    shape = (10, 10)
+    opt_tif = tmp_path / "all_invalid_s2.tif"
+    s2_data = np.full((8, 10, 10), -999.0, dtype=np.float32)
+    transform = from_origin(127.0, 50.0, 10.0, 10.0)
+
+    with rasterio.open(
+        opt_tif,
+        "w",
+        driver="GTiff",
+        height=10,
+        width=10,
+        count=8,
+        dtype=np.float32,
+        crs="EPSG:32652",
+        transform=transform,
+    ) as dst:
+        dst.write(s2_data)
+
+    opt_water, valid_mask = segment_optical(opt_tif, shape)
+    assert opt_water is None
+    assert valid_mask.shape == shape
+    assert not np.any(valid_mask)
+
+
+def test_apply_mmu_config_fallback_and_zero_features(monkeypatch):
+    """apply_mmu loads config when min_size is None (lines 303-304) and handles 0 features (line 312)."""
+    # 0. Empty mask early return (line 307)
+    empty = np.zeros((5, 5), dtype=bool)
+    assert np.array_equal(apply_mmu(empty), empty)
+
+    mask = np.zeros((10, 10), dtype=bool)
+    mask[2:5, 2:5] = True
+
+    # 1. min_size is None -> calls load_config()
+    cleaned = apply_mmu(mask, min_size=None)
+    assert cleaned.shape == mask.shape
+
+    # 2. num_features == 0 fallback
+    monkeypatch.setattr("src.segmentation.label", lambda m, structure=None: (np.zeros_like(m), 0))
+    res = apply_mmu(mask, min_size=10)
+    assert np.array_equal(res, mask)
+
+
+def test_segment_water_sar_nodata_non_peak():
+    """When SAR is nodata and permanent_mask present, but is_peak=False, returns permanent_mask copy (line 407)."""
+    shape = (20, 20)
+    vv_nodata = np.full(shape, -999.0, dtype=np.float32)
+    perm_mask = np.zeros(shape, dtype=bool)
+    perm_mask[5:11, 5:11] = True  # 36 pixels > 25 mmu threshold
+
+    water = segment_water(
+        vv=vv_nodata,
+        permanent_mask=perm_mask,
+        is_peak=False,
+        use_permanent=True,
+        use_mmu=True,
+    )
+    assert np.array_equal(water, perm_mask.astype(np.uint8))

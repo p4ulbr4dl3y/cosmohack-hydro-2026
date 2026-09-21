@@ -203,3 +203,61 @@ def test_shapefile_endpoint():
     assert resp.headers["content-type"] == "application/zip"
     assert len(resp.content) > 0
     assert client.get("/api/v1/shapefile/non_existent_pair").status_code == 404
+
+
+def test_geojson_invalid_layer():
+    resp = client.get("/api/v1/geojson/flood_2019_07_amur__blagoveshchensk?layer=invalid_layer")
+    assert resp.status_code == 400
+    assert "Invalid layer" in resp.json()["detail"]
+
+
+def test_shapefile_invalid_layer():
+    resp = client.get("/api/v1/shapefile/flood_2019_07_amur__blagoveshchensk?layer=invalid_layer")
+    assert resp.status_code == 400
+    assert "Invalid layer" in resp.json()["detail"]
+
+
+def test_geotiff_endpoint():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    # Success
+    resp = client.get(f"/api/v1/geotiff/{pair_id}?layer=flood")
+    assert resp.status_code == 200
+    assert "image/tiff" in resp.headers["content-type"]
+    assert len(resp.content) > 0
+
+    # Invalid layer
+    resp_inv = client.get(f"/api/v1/geotiff/{pair_id}?layer=invalid_layer")
+    assert resp_inv.status_code == 400
+    assert "Invalid layer" in resp_inv.json()["detail"]
+
+    # 404 not found
+    resp_404 = client.get("/api/v1/geotiff/non_existent_pair?layer=flood")
+    assert resp_404.status_code == 404
+    assert "not found" in resp_404.json()["detail"]
+
+
+def test_predict_endpoint_unparseable_scene_date(monkeypatch):
+    from src.service.app import data_loader
+
+    orig_meta = data_loader.get_pair_meta("flood_2019_07_amur__blagoveshchensk")
+    assert orig_meta is not None
+    tampered_meta = dict(orig_meta)
+    tampered_meta["date_pre_sar"] = "invalid-scene-date"
+
+    monkeypatch.setattr(
+        data_loader,
+        "get_pair_meta",
+        lambda pid: tampered_meta if pid == "flood_2019_07_amur__blagoveshchensk" else orig_meta,
+    )
+    resp = client.post(
+        "/api/v1/predict",
+        json={"pair_id": "flood_2019_07_amur__blagoveshchensk", "date_pre": "2019-06-13"},
+    )
+    assert resp.status_code == 200
+
+
+def test_static_index_html_not_found(monkeypatch, tmp_path):
+    monkeypatch.setattr("src.service.app.STATIC_DIR", tmp_path / "nonexistent_static")
+    resp = client.get("/")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "index.html not found"

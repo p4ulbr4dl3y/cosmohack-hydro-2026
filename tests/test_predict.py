@@ -1,10 +1,14 @@
 """Tests for predict module and end-to-end inference pipeline."""
 
+import runpy
+
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
 import rasterio
 from rasterio.transform import from_origin
+from shapely.geometry import Polygon
 
 from src.predict import main as predict_main
 from src.predict import process_pair, run_prediction
@@ -173,3 +177,111 @@ def test_run_prediction_and_main(synthetic_pair_env, tmp_path, monkeypatch):
     )
     predict_main()
     assert sub_cli_csv.exists()
+
+
+def test_process_pair_missing_s1_rasters_raises(synthetic_pair_env):
+    """Missing S1 pre/peak rasters raises FileNotFoundError (line 63)."""
+    empty_rasters = synthetic_pair_env["data_dir"] / "rasters" / "empty_pair"
+    empty_rasters.mkdir(parents=True, exist_ok=True)
+    bad_row = pd.Series(
+        {
+            "pair_id": "empty_pair",
+            "rasters_dir": "rasters/empty_pair",
+            "reference_mask": "reference_masks/ref_pair1.tif",
+        }
+    )
+    with pytest.raises(FileNotFoundError, match="Missing S1 pre/peak rasters"):
+        process_pair(bad_row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"])
+
+
+def test_process_pair_no_reference_mask_fallback(synthetic_pair_env):
+    """Reference mask non-existent derives geometry from s1_pre (lines 72-75)."""
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "no_ref_pair"
+    row["reference_mask"] = "reference_masks/non_existent.tif"
+    res = process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=1)
+    assert res["pair_id"] == "no_ref_pair"
+    assert (synthetic_pair_env["predictions_dir"] / "no_ref_pair_flood.tif").exists()
+
+
+def test_process_pair_aoi_geojson_clipping(synthetic_pair_env):
+    """AOI polygon boundary clipping filters out pixels outside AOI (lines 176-185)."""
+    data_dir = synthetic_pair_env["data_dir"]
+    vectors_dir = data_dir / "vectors"
+    vectors_dir.mkdir(parents=True, exist_ok=True)
+
+    # Polygon covering half the domain: x from 127 to 200, y from -100 to 50
+    poly = Polygon([(127.0, 50.0), (200.0, 50.0), (200.0, -100.0), (127.0, -100.0)])
+    gdf = gpd.GeoDataFrame({"aoi_id": ["aoi_clip_test"]}, geometry=[poly], crs="EPSG:32652")
+    gdf.to_file(vectors_dir / "aoi.geojson", driver="GeoJSON")
+
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "clipped_pair"
+    row["aoi_id"] = "aoi_clip_test"
+
+    res = process_pair(row, data_dir, synthetic_pair_env["predictions_dir"], ablation_mode=1)
+    assert res["pair_id"] == "clipped_pair"
+    assert (synthetic_pair_env["predictions_dir"] / "clipped_pair_flood.tif").exists()
+
+
+def test_process_pair_aoi_clipping_exception(synthetic_pair_env, monkeypatch):
+    """Exception during AOI clipping is logged and handled gracefully (lines 186-187)."""
+    data_dir = synthetic_pair_env["data_dir"]
+    vectors_dir = data_dir / "vectors"
+    vectors_dir.mkdir(parents=True, exist_ok=True)
+    # Corrupt aoi.geojson file
+    (vectors_dir / "aoi.geojson").write_text("invalid json content", encoding="utf-8")
+
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "corrupt_aoi_pair"
+    row["aoi_id"] = "some_aoi"
+
+    res = process_pair(row, data_dir, synthetic_pair_env["predictions_dir"], ablation_mode=1)
+    assert res["pair_id"] == "corrupt_aoi_pair"
+
+
+def test_process_pair_area_mismatch_warning_and_assert(synthetic_pair_env, monkeypatch):
+    """Area mismatch >= 2.0% logs warning and raises AssertionError (line 243)."""
+    calls = 0
+    real_sum = np.sum
+
+    def fake_sum(a, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        val = real_sum(a, *args, **kwargs)
+        if calls == 9:  # raster_flood_px in area verification
+            return val + 500
+        return val
+
+    monkeypatch.setattr("src.predict.np.sum", fake_sum)
+    row = synthetic_pair_env["row"].copy()
+    row["pair_id"] = "mismatch_pair"
+
+    with pytest.raises(AssertionError, match="Area verification failed"):
+        process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=1)
+
+
+def test_predict_main_module_execution(synthetic_pair_env, monkeypatch):
+    """Execute predict.py as __main__ (line 305)."""
+    pairs_csv = synthetic_pair_env["data_dir"] / "pairs.csv"
+    pd.DataFrame([synthetic_pair_env["row"].to_dict()]).to_csv(pairs_csv, index=False)
+    sub_csv = synthetic_pair_env["predictions_dir"] / "dummy_main_sub.csv"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "predict.py",
+            "--pairs",
+            str(pairs_csv),
+            "--data_dir",
+            str(synthetic_pair_env["data_dir"]),
+            "--output_csv",
+            str(sub_csv),
+            "--predictions_dir",
+            str(synthetic_pair_env["predictions_dir"]),
+            "--ablation_mode",
+            "1",
+        ],
+    )
+    runpy.run_module("src.predict", run_name="__main__")
+    assert sub_csv.exists()
