@@ -28,3 +28,4 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+src/service/cache/
