@@ -48,6 +48,10 @@ for (const [source] of DATA_FILES) {
 if (missing.length > 0) {
   console.error('[sync-assets] missing source paths:');
   for (const m of missing) console.error(`  - ${path.relative(repoRoot, m)}`);
+  console.error(
+    'Restore the committed offline assets with:\n' +
+      '  git checkout -- src/service/static/vendor src/service/static/icons'
+  );
   process.exit(1);
 }
 
