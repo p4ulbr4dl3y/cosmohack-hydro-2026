@@ -54,7 +54,6 @@ def process_pair(
     """
     pair_id = str(row["pair_id"])
     rasters_dir = data_dir / str(row["rasters_dir"])
-    ref_tif_path = data_dir / str(row["reference_mask"])
 
     # 1. Locate Sentinel-1 rasters first to allow standalone geometry fallback
     s1_pre_files = sorted(glob.glob(str(rasters_dir / "S1_pre_*.tif")))
@@ -63,17 +62,12 @@ def process_pair(
     if not s1_pre_files or not s1_peak_files:
         raise FileNotFoundError(f"Missing S1 pre/peak rasters in {rasters_dir}")
 
-    # Target geometry: use reference raster if present, otherwise derive from S1 scene
-    if ref_tif_path.exists():
-        with rasterio.open(ref_tif_path) as ref_src:
-            target_shape = ref_src.shape
-            target_transform = ref_src.transform
-            target_crs = ref_src.crs
-    else:
-        with rasterio.open(s1_pre_files[0]) as s1_src:
-            target_shape = s1_src.shape
-            target_transform = s1_src.transform
-            target_crs = s1_src.crs
+    # Target geometry: derive from the Sentinel-1 scene grid (native sensor grid).
+    # The reference raster is only a fallback when S1 metadata is unavailable.
+    with rasterio.open(s1_pre_files[0]) as s1_src:
+        target_shape = s1_src.shape
+        target_transform = s1_src.transform
+        target_crs = s1_src.crs
 
     height, width = target_shape
 

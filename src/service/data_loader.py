@@ -19,6 +19,7 @@ from rasterio.features import shapes
 from rasterio.warp import reproject, transform_bounds
 from shapely.geometry import box, mapping, shape
 
+from src.config import HydroConfig
 from src.temporal import compute_receded_ha
 
 logger = logging.getLogger(__name__)
@@ -244,6 +245,7 @@ class DataLoader:
                 hist_water_ha = round(b_hist * px_ha, 2)
                 new_flood_ha = round(b_new * px_ha, 2)
                 hist_pct = round(b_hist / tot_pix * 100.0, 2)
+                new_pct = round(b_new / tot_pix * 100.0, 2)
                 valid_hand = hand[flood_pts]
                 valid_hand = valid_hand[np.isfinite(valid_hand) & (valid_hand >= 0)]
                 mean_hand = round(float(np.mean(valid_hand)), 2) if len(valid_hand) > 0 else 0.0
@@ -338,6 +340,11 @@ class DataLoader:
         if layer not in ("flood", "water_pre", "water_peak"):
             return None
 
+        # Contour export limits come from config (0 contours = unlimited)
+        cfg = HydroConfig.from_yaml()
+        min_area_sqm = float(cfg.extra.get("geojson_min_area_sqm", 500.0))
+        max_contours = int(cfg.extra.get("geojson_max_contours", 0))
+
         cache_file = self.cache_dir / f"{pair_id}_{layer}.geojson"
         if cache_file.exists():
             with open(cache_file, encoding="utf-8") as f:
@@ -368,14 +375,14 @@ class DataLoader:
             if poly_shapes:
                 geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
                 gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
-                # Keep polygons >= 500 m² (0.05 ha) to avoid sub-pixel noise while preserving real flood patches
-                gdf = gdf[gdf.geometry.area >= 500].copy()
+                # Keep polygons >= min area to avoid sub-pixel noise while preserving real flood patches
+                gdf = gdf[gdf.geometry.area >= min_area_sqm].copy()
                 if not gdf.empty:
                     gdf["area_sqm"] = gdf.geometry.area
                     gdf = gdf.sort_values(by="area_sqm", ascending=False).reset_index(drop=True)
-                    # Cap to top 300 largest contours to maintain instant web map response
-                    if len(gdf) > 300:
-                        gdf = gdf.iloc[:300].copy()
+                    # Optional cap on contour count (config-driven, 0 = keep all contours)
+                    if max_contours > 0 and len(gdf) > max_contours:
+                        gdf = gdf.iloc[:max_contours].copy()
 
                     gdf["contour_id"] = [f"{layer}_{i + 1:04d}" for i in range(len(gdf))]
                     gdf["area_ha"] = (gdf["area_sqm"] / 10000.0).round(2)
