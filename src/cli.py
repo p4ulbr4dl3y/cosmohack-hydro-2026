@@ -105,7 +105,8 @@ def run_benchmark(
     data_dir: Path,
     predictions_dir: Path,
     iterations: int = 1,
-) -> None:
+    output_json: Path | None = None,
+) -> dict[str, float]:
     """Benchmark inference latency and memory throughput."""
     if not pairs_csv_path.exists():
         print(f"Error: pairs CSV not found at {pairs_csv_path}", file=sys.stderr)
@@ -156,6 +157,23 @@ def run_benchmark(
     print(f"Throughput:             {fps:.2f} pairs / sec")
     print(f"Peak RAM (ru_maxrss):   {peak_mb:.1f} MB")
     print("=" * 50 + "\n")
+
+    summary = {
+        "scenes_processed": float(len(times)),
+        "total_pipeline_s": round(total_time, 2),
+        "avg_latency_s_per_pair": round(avg_time, 3),
+        "throughput_pairs_per_s": round(fps, 2),
+        "peak_rss_mb": round(peak_mb, 1),
+        "gpu_vram_mb": 0.0,
+    }
+
+    if output_json is not None:
+        output_json.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_json, "w", encoding="utf-8") as fp:
+            json.dump(summary, fp, indent=2, ensure_ascii=False)
+        print(f"Benchmark summary saved to {output_json}\n")
+
+    return summary
 
 
 def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
@@ -255,6 +273,12 @@ def main() -> None:
     bench_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     bench_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
     bench_parser.add_argument("--iterations", type=int, default=1, help="Number of benchmark iterations")
+    bench_parser.add_argument(
+        "--output-json",
+        type=Path,
+        default=Path("data/benchmark_results.json"),
+        help="Where to store the machine-readable benchmark summary",
+    )
 
     args, unknown = parser.parse_known_args()
 
@@ -302,6 +326,7 @@ def main() -> None:
             data_dir=args.data_dir,
             predictions_dir=args.predictions_dir,
             iterations=args.iterations,
+            output_json=args.output_json,
         )
 
 

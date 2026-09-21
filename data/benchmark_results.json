@@ -1,0 +1,8 @@
+{
+  "scenes_processed": 11.0,
+  "total_pipeline_s": 71.93,
+  "avg_latency_s_per_pair": 6.539,
+  "throughput_pairs_per_s": 0.15,
+  "peak_rss_mb": 3629.6,
+  "gpu_vram_mb": 0.0
+}

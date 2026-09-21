@@ -1,6 +1,7 @@
 # Data & rasters
 data/*
 !data/ablation_results.json
+!data/benchmark_results.json
 predictions_ablation/
 *.zip
 *.tiff
