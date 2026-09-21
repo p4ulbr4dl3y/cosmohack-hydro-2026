@@ -402,7 +402,7 @@ def run_holdout_study(
         json.dump(results, fp, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 78)
-    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) — ADDITIONAL DIAGNOSTIC")
+    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) - ADDITIONAL DIAGNOSTIC")
     print("=" * 78)
     print(f"Official pooled Score (all {len(ref)} pairs, UNCHANGED): {pooled['score']:.4f}")
     print("Thresholds were tuned on these same pairs, so the pooled number is optimistic.")

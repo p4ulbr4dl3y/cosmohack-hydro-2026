@@ -114,7 +114,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
                     "description": "Опасное затопление: угроза первым этажам, подтопление инфраструктуры, эвакуация",
                 },
                 "moderate_risk": {
-                    "depth_range": "0.5 – 1.5 м (HAND 0.5 – 1.5 м)",
+                    "depth_range": "0.5-1.5 м (HAND 0.5-1.5 м)",
                     "area_ha": m_ha,
                     "share_pct": round(m_ha / flood_ha * 100.0, 2),
                     "description": "Умеренное затопление: перелив дорожного полотна, подтопление участков",
@@ -135,7 +135,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
                     "description": "Опасное затопление: угроза первым этажам, подтопление инфраструктуры, эвакуация",
                 },
                 "moderate_risk": {
-                    "depth_range": "0.5 – 1.5 м (HAND 0.5 – 1.5 м)",
+                    "depth_range": "0.5-1.5 м (HAND 0.5-1.5 м)",
                     "area_ha": 0.0,
                     "share_pct": 0.0,
                     "description": "Умеренное затопление: перелив дорожного полотна, подтопление участков",
@@ -523,7 +523,8 @@ def render_mchs_html(dispatch: dict[str, Any]) -> str:
       </tbody>
     </table>
 
-    <div class="section-title">5. Дифференциация по глубинам затопления (Depth Risk Breakdown)</div>
+    <div class="section-title">5. Дифференциация по глубинам затопления</div>
+    <!-- Depth Risk Breakdown -->
     <table>
       <thead>
         <tr>
@@ -541,7 +542,7 @@ def render_mchs_html(dispatch: dict[str, Any]) -> str:
           <td class="num">{high.get("share_pct", 0.0):.1f}%</td>
         </tr>
         <tr>
-          <td><strong>Умеренный риск</strong><br/><span style="font-size:11px; color:#64748b;">{mod.get("depth_range", "0.5–1.5 м")}</span></td>
+          <td><strong>Умеренный риск</strong><br/><span style="font-size:11px; color:#64748b;">{mod.get("depth_range", "0.5-1.5 м")}</span></td>
           <td>{mod.get("description", "")}</td>
           <td class="num" style="color:#d97706;">{mod.get("area_ha", 0.0):,.2f}</td>
           <td class="num">{mod.get("share_pct", 0.0):.1f}%</td>
