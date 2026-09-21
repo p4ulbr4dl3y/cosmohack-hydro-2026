@@ -197,7 +197,7 @@ export const Landing: React.FC = () => {
                   нового затопления
                 </div>
                 <div className="text-[9px] sm:text-[10px] text-text-muted mt-0.5 font-mono">
-                  {previewPair ? `${previewPair.date_pre_sar || '12.07'} → ${previewPair.date_peak_sar || '14.07.2019'}` : '14.07.2019'}
+                  {previewPair ? `${previewPair.date_pre_sar || '12.07'} -> ${previewPair.date_peak_sar || '14.07.2019'}` : '14.07.2019'}
                 </div>
               </div>
 

@@ -38,7 +38,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
 
   const hasOptical = Boolean(report.date_pre_opt && report.date_peak_opt);
   const opticalWindow = hasOptical
-    ? `${report.date_pre_opt} → ${report.date_peak_opt}`
+    ? `${report.date_pre_opt} -> ${report.date_peak_opt}`
     : 'нет перекрывающей сцены';
 
   // API returns bare sensor codes ("sentinel1"); render them as readable names.
@@ -105,7 +105,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             <div className="grid grid-cols-2 gap-y-2 text-xs">
               <span className="text-text-secondary">Дата наблюдения</span>
               <span className="font-mono text-text-primary text-right font-medium">
-                {report.date_pre_sar || '—'} → {report.date_peak_sar || '—'}
+                {report.date_pre_sar || '—'} {'->'} {report.date_peak_sar || '—'}
               </span>
               <span className="text-text-secondary">Сенсор</span>
               <span className="font-mono text-text-primary text-right uppercase">

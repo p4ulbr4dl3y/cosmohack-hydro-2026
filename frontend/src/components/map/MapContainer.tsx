@@ -615,7 +615,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             ДО · {currentPair.date_pre_sar ? currentPair.date_pre_sar.slice(5) : '12.07'}
           </span>
           <span className="w-4 h-4 rounded-full bg-[#F1F5F9] flex items-center justify-center text-text-muted font-bold text-[9px]">
-            ↔
+            {'<->'}
           </span>
           <span className="text-text-secondary font-medium whitespace-nowrap">
             ПИК · {currentPair.date_peak_sar ? currentPair.date_peak_sar.slice(5) : '14.07'}

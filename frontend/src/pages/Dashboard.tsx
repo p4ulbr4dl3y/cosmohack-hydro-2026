@@ -323,8 +323,8 @@ export const Dashboard: React.FC = () => {
             </h2>
             <div className="text-xs text-text-secondary truncate">
               {currentPair
-                ? `${currentPair.date_pre_sar || '12.07.2019'} → ${currentPair.date_peak_sar || '14.07.2019'} · ${currentPair.aoi_name}`
-                : '12.07.2019 → 14.07.2019 · Благовещенск'}
+                ? `${currentPair.date_pre_sar || '12.07.2019'} -> ${currentPair.date_peak_sar || '14.07.2019'} · ${currentPair.aoi_name}`
+                : '12.07.2019 -> 14.07.2019 · Благовещенск'}
             </div>
           </div>
 

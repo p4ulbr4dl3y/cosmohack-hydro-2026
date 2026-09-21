@@ -34,7 +34,7 @@ describe('HydrographChart component', () => {
     expect(screen.getByText('Недостаточно данных для построения гидрографа')).toBeDefined();
   });
 
-  it('never fabricates the S1↔S2 offset label', () => {
+  it('never fabricates the S1<->S2 offset label', () => {
     render(
       <HydrographChart
         datePre="2019-06-13"
@@ -44,6 +44,6 @@ describe('HydrographChart component', () => {
       />
     );
 
-    expect(screen.queryByText(/Δt S1↔S2/)).toBeNull();
+    expect(screen.queryByText(/Δt S1<->S2/)).toBeNull();
   });
 });

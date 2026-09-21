@@ -454,7 +454,7 @@ export const Compare: React.FC = () => {
           onPointerDown={handlePointerDown}
         >
           <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white text-text-secondary border-2 border-[#0EA5E9] shadow-floating flex items-center justify-center font-bold text-xs cursor-ew-resize hover:scale-110 active:scale-95 transition-transform">
-            ↔
+            {'<->'}
           </div>
         </div>
 

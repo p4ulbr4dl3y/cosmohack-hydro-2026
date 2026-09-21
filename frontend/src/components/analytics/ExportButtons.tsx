@@ -88,7 +88,7 @@ export const ExportButtons: React.FC<ExportButtonsProps> = ({ pairId, report }) 
           className="text-xs text-accent hover:text-accent-hover font-medium inline-flex items-center gap-1"
         >
           <span>Как считается метрика</span>
-          <span>→</span>
+          <span>{'->'}</span>
         </Link>
       </div>
     </div>

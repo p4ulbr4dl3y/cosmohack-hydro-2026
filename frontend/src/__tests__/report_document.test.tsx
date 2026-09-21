@@ -115,7 +115,7 @@ describe('ReportDocument component', () => {
       <ReportDocument report={mockReport} comparison={mockComparison} forPdf={true} />
     );
     expect(screen.getByText('ПРИГОДНА')).toBeDefined();
-    expect(screen.getByText('2019-06-18 → 2019-07-30')).toBeDefined();
+    expect(screen.getByText('2019-06-18 -> 2019-07-30')).toBeDefined();
     unmount();
 
     render(
