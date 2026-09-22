@@ -4,6 +4,7 @@ data/*
 !data/benchmark_results.json
 !data/holdout_results.json
 !data/final_evaluation_results.json
+!data/strict_evaluation_results.json
 !data/artifacts_manifest.json
 predictions_ablation/
 *.zip
