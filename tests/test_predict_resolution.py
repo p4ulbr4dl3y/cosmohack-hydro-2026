@@ -105,3 +105,35 @@ def test_predict_invalid_polygon_returns_400():
     resp = client.post("/api/v1/predict", json={"polygon": {"type": "Nonsense", "coordinates": []}})
     assert resp.status_code == 400
     assert "polygon" in resp.json()["detail"].lower()
+
+
+def test_predict_arbitrary_bbox_clipping_and_recalculation():
+    """Произвольный bbox внутри AOI обрезает геометрию и уменьшает flood_ha пропорционально вырезке."""
+    # Полный AOI
+    resp_full = client.post(
+        "/api/v1/predict",
+        json={"pair_id": "flood_2019_07_amur__blagoveshchensk"},
+    )
+    assert resp_full.status_code == 200
+    full_flood_ha = resp_full.json()["summary"]["flood_ha"]
+
+    # Небольшой произвольный bbox внутри Благовещенска
+    arbitrary_sub_bbox = [127.45, 50.22, 127.60, 50.32]
+    resp_sub = client.post(
+        "/api/v1/predict",
+        json={"bounds": arbitrary_sub_bbox, "date_pre": "2019-06-13", "date_peak": "2019-07-25"},
+    )
+    assert resp_sub.status_code == 200
+    sub_data = resp_sub.json()
+    assert sub_data["pair_id"] == "flood_2019_07_amur__blagoveshchensk"
+    assert "flood_clipped" in sub_data["geojson"]["name"]
+
+    # Площадь в вырезке строго меньше полной площади AOI
+    sub_flood_ha = sub_data["summary"]["flood_ha"]
+    assert 0.0 <= sub_flood_ha < full_flood_ha
+
+    # Проверка, что сумма площадей в контурах geojson соответствует пересчитанной площади
+    if sub_data["geojson"]["features"]:
+        geom_sum_ha = sum(f["properties"]["area_ha"] for f in sub_data["geojson"]["features"])
+        assert geom_sum_ha > 0.0
+        assert abs(geom_sum_ha - sub_flood_ha) <= max(10.0, sub_flood_ha * 0.2)
