@@ -77,6 +77,12 @@ export interface ReportData {
   flood_share_pct: number;
   landcover: LandcoverBreakdown;
   generated_at?: string;
+  uncertainty?: FloodUncertainty;
+  audit?: HydroAuditCertificate;
+  sar_analytics?: SARAnalytics;
+  carbon_impact?: FloodCarbonImpact;
+  competition_score?: PairScoreDetail | Record<string, any>;
+  metrics_source?: string;
 }
 
 export interface ComparisonRow {
@@ -179,6 +185,7 @@ export interface PairScoreDetail {
   flood_rel_diff_pct: number;
   raster_ha?: number | null;
   raster_csv_discrepancy_pct?: number | null;
+  discrepancy_pct?: number | null;
 }
 
 export interface OfficialMetrics {

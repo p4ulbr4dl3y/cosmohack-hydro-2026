@@ -66,6 +66,8 @@ vi.mock('../api/client', () => ({
     fetchOfficialMetrics: vi.fn().mockResolvedValue(null),
     validateSubmission: vi.fn().mockResolvedValue(null),
     fetchCarbonImpact: vi.fn().mockResolvedValue(null),
+    getOverlayUrl: vi.fn().mockReturnValue(''),
+    fetchOverlayMeta: vi.fn().mockResolvedValue(null),
   },
 }));
 

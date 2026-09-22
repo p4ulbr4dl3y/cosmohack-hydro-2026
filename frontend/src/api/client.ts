@@ -322,6 +322,22 @@ export const apiClient = {
     }
     return null;
   },
+
+  getShapefileUrl(pairId: string, layer: string = 'flood'): string {
+    return `${API_BASE}/api/v1/shapefile/${pairId}?layer=${layer}`;
+  },
+
+  async downloadShapefile(pairId: string, layer: string = 'flood'): Promise<void> {
+    const url = `${API_BASE}/api/v1/shapefile/${pairId}?layer=${layer}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${pairId}_${layer}_shp.zip`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  },
 };
 
 export const fetchPairs = apiClient.fetchPairs.bind(apiClient);

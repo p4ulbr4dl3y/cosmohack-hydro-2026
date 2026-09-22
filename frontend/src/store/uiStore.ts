@@ -84,7 +84,7 @@ export const useUiStore = create<UiState>((set) => ({
   basemap: 'msi_true',
   setBasemap: (basemap) => set({ basemap }),
 
-  compareMode: 'sar',
+  compareMode: 'msi',
   setCompareMode: (compareMode) => set({ compareMode }),
   compareSplitPosition: 50,
   setCompareSplitPosition: (compareSplitPosition) => set({ compareSplitPosition }),

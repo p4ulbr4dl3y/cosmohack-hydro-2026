@@ -48,7 +48,8 @@ export const Compare: React.FC = () => {
 
   useEffect(() => {
     apiClient.fetchReport(pairId).then(setReport).catch(console.error);
-  }, [pairId]);
+    setCompareMode('msi');
+  }, [pairId, setCompareMode]);
 
   // Клавиатурная навигация: Esc -> назад, ArrowLeft / ArrowRight -> сдвиг слайдера
   useEffect(() => {

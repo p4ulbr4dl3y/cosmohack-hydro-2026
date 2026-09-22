@@ -70,6 +70,12 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
             rows = []
             for r in reports:
                 lc = r.get("landcover", {})
+                unc = r.get("uncertainty", {}) or {}
+                aud = r.get("audit", {}) or {}
+                sar = r.get("sar_analytics", {}) or {}
+                carb = r.get("carbon_impact", {}) or {}
+                cred = carb.get("credit_potential", {}) or {}
+                comp = r.get("competition_score", {}) or {}
                 rows.append(
                     {
                         "pair_id": r["pair_id"],
@@ -86,6 +92,19 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                         "builtup_ha": lc.get("builtup_ha", 0.0),
                         "cropland_ha": lc.get("cropland_ha", 0.0),
                         "natural_vegetation_ha": lc.get("natural_vegetation_ha", 0.0),
+                        "uncertainty_ci_lower_ha": unc.get("lower_bound_ha", ""),
+                        "uncertainty_ci_upper_ha": unc.get("upper_bound_ha", ""),
+                        "uncertainty_margin_ha": unc.get("margin_ha", ""),
+                        "uncertainty_rel_pct": unc.get("relative_uncertainty_pct", ""),
+                        "merkle_root_sha256": aud.get("merkle_root", ""),
+                        "merkle_verified": aud.get("status", "") == "verified",
+                        "sar_mean_vv_db": sar.get("mean_vv_db", ""),
+                        "sar_mean_vh_db": sar.get("mean_vh_db", ""),
+                        "sar_radar_contrast_db": sar.get("radar_contrast_db", ""),
+                        "carbon_loss_tC": carb.get("carbon_loss_tC", ""),
+                        "emissions_equivalent_tCO2e": carb.get("emissions_equivalent_tCO2e", ""),
+                        "carbon_credits_Q": cred.get("Q_credits", ""),
+                        "competition_q_flood": comp.get("q_flood", ""),
                     }
                 )
             pd.DataFrame(rows).to_csv(output, index=False)
@@ -125,6 +144,21 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                 print(
                     f"  Gauge ({gauge.get('station_name', '')} / {gauge.get('river', '')}): "
                     f"{gauge.get('observed_level_cm')} cm (NPU: {gauge.get('npu_cm')} cm, OYA: {gauge.get('oya_cm')} cm) -> Stage: {gauge.get('stage_risk')}"
+                )
+            unc = r.get("uncertainty")
+            if unc:
+                print(
+                    f"  Uncertainty (95% CI): [{unc['lower_bound_ha']:.2f}, {unc['upper_bound_ha']:.2f}] ha (±{unc['relative_uncertainty_pct']:.2f}%)"
+                )
+            aud = r.get("audit")
+            if aud:
+                print(
+                    f"  Merkle Audit: {aud.get('status', 'unknown').upper()} (root: {str(aud.get('merkle_root', ''))[:16]}...)"
+                )
+            carb = r.get("carbon_impact")
+            if carb:
+                print(
+                    f"  Carbon Loss: {carb.get('carbon_loss_tC', 0.0):.1f} t C (≈ {carb.get('emissions_equivalent_tCO2e', 0.0):.1f} t CO2e)"
                 )
         print("=" * 60)
 

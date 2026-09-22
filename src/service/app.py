@@ -142,9 +142,30 @@ async def get_report_csv(pair_id: str) -> Response:
             "cropland_flood_pct",
             "natural_flood_ha",
             "natural_flood_pct",
+            "uncertainty_ci_lower_ha",
+            "uncertainty_ci_upper_ha",
+            "uncertainty_margin_ha",
+            "uncertainty_rel_pct",
+            "merkle_root_sha256",
+            "merkle_verified",
+            "sar_mean_vv_db",
+            "sar_mean_vh_db",
+            "sar_radar_contrast_db",
+            "carbon_loss_tC",
+            "emissions_equivalent_tCO2e",
+            "carbon_credits_Q",
+            "competition_q_flood",
+            "raster_discrepancy_pct",
         ]
     )
     lc = report.get("landcover", {})
+    unc = report.get("uncertainty", {}) or {}
+    aud = report.get("audit", {}) or {}
+    sar = report.get("sar_analytics", {}) or {}
+    carb = report.get("carbon_impact", {}) or {}
+    cred = carb.get("credit_potential", {}) or {}
+    comp = report.get("competition_score", {}) or {}
+
     writer.writerow(
         [
             report["pair_id"],
@@ -167,6 +188,20 @@ async def get_report_csv(pair_id: str) -> Response:
             lc.get("cropland_pct", 0.0),
             lc.get("natural_vegetation_ha", 0.0),
             lc.get("natural_vegetation_pct", 0.0),
+            unc.get("lower_bound_ha", ""),
+            unc.get("upper_bound_ha", ""),
+            unc.get("margin_ha", ""),
+            unc.get("relative_uncertainty_pct", ""),
+            aud.get("merkle_root", ""),
+            aud.get("status", "") == "verified",
+            sar.get("mean_vv_db", ""),
+            sar.get("mean_vh_db", ""),
+            sar.get("radar_contrast_db", ""),
+            carb.get("carbon_loss_tC", ""),
+            carb.get("emissions_equivalent_tCO2e", ""),
+            cred.get("Q_credits", ""),
+            comp.get("q_flood", ""),
+            comp.get("discrepancy_pct", ""),
         ]
     )
 
@@ -650,12 +685,19 @@ async def get_audit_certificate(pair_id: str) -> Any:
 async def get_flood_uncertainty(
     pair_id: str,
     confidence_level: float = Query(default=0.95, ge=0.50, le=0.999),
-    spatial_correlation: float = Query(default=0.20, ge=0.0, le=1.0),
+    spatial_correlation: float | None = Query(default=None, ge=0.0, le=1.0),
 ) -> Any:
     """Вычисляет распространение пространственной ошибки и доверительный интервал [L, U]."""
     report = data_loader.get_report(pair_id)
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+
+    pair_meta = data_loader.get_pair_meta(pair_id) or {}
+    has_optical = bool(
+        pair_meta.get("sensor_optical")
+        or report.get("sensor_optical")
+        or (pair_meta.get("date_pre_opt") and pair_meta.get("date_peak_opt"))
+    )
 
     tif_path = PREDICTIONS_DIR / f"{pair_id}_flood.tif"
     if tif_path.exists():
@@ -668,6 +710,7 @@ async def get_flood_uncertainty(
             pixel_area_ha=0.01,
             spatial_correlation=spatial_correlation,
             confidence_level=confidence_level,
+            has_optical=has_optical,
         )
     else:
         flood_ha = float(report.get("flood_ha", 0.0))
@@ -678,6 +721,7 @@ async def get_flood_uncertainty(
             pixel_area_ha=0.01,
             spatial_correlation=spatial_correlation,
             confidence_level=confidence_level,
+            has_optical=has_optical,
         )
 
     return FloodUncertaintyResponse(

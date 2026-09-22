@@ -53,19 +53,25 @@ export async function downloadReportPdf(
     const pageNodes = targetElement.querySelectorAll<HTMLElement>('[data-pdf-page]');
     const pagesToRender = pageNodes.length > 0 ? Array.from(pageNodes) : [targetElement];
 
+    // Ensure maps and charts adapt precisely to their layout before html2canvas capture
+    window.dispatchEvent(new Event('resize'));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
     for (let i = 0; i < pagesToRender.length; i++) {
       if (i > 0) {
         pdf.addPage();
       }
 
       const pageEl = pagesToRender[i];
+      const elWidth = pageEl.offsetWidth || 1024;
       const canvas = await html2canvas(pageEl, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: 1024,
+        width: elWidth,
+        windowWidth: elWidth,
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);

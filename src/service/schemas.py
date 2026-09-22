@@ -146,6 +146,17 @@ class ReportResponse(BaseModel):
     gauge_status: GaugeStatus | None = Field(
         default=None, description="Hydrological station water level benchmark and danger stage"
     )
+    uncertainty: FloodUncertaintyResponse | None = Field(default=None, description="Spatial uncertainty assessment")
+    audit: HydroAuditCertificateResponse | None = Field(
+        default=None, description="Cryptographic Merkle audit certificate"
+    )
+    sar_analytics: SARAnalyticsResponse | None = Field(
+        default=None, description="SAR Sentinel-1 polarimetric analytics"
+    )
+    carbon_impact: FloodCarbonImpactResponse | None = Field(
+        default=None, description="IPCC Carbon and biomass loss impact"
+    )
+    competition_score: dict[str, Any] | None = Field(default=None, description="Official competition score convergence")
 
 
 class PredictSummary(BaseModel):
@@ -420,3 +431,6 @@ class FloodCarbonImpactResponse(BaseModel):
     forest_loss_tC: float = Field(description="Carbon lost in flooded forests/tree cover (t C)")
     credit_potential: dict[str, Any] = Field(description="Mitigation carbon credits potential Q and valuations")
     notes: str = Field(description="Methodological explanatory summary")
+
+
+ReportResponse.model_rebuild()

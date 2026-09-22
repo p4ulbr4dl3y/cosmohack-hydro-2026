@@ -84,9 +84,9 @@ describe('ReportDocument component', () => {
   it('renders report header with brand and title', () => {
     render(<ReportDocument report={mockReport} comparison={mockComparison} forPdf={true} />);
 
-    expect(screen.getByText('HydroWatch')).toBeDefined();
+    expect(screen.getAllByText('HydroWatch').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Паводок в Приамурье, июль 2019').length).toBeGreaterThan(0);
-    expect(screen.getByText(/КосмоХакатон 2026/)).toBeDefined();
+    expect(screen.getAllByText(/КосмоХакатон 2026/).length).toBeGreaterThan(0);
   });
 
   it('renders AOI centre as lat/lon (lat first) without a hardcoded placeholder', () => {
@@ -182,7 +182,7 @@ describe('ReportDocument component', () => {
     render(<ReportDocument report={mockReport} comparison={mockComparison} forPdf={true} />);
 
     expect(screen.getByText(/5\. МЕТОДИКА И АЛГОРИТМЫ ВЫЧИСЛЕНИЯ/)).toBeDefined();
-    expect(screen.getByText(/Данные Copernicus © ESA/)).toBeDefined();
+    expect(screen.getAllByText(/Данные Copernicus © ESA/).length).toBeGreaterThan(0);
   });
 
   it('contains discrete pages (data-pdf-page) with clean section separation to prevent map splitting', () => {
@@ -211,5 +211,93 @@ describe('ReportDocument component', () => {
     expect((page2 as HTMLElement)?.style.breakBefore || (page2 as HTMLElement)?.className).toMatch(
       /page|break/i
     );
+  });
+
+  it('renders the scientific verification, crypto-audit, and ESG metrics section', () => {
+    const reportWithAnalytics: ReportData = {
+      ...mockReport,
+      uncertainty: {
+        pair_id: mockReport.pair_id,
+        area_ha: 2847.3,
+        confidence_level: 0.95,
+        lower_bound_ha: 2647.7,
+        upper_bound_ha: 3046.9,
+        margin_ha: 199.6,
+        relative_uncertainty_pct: 7.01,
+        sigma_effective_ha: 101.8,
+        effective_n_pixels: 5.0,
+        spatial_correlation: 0.2,
+      },
+      audit: {
+        certificate_id: 'CERT-HYDRO-2026-BLAGOVESHCHENSK',
+        pair_id: mockReport.pair_id,
+        aoi_id: 'blagoveshchensk',
+        merkle_root: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+        merkle_root_sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+        status: 'verified',
+        verified: true,
+      },
+      sar_analytics: {
+        pair_id: mockReport.pair_id,
+        water_fraction: 0.055,
+        water_area_ha: 2847.3,
+        mean_vv_db: -16.2,
+        mean_vh_db: -22.8,
+        mean_vh_vv_ratio: -6.6,
+        radar_contrast_db: 9.4,
+        cloud_penetration_verified: true,
+        double_bounce_fraction: 0.038,
+      },
+      carbon_impact: {
+        pair_id: mockReport.pair_id,
+        flood_ha: 2847.3,
+        biomass_loss_dry_matter_t: 24202.0,
+        carbon_loss_tC: 11389.2,
+        emissions_equivalent_tCO2e: 41760.4,
+        cropland_loss_tC: 4270.0,
+        forest_loss_tC: 7119.2,
+        credit_potential: {
+          is_available: true,
+          status: 'verified',
+          E_proj_tCO2e: 0,
+          E_base_tCO2e: 1500,
+          LK_tCO2e: 0,
+          R_tCO2e: 1500,
+          H_tCO2e: 100,
+          UNC_deduction_rate: 0.0,
+          R_adj_tCO2e: 1500,
+          buffer_reserve_B_tCO2e: 150,
+          Q_credits: 1350,
+          fractional_remainder: 0,
+          valuations_rub: { 500: 675000, 1500: 2025000, 4000: 5400000 },
+          area_ha: 2847.3,
+          delta_t_years: 1,
+        },
+        notes: 'IPCC default',
+      },
+      competition_score: {
+        pair_id: mockReport.pair_id,
+        q_flood: 0.9854,
+        raster_flood_ha: 2847.3,
+        csv_flood_ha: 2847.3,
+        discrepancy_pct: 0.0,
+        is_within_2_percent: true,
+      },
+    };
+
+    render(
+      <ReportDocument
+        report={reportWithAnalytics}
+        comparison={mockComparison}
+        forPdf={true}
+      />
+    );
+
+    expect(screen.getByText('НАУЧНАЯ ВЕРИФИКАЦИЯ, КРИПТО-АУДИТ И ESG-МЕТРИКИ')).toBeDefined();
+    expect(screen.getByText(/IPCC TIER 1 & MERKLE SHA-256 COMPLIANT/)).toBeDefined();
+    expect(screen.getByText(/Крипто-аудит/)).toBeDefined();
+    expect(screen.getByText(/SAR Поляриметрия/)).toBeDefined();
+    expect(screen.getByText(/Углерод & ESG/)).toBeDefined();
+    expect(screen.getByText(/Точность сегментации по ТЗ/)).toBeDefined();
   });
 });

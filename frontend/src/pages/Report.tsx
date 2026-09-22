@@ -30,16 +30,36 @@ export const Report: React.FC = () => {
     setLoading(true);
     setLoadError(null);
 
-    Promise.all([apiClient.fetchReport(pairId), apiClient.fetchComparison(pairId)])
-      .then(([rep, comp]) => {
+    Promise.all([
+      apiClient.fetchReport(pairId),
+      apiClient.fetchComparison(pairId),
+      apiClient.fetchAudit(pairId).catch(() => null),
+      apiClient.fetchUncertainty(pairId).catch(() => null),
+      apiClient.fetchSarAnalytics(pairId).catch(() => null),
+      apiClient.fetchCarbonImpact(pairId).catch(() => null),
+      apiClient.fetchOfficialMetrics().catch(() => null),
+    ])
+      .then(([rep, comp, aud, unc, sar, carb, off]) => {
         if (!isMounted) return;
-        setReport(rep);
-        setComparison(comp);
         // Отчёт со значением null означает, что API не вернул данные; спиннер должен остановиться,
         // а сбой - отобразиться вместо бесконечного ожидания.
         if (!rep) {
           setLoadError('Отчёт недоступен: сервис не вернул данные для этой пары.');
+          setReport(null);
+          setComparison(comp);
+          return;
         }
+        const detail = off?.details?.find((d) => d.pair_id === pairId);
+        const mergedReport: ReportData = {
+          ...rep,
+          audit: rep.audit || aud || undefined,
+          uncertainty: rep.uncertainty || unc || undefined,
+          sar_analytics: rep.sar_analytics || sar || undefined,
+          carbon_impact: rep.carbon_impact || carb || undefined,
+          competition_score: rep.competition_score || detail || undefined,
+        };
+        setReport(mergedReport);
+        setComparison(comp);
       })
       .catch((e) => {
         console.error(e);
@@ -93,13 +113,57 @@ export const Report: React.FC = () => {
 
   const handleExportCsv = () => {
     if (!report) return;
+    const unc = report.uncertainty;
+    const aud = report.audit;
+    const sar = report.sar_analytics;
+    const carb = report.carbon_impact;
+    const cred = carb?.credit_potential;
+    const comp = report.competition_score;
+    const lc = report.landcover || {};
+
     const rows = [
       'metric,label,value,unit',
+      `pair_id,Идентификатор пары,${report.pair_id},id`,
+      `aoi_name,Район наблюдения,${report.aoi_name},текст`,
+      `event_name,Событие,${report.event_name},текст`,
+      `date_pre_sar,Дата SAR до паводка,${report.date_pre_sar},дата`,
+      `date_peak_sar,Дата SAR пика паводка,${report.date_peak_sar},дата`,
+      `aoi_km2,Площадь района,${report.aoi_km2},км²`,
+      `aoi_ha,Площадь района,${report.aoi_ha},га`,
       `flood_ha,Новое затопление,${report.flood_ha},га`,
       `water_peak_ha,Водное зеркало (пик),${report.water_peak_ha},га`,
       `water_pre_ha,Водное зеркало (до),${report.water_pre_ha},га`,
       `receded_ha,Убыль воды,${report.receded_ha || 0},га`,
-      `aoi_km2,Площадь района,${report.aoi_km2},км²`,
+      `water_gain_ha,Прирост водного зеркала,${report.water_gain_ha || 0},га`,
+      `water_gain_pct,Относительный прирост воды,${report.water_gain_pct || 0},%`,
+      `share_of_aoi,Доля затопления в AOI,${report.share_of_aoi || 0},доля`,
+      `landcover_builtup_ha,Затопленная застройка,${lc.builtup_ha || 0},га`,
+      `landcover_builtup_pct,Доля застройки,${lc.builtup_pct || 0},%`,
+      `landcover_cropland_ha,Затопленные сельхозугодья,${lc.cropland_ha || 0},га`,
+      `landcover_cropland_pct,Доля сельхозугодий,${lc.cropland_pct || 0},%`,
+      `landcover_natural_ha,Затопленная растительность,${lc.natural_vegetation_ha || 0},га`,
+      `landcover_natural_pct,Доля растительности,${lc.natural_vegetation_pct || 0},%`,
+      `historic_water_ha,Исторический максимум воды GSW,${lc.historic_water_extent_ha || (lc as any).historic_water_ha || 0},га`,
+      `mean_hand_m,Средняя относительная высота HAND,${lc.mean_hand_m || 0},м`,
+      `uncertainty_ci_lower_ha,Нижняя граница ДИ 95%,${unc?.lower_bound_ha ?? ''},га`,
+      `uncertainty_ci_upper_ha,Верхняя граница ДИ 95%,${unc?.upper_bound_ha ?? ''},га`,
+      `uncertainty_margin_ha,Абсолютная погрешность ±,${unc?.margin_ha ?? ''},га`,
+      `uncertainty_rel_pct,Относительная погрешность,${unc?.relative_uncertainty_pct ?? ''},%`,
+      `uncertainty_effective_n,Эффективный объем выборки n_eff,${unc?.effective_n_pixels ?? ''},пикс`,
+      `uncertainty_spatial_corr,Пространственная автокорреляция rho,${unc?.spatial_correlation ?? ''},коэф`,
+      `merkle_root_sha256,Криптографический Merkle Root,${aud?.merkle_root ?? aud?.merkle_root_sha256 ?? ''},хеш`,
+      `merkle_signature,ECDSA-подпись реестра,${aud?.signature_hash ?? ''},хеш`,
+      `merkle_status,Статус криптографического аудита,${aud?.status ?? ''},статус`,
+      `sar_mean_vv_db,Средний уровень SAR VV,${sar?.mean_vv_db ?? ''},дБ`,
+      `sar_mean_vh_db,Средний уровень SAR VH,${sar?.mean_vh_db ?? ''},дБ`,
+      `sar_contrast_db,Радарный контраст вода/суша,${sar?.radar_contrast_db ?? ''},дБ`,
+      `biomass_loss_t,Потери сухой фитомассы,${carb?.biomass_loss_dry_matter_t ?? ''},т`,
+      `carbon_loss_tC,Потери углеродного пула,${carb?.carbon_loss_tC ?? ''},т C`,
+      `emissions_equivalent_tCO2e,Эквивалент выбросов парниковых газов,${carb?.emissions_equivalent_tCO2e ?? ''},т CO2e`,
+      `carbon_credits_Q,Потенциал компенсационных квот Q,${cred?.Q_credits ?? ''},шт`,
+      `buffer_reserve_B,Буферный углеродный резерв B,${cred?.buffer_reserve_B_tCO2e ?? (cred as any)?.buffer_reserve_B ?? ''},шт`,
+      `competition_q_flood,Оценка точности Q_flood,${comp?.q_flood ?? ''},коэффициент`,
+      `discrepancy_pct,Расхождение растр vs CSV,${comp?.discrepancy_pct ?? (comp as any)?.raster_csv_discrepancy_pct ?? ''},%`,
     ];
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -129,9 +193,15 @@ export const Report: React.FC = () => {
     }
   };
 
-  const handleExportShp = () => {
-    window.open(`/api/v1/export/${encodeURIComponent(pairId)}/shapefile?layer=flood`, '_blank');
-    showNotice('SHP архив скачивается');
+  const handleExportShp = async () => {
+    try {
+      showNotice('Подготовка SHP архива...');
+      await apiClient.downloadShapefile(pairId, 'flood');
+      showNotice('SHP архив успешно скачан');
+    } catch (e) {
+      console.error(e);
+      showNotice('Ошибка экспорта SHP архива');
+    }
   };
 
   const handleMchsDispatch = () => {
@@ -248,10 +318,10 @@ export const Report: React.FC = () => {
 
           <button
             onClick={handleExportShp}
-            className="px-3 py-2 border border-[#EAECF0] bg-white hover:bg-slate-50 text-text-primary text-xs font-medium rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
-            title="Скачать ESRI Shapefile (.zip)"
+            className="px-3 py-2 border border-[#BAE6FD] bg-[#F0F9FF] hover:bg-[#E0F2FE] text-[#0284C7] text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+            title="Скачать векторные слои в формате ESRI Shapefile (.zip)"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3.5 h-3.5 text-[#0EA5E9]" />
             <span>SHP</span>
           </button>
         </div>
