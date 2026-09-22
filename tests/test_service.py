@@ -950,3 +950,16 @@ def test_root_fallback_and_static_serving(monkeypatch, tmp_path):
     resp_no_index = client.get("/")
     assert resp_no_index.status_code == 404
     assert resp_no_index.json()["detail"] == "index.html не найден"
+
+
+def test_eda_endpoint(monkeypatch, tmp_path):
+    import src.service.app as app_mod
+
+    resp = client.get("/eda")
+    assert resp.status_code in [200, 404]
+
+    # Проверка отката при отсутствии файла
+    monkeypatch.setattr(app_mod, "BASE_DIR", tmp_path)
+    resp_404 = client.get("/eda")
+    assert resp_404.status_code == 404
+    assert resp_404.json()["detail"] == "Отчет EDA не скомпилирован"

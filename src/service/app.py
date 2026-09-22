@@ -948,6 +948,20 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+@app.get(
+    "/eda",
+    tags=["Исследования"],
+    summary="Интерактивный исследовательский блокнот анализа данных ДЗЗ (EDA)",
+    response_class=FileResponse,
+)
+async def get_eda_report() -> FileResponse:
+    """Возвращает скомпилированный HTML-отчет исследовательского анализа данных (EDA)."""
+    eda_path = BASE_DIR / "notebooks" / "eda.html"
+    if not eda_path.exists():
+        raise HTTPException(status_code=404, detail="Отчет EDA не скомпилирован")
+    return FileResponse(eda_path, media_type="text/html")
+
+
 @app.get("/")
 @app.get("/{full_path:path}")
 async def root(full_path: str = "") -> FileResponse:
