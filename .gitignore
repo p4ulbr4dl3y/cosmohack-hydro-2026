@@ -3,6 +3,7 @@ data/*
 !data/ablation_results.json
 !data/benchmark_results.json
 !data/holdout_results.json
+!data/final_evaluation_results.json
 predictions_ablation/
 *.zip
 *.tiff

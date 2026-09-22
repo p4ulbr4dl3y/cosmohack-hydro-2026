@@ -1,0 +1,131 @@
+{
+  "submission_file": "submission.csv",
+  "score": 0.6198,
+  "official_metrics": {
+    "score": 0.6198,
+    "Q_flood": 0.6577,
+    "Q_water_peak": 0.4801,
+    "Q_water_pre": 0.3948,
+    "Spec_base": 0.9641,
+    "num_events": 8,
+    "num_baselines": 3,
+    "details": [
+      {
+        "pair_id": "baseline_2018_09_low__blagoveshchensk",
+        "event_kind": "baseline",
+        "flood_sub_ha": 75.23,
+        "flood_ref_ha": 197.01,
+        "water_peak_sub_ha": 9224.11,
+        "water_peak_ref_ha": 8469.28,
+        "water_pre_sub_ha": 9658.21,
+        "water_pre_ref_ha": 9815.18
+      },
+      {
+        "pair_id": "baseline_2018_09_low__konstantinovka",
+        "event_kind": "baseline",
+        "flood_sub_ha": 91.58,
+        "flood_ref_ha": 25.01,
+        "water_peak_sub_ha": 7508.09,
+        "water_peak_ref_ha": 1730.91,
+        "water_pre_sub_ha": 8718.19,
+        "water_pre_ref_ha": 9314.31
+      },
+      {
+        "pair_id": "baseline_2018_09_low__svobodny",
+        "event_kind": "baseline",
+        "flood_sub_ha": 17.91,
+        "flood_ref_ha": 44.22,
+        "water_peak_sub_ha": 4840.19,
+        "water_peak_ref_ha": 3111.67,
+        "water_pre_sub_ha": 4871.71,
+        "water_pre_ref_ha": 4626.13
+      },
+      {
+        "pair_id": "flood_2019_07_amur__belogorsk",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 37.11,
+        "flood_ref_ha": 187.19,
+        "water_peak_sub_ha": 835.49,
+        "water_peak_ref_ha": 869.26,
+        "water_pre_sub_ha": 807.46,
+        "water_pre_ref_ha": 694.27
+      },
+      {
+        "pair_id": "flood_2019_07_amur__blagoveshchensk",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 483.74,
+        "flood_ref_ha": 386.3,
+        "water_peak_sub_ha": 9027.18,
+        "water_peak_ref_ha": 8894.42,
+        "water_pre_sub_ha": 9114.37,
+        "water_pre_ref_ha": 2866.89
+      },
+      {
+        "pair_id": "flood_2019_07_amur__konstantinovka",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 395.81,
+        "flood_ref_ha": 643.54,
+        "water_peak_sub_ha": 7212.34,
+        "water_peak_ref_ha": 7267.04,
+        "water_pre_sub_ha": 6933.62,
+        "water_pre_ref_ha": 6774.1
+      },
+      {
+        "pair_id": "flood_2019_07_amur__svobodny",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 187.73,
+        "flood_ref_ha": 213.27,
+        "water_peak_sub_ha": 5070.55,
+        "water_peak_ref_ha": 991.45,
+        "water_pre_sub_ha": 4733.51,
+        "water_pre_ref_ha": 575.21
+      },
+      {
+        "pair_id": "flood_2021_06_amur__blagoveshchensk",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 780.55,
+        "flood_ref_ha": 882.61,
+        "water_peak_sub_ha": 12814.56,
+        "water_peak_ref_ha": 2845.21,
+        "water_pre_sub_ha": 9636.16,
+        "water_pre_ref_ha": 2649.15
+      },
+      {
+        "pair_id": "flood_2021_06_amur__konstantinovka",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 8572.12,
+        "flood_ref_ha": 107.28,
+        "water_peak_sub_ha": 22388.05,
+        "water_peak_ref_ha": 172.92,
+        "water_pre_sub_ha": 7740.7,
+        "water_pre_ref_ha": 29.67
+      },
+      {
+        "pair_id": "flood_2021_06_amur__poyarkovo",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 2070.14,
+        "flood_ref_ha": 2167.31,
+        "water_peak_sub_ha": 9785.5,
+        "water_peak_ref_ha": 8909.96,
+        "water_pre_sub_ha": 4862.32,
+        "water_pre_ref_ha": 8723.32
+      },
+      {
+        "pair_id": "flood_2021_08_zeya__svobodny",
+        "event_kind": "rain_flood",
+        "flood_sub_ha": 2221.11,
+        "flood_ref_ha": 2178.96,
+        "water_peak_sub_ha": 10987.22,
+        "water_peak_ref_ha": 4740.89,
+        "water_pre_sub_ha": 4817.14,
+        "water_pre_ref_ha": 3972.36
+      }
+    ]
+  },
+  "raster_metrics": {
+    "mean_iou": 0.1272,
+    "mean_precision": 0.2579,
+    "mean_recall": 0.2235,
+    "mean_f1": 0.2074
+  }
+}
