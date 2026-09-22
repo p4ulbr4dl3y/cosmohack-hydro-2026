@@ -7,6 +7,7 @@ import glob
 import json
 import logging
 import os
+import threading
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -64,7 +65,22 @@ class DataLoader:
         self._pairs_cache: list[dict[str, Any]] = []
         self._reports_cache: dict[str, dict[str, Any]] = {}
         self._sar_analytics_cache: dict[str, dict[str, Any]] = {}
+        # Синглтон делится между потоками threadpool FastAPI: пока один поток
+        # перестраивает холодный отчёт пары (растры + репроецирование, секунды),
+        # остальные ждут его результат вместо повторного параллельного расчёта.
+        self._reports_lock = threading.Lock()
+        self._pair_locks: dict[str, threading.Lock] = {}
+        self._pair_locks_guard = threading.Lock()
         self.init_data()
+
+    def _pair_lock(self, pair_id: str) -> threading.Lock:
+        """Возвращает (создавая при необходимости) блокировку пересчёта для пары."""
+        with self._pair_locks_guard:
+            lock = self._pair_locks.get(pair_id)
+            if lock is None:
+                lock = threading.Lock()
+                self._pair_locks[pair_id] = lock
+            return lock
 
     @staticmethod
     def _parse_query_dates(date_pre: str | None, date_peak: str | None) -> dict[str, Any]:
@@ -503,6 +519,22 @@ class DataLoader:
                 )
 
     def get_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
+        """Отдаёт отчёт пары, сериализуя холодную пересборку по блокировке пары.
+
+        Параллельные запросы к ещё не закэшированной паре (threadpool FastAPI) ждут
+        одного расчёта растров вместо ``N`` кратных повторов тяжёлой репроекции;
+        запросы с ``query_geom`` не кэшируются и считаются без блокировки.
+        """
+        if query_geom is None and pair_id in self._reports_cache:
+            return self._reports_cache[pair_id]
+        if query_geom is not None:
+            return self._build_report(pair_id, query_geom)
+        with self._pair_lock(pair_id):
+            if pair_id in self._reports_cache:
+                return self._reports_cache[pair_id]
+            return self._build_report(pair_id)
+
+    def _build_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
         """Гидрологический отчёт для пары.
 
         Все отдаваемые площади (``flood_ha``/``water_pre_ha``/``water_peak_ha``)

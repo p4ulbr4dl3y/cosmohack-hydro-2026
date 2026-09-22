@@ -378,3 +378,40 @@ def test_data_loader_morphological_micro_island_filtering(tmp_path):
     # Только 1 объект (крупное пятно 10x10), микроострова были отфильтрованы!
     assert len(gj["features"]) == 1
     assert gj["features"][0]["properties"]["area_ha"] == 1.0  # 100 пикс * 0.01 га/пикс
+
+
+def test_get_report_dedupes_concurrent_cold_build(tmp_path, monkeypatch):
+    """Параллельные запросы к одной холодной паре выполняют тяжёлый расчёт один раз.
+
+    Синхронные эндпоинты FastAPI работают в threadpool, поэтому без блокировки
+    per-pair ``N`` одновременных запросов повторяли бы репроекцию растров ``N`` раз.
+    """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    loader = DataLoader(cache_dir=tmp_path / "cache")
+    loader._reports_cache.pop(pair_id, None)
+
+    real_build = loader._build_report
+    calls: list[str] = []
+    calls_lock = threading.Lock()
+
+    def counting_build(pid, query_geom=None):
+        with calls_lock:
+            calls.append(pid)
+        # Задержка расширяет окно гонки, в котором параллельные потоки должны ждать.
+        import time
+
+        time.sleep(0.05)
+        return real_build(pid, query_geom)
+
+    monkeypatch.setattr(loader, "_build_report", counting_build)
+
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        results = list(ex.map(lambda _: loader.get_report(pair_id), range(8)))
+
+    # Тяжёлый расчёт выполнен ровно один раз, все потоки получили один отчёт
+    assert len(calls) == 1
+    assert all(r is not None and r["pair_id"] == pair_id for r in results)
+    assert len({id(r) for r in results}) == 1

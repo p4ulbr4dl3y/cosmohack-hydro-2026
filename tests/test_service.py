@@ -963,3 +963,54 @@ def test_eda_endpoint(monkeypatch, tmp_path):
     resp_404 = client.get("/eda")
     assert resp_404.status_code == 404
     assert resp_404.json()["detail"] == "Отчет EDA не скомпилирован"
+
+
+# --- Регрессия производительности: сжатие, кэширование и дедупликация расчётов ---
+
+
+def test_gzip_middleware_compresses_large_json():
+    """Крупные JSON/CSV-ответы сжимаются, когда клиент запрашивает gzip."""
+    resp = client.get("/api/v1/pairs", headers={"Accept-Encoding": "gzip"})
+    assert resp.status_code == 200
+    assert resp.headers.get("content-encoding") == "gzip"
+    # httpx прозрачно распаковывает тело, поэтому Content-Length (байты в сети)
+    # строго меньше распакованного JSON.
+    assert int(resp.headers["content-length"]) < len(resp.content)
+    assert "accept-encoding" in resp.headers.get("vary", "").lower()
+
+
+def test_gzip_not_applied_without_accept_encoding():
+    """Без Accept-Encoding: gzip тело отдаётся как есть (identity)."""
+    resp = client.get("/api/v1/pairs", headers={"Accept-Encoding": "identity"})
+    assert resp.status_code == 200
+    assert resp.headers.get("content-encoding") is None
+    assert int(resp.headers["content-length"]) == len(resp.content)
+
+
+def test_gzip_not_applied_to_excluded_content_types():
+    """PNG-оверлеи исключены из сжатия самим Starlette (плохо сжимаемый формат)."""
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.get(f"/api/v1/overlay/{pair_id}?layer=flood", headers={"Accept-Encoding": "gzip"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/png"
+    assert resp.headers.get("content-encoding") != "gzip"
+
+
+def test_artifact_cache_headers_present():
+    """Неизменяемые артефакты (GeoJSON, GeoTIFF) отдаются с Cache-Control."""
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    gj = client.get(f"/api/v1/geojson/{pair_id}?layer=flood")
+    assert gj.status_code == 200
+    assert gj.headers.get("cache-control") == "public, max-age=86400"
+
+    tif = client.get(f"/api/v1/geotiff/{pair_id}?layer=flood")
+    assert tif.status_code == 200
+    assert tif.headers.get("cache-control") == "public, max-age=86400"
+
+
+def test_artifact_cache_header_absent_on_errors():
+    """404 не должен кэшироваться как неизменяемый артефакт."""
+    resp = client.get("/api/v1/geojson/non_existent_pair?layer=flood")
+    assert resp.status_code == 404
+    assert resp.headers.get("cache-control") != "public, max-age=86400"

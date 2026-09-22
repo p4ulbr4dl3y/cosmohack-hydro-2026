@@ -25,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.gzip import GZipMiddleware
 
 from src.audit import generate_flood_audit_certificate
 from src.carbon_metrics import compute_flood_carbon_impact
@@ -53,6 +54,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 PREDICTIONS_DIR = BASE_DIR / "predictions"
 
+#: Кэширование неизменяемых артефактов (растровые маски, GeoJSON слоёв, PNG-оверлеи).
+#: Содержимое фиксировано на диске и меняется только через POST /api/v1/recompute.
+ARTIFACT_CACHE_CONTROL = "public, max-age=86400"
+
 app = FastAPI(
     title="HydroWatch Amur API",
     description="Оперативный сервис гидрологического мониторинга и картирования паводков Sentinel-1/2",
@@ -67,6 +72,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Сжатие крупных ответов (GeoJSON ~300-500 КБ, CSV, HTML) снижает объём трафика
+# в 8-15 раз; PNG/ZIP исключены самим Starlette как неразумно сжимаемые.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
 
 # Реестр задач прогнозирования в памяти
 tasks_db: dict[str, dict[str, Any]] = {}
@@ -103,7 +112,7 @@ async def list_pairs() -> Any:
     response_model=ReportResponse,
     summary="Автоматический гидрологический отчет по паре",
 )
-async def get_report(pair_id: str) -> Any:
+def get_report(pair_id: str) -> Any:
     """Автоматизированный сводный отчёт с площадями затопления, метриками и типами поверхности."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -112,7 +121,7 @@ async def get_report(pair_id: str) -> Any:
 
 
 @app.get("/api/v1/report/{pair_id}/csv")
-async def get_report_csv(pair_id: str) -> Response:
+def get_report_csv(pair_id: str) -> Response:
     """Скачивает отчёт по одной паре в формате CSV."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -217,7 +226,7 @@ async def get_report_csv(pair_id: str) -> Response:
     response_model=MchsDispatchResponse,
     summary="Официальное оперативное полевое донесение МЧС",
 )
-async def get_mchs_dispatch_endpoint(
+def get_mchs_dispatch_endpoint(
     pair_id: str,
     format: str = Query(default="json", description="Формат вывода: 'json' или 'html'"),
 ) -> Any:
@@ -234,7 +243,8 @@ async def get_mchs_dispatch_endpoint(
 
 
 @app.get("/api/v1/geojson/{pair_id}")
-async def get_geojson(
+def get_geojson(
+    response: Response,
     pair_id: str,
     layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> dict[str, Any]:
@@ -248,6 +258,7 @@ async def get_geojson(
     geojson = data_loader.get_geojson(pair_id, layer=norm_layer)
     if geojson is None:
         raise HTTPException(status_code=404, detail=f"GeoJSON для пары '{pair_id}' (слой: {norm_layer}) не найден")
+    response.headers["Cache-Control"] = ARTIFACT_CACHE_CONTROL
     return geojson
 
 
@@ -259,7 +270,7 @@ async def get_geojson(
     "/api/v1/shapefile/{pair_id}",
     summary="Синоним: экспорт векторных полигонов в ESRI Shapefile (.zip)",
 )
-async def get_shapefile(
+def get_shapefile(
     pair_id: str,
     layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> Response:
@@ -299,6 +310,7 @@ async def get_geotiff(
         path=str(tif_path),
         media_type="image/tiff",
         filename=f"{pair_id}_{norm_layer}.tif",
+        headers={"Cache-Control": ARTIFACT_CACHE_CONTROL},
     )
 
 
@@ -307,7 +319,7 @@ async def get_geotiff(
     response_model=PredictResponse,
     summary="Пространственно-временной прогноз затопления",
 )
-async def predict_flood(request: PredictRequest) -> Any:
+def predict_flood(request: PredictRequest) -> Any:
     """Эндпоинт пространственно-временного вывода по запросу (bbox / polygon / pair_id / dates).
 
     Поведение и контракт:
@@ -417,7 +429,7 @@ async def list_events() -> list[dict[str, Any]]:
 
 
 @app.get("/api/v1/aoi")
-async def get_aoi_vectors() -> dict[str, Any]:
+def get_aoi_vectors() -> dict[str, Any]:
     """Возвращает FeatureCollection GeoJSON с полигонами AOI."""
     aoi_path = BASE_DIR / "hydrowatch_amur" / "vectors" / "aoi.geojson"
     if not aoi_path.exists():
@@ -431,7 +443,7 @@ async def get_aoi_vectors() -> dict[str, Any]:
 
 
 @app.get("/api/v1/vectors/{layer_name}")
-async def get_vector_layer(layer_name: str) -> dict[str, Any]:
+def get_vector_layer(layer_name: str) -> dict[str, Any]:
     """Возвращает GeoJSON векторного слоя (например, amur_oblast, aoi, hydrography_osm, basins_hydrosheds)."""
 
     v_path = BASE_DIR / "hydrowatch_amur" / "vectors" / f"{layer_name}.geojson"
@@ -444,7 +456,7 @@ async def get_vector_layer(layer_name: str) -> dict[str, Any]:
 
 
 @app.get("/api/v1/comparison/{pair_id}")
-async def get_comparison(pair_id: str) -> dict[str, Any]:
+def get_comparison(pair_id: str) -> dict[str, Any]:
     """Сопоставление прогноза модели и эталонной маски для отчёта."""
 
     report = data_loader.get_report(pair_id)
@@ -530,7 +542,7 @@ async def get_comparison(pair_id: str) -> dict[str, Any]:
 
 
 @app.get("/api/v1/ablation")
-async def get_ablation_results() -> dict[str, Any]:
+def get_ablation_results() -> dict[str, Any]:
     """Возвращает результаты ablation ML-конвейера и метрики."""
 
     ablation_path = BASE_DIR / "data" / "ablation_results.json"
@@ -572,7 +584,7 @@ def _invalidate_pair_caches(pair_ids: list[str]) -> None:
 
 
 @app.post("/api/v1/recompute")
-async def recompute_observation(request: RecomputeRequest | None = None) -> dict[str, Any]:
+def recompute_observation(request: RecomputeRequest | None = None) -> dict[str, Any]:
     """Перестраивает кэши отчёта и GeoJSON для одной пары (или всех пар) с реальными замерами времени."""
     all_pair_ids = [p["pair_id"] for p in data_loader.get_pairs()]
     target_pair_id = request.pair_id if request else None
@@ -609,7 +621,7 @@ async def recompute_observation(request: RecomputeRequest | None = None) -> dict
 
 
 @app.get("/api/v1/layers/{pair_id}/geojson")
-async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
+def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
     """Возвращает FeatureCollection GeoJSON слоя затопления для пары согласно контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer="flood")
     if geojson is None:
@@ -618,7 +630,7 @@ async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
 
 
 @app.get("/api/v1/layers/{pair_id}/{layer}")
-async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
+def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
     """Эндпоинт слоя на основе пути, соответствующий контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer=layer)
     if geojson is None:
@@ -627,13 +639,13 @@ async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
 
 
 @app.post("/api/v1/analyze")
-async def analyze_flood(request: PredictRequest) -> dict[str, Any]:
+def analyze_flood(request: PredictRequest) -> dict[str, Any]:
     """Псевдоним predict_flood, соответствующий контракту openapi."""
-    return await predict_flood(request)
+    return predict_flood(request)
 
 
 @app.get("/api/v1/export/{pair_id}/vectors")
-async def export_vectors(
+def export_vectors(
     pair_id: str,
     format: str = Query(default="geojson", description="Формат: 'geojson' или 'shp'"),
 ) -> Response:
@@ -660,13 +672,13 @@ async def export_vectors(
 
 
 @app.get("/api/v1/export/{pair_id}/report")
-async def export_report(
+def export_report(
     pair_id: str,
     format: str = Query(default="json", description="Формат: 'json' или 'csv'"),
 ) -> Response:
     """Экспортирует сводный отчёт как JSON или CSV."""
     if format.lower() == "csv":
-        return await get_report_csv(pair_id)
+        return get_report_csv(pair_id)
 
     report = data_loader.get_report(pair_id)
     if not report:
@@ -684,7 +696,7 @@ async def export_report(
     response_model=HydroAuditCertificateResponse,
     summary="Криптографический аудиторский сертификат Merkle для верификации затопления",
 )
-async def get_audit_certificate(pair_id: str) -> Any:
+def get_audit_certificate(pair_id: str) -> Any:
     """Создаёт или получает защищённый от подделки аудиторский сертификат Merkle для наблюдаемой пары."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -726,7 +738,7 @@ async def get_audit_certificate(pair_id: str) -> Any:
     response_model=FloodUncertaintyResponse,
     summary="Пространственная неопределенность и доверительные интервалы площади затопления",
 )
-async def get_flood_uncertainty(
+def get_flood_uncertainty(
     pair_id: str,
     confidence_level: float = Query(default=0.95, ge=0.50, le=0.999),
     spatial_correlation: float | None = Query(default=None, ge=0.0, le=1.0),
@@ -787,7 +799,7 @@ async def get_flood_uncertainty(
     response_model=SARAnalyticsResponse,
     summary="Радиолокационная поляриметрическая аналитика Sentinel-1 и метрики качества",
 )
-async def get_sar_analytics(pair_id: str) -> Any:
+def get_sar_analytics(pair_id: str) -> Any:
     """Анализирует обратное рассеяние SAR с двойной поляризацией и проникновение радара для пары."""
     report = data_loader.get_report(pair_id)
     if not report:
@@ -811,7 +823,7 @@ async def get_sar_analytics(pair_id: str) -> Any:
     "/api/v1/overlay/{pair_id}",
     summary="Скачать прозрачный RGBA PNG-оверлей для визуализации на карте",
 )
-async def get_raster_overlay_png(
+def get_raster_overlay_png(
     pair_id: str,
     layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
     gradient: bool = Query(default=True, description="Включить непрерывный цветовой градиент глубины/интенсивности"),
@@ -848,7 +860,7 @@ async def get_raster_overlay_png(
     response_model=OverlayMetadataResponse,
     summary="Географические границы и метаданные растрового PNG-оверлея",
 )
-async def get_raster_overlay_metadata(
+def get_raster_overlay_metadata(
     pair_id: str,
     layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> Any:
@@ -887,7 +899,7 @@ async def get_raster_overlay_metadata(
     response_model=OfficialMetricsResponse,
     summary="Официальная соревновательная метрика и сходимость компонент (docs/TASK_SPEC.md)",
 )
-async def get_official_metrics() -> Any:
+def get_official_metrics() -> Any:
     """Вычисляет актуальную официальную оценку соревнования по всем 11 парам:
     Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
     """
@@ -912,7 +924,7 @@ async def get_official_metrics() -> Any:
     response_model=SubmissionValidationResponse,
     summary="Проверка submission.csv и растровых масок по критериям (docs/CRITERIA.md)",
 )
-async def validate_submission() -> Any:
+def validate_submission() -> Any:
     """Проверяет ограничения submission.csv и правило 2% расхождения растров."""
     sub_path = BASE_DIR / "submission.csv"
     pairs_path = BASE_DIR / "hydrowatch_amur" / "pairs.csv"
@@ -929,7 +941,7 @@ async def validate_submission() -> Any:
     response_model=FloodCarbonImpactResponse,
     summary="Оценка потерь биомассы и запасов углерода для паводковых событий",
 )
-async def get_carbon_impact(pair_id: str) -> Any:
+def get_carbon_impact(pair_id: str) -> Any:
     """Вычисляет углеродный след, потерю биомассы (значение IPCC по умолчанию CF=0.47) и кредиты на смягчение."""
     report = data_loader.get_report(pair_id)
     if not report:
