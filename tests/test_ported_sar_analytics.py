@@ -1,4 +1,4 @@
-"""Unit tests for Sentinel-1 SAR radar analytics module."""
+"""Модульные тесты модуля радиолокационной аналитики Sentinel-1 SAR."""
 
 from __future__ import annotations
 
@@ -25,8 +25,8 @@ def test_compute_cross_polarization_ratio():
 
 
 def test_analyze_sar_hydrology_water_detection():
-    # Construct 10x10 radar grid with 30 water pixels (deep specular reflection: VV ~ -22 dB, VH ~ -28 dB)
-    # and 70 land pixels (rough terrain: VV ~ -9 dB, VH ~ -14 dB)
+    # Формируется радиолокационная сетка 10x10 с 30 водными пикселями (глубокое зеркальное отражение: VV ~ -22 dB, VH ~ -28 dB)
+    # и 70 пикселями суши (шероховатый рельеф: VV ~ -9 dB, VH ~ -14 dB)
     vv = np.full((10, 10), -9.0)
     vh = np.full((10, 10), -14.0)
 

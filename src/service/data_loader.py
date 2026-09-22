@@ -1,4 +1,4 @@
-"""Data loader and spatial processing service for HydroWatch Amur."""
+"""Сервис загрузки данных и пространственной обработки для HydroWatch Amur."""
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class DataLoader:
 
     @staticmethod
     def _parse_query_dates(date_pre: str | None, date_peak: str | None) -> dict[str, Any]:
-        """Parse optional requested ISO dates, ignoring malformed/empty values."""
+        """Разбирает необязательные запрошенные даты ISO, игнорируя некорректные и пустые значения."""
         from datetime import datetime as _datetime
 
         parsed: dict[str, Any] = {"date_pre": None, "date_peak": None}
@@ -76,10 +76,10 @@ class DataLoader:
 
     @staticmethod
     def _pair_date_distance(pair_meta: dict[str, Any], req_dates: dict[str, Any]) -> float:
-        """Mean absolute day distance between requested and scene dates for a pair.
+        """Среднее абсолютное расстояние в днях между запрошенными и сценовыми датами для пары.
 
-        When no dates are requested the distance is 0 for every pair, so ordering
-        falls back to spatial overlap.
+        Когда даты не запрошены, расстояние равно 0 для каждой пары, поэтому сортировка
+        сводится к пространственному перекрытию.
         """
         from datetime import datetime as _datetime
 
@@ -97,7 +97,7 @@ class DataLoader:
         return float(np.mean(dists)) if dists else 0.0
 
     def _metric_area_ha(self, geom_4326: Any, pair_id: str) -> float:
-        """Area of a WGS84 geometry in hectares, computed in local UTM CRS."""
+        """Площадь геометрии WGS84 в гектарах, вычисленная в локальной CRS UTM."""
         utm_crs = "EPSG:32652"
         aoi_path = self.data_dir / "vectors" / "aoi.geojson"
         if aoi_path.exists():
@@ -170,10 +170,10 @@ class DataLoader:
         return self._pairs_cache
 
     def _backfill_report_metadata(self, data: dict[str, Any], pair_id: str, cache_file: Path) -> None:
-        """Backfill sensor/generation metadata into reports cached before schema v1.1.
+        """Дозаполняет метаданные датчика и генерации в отчётах, закэшированных до схемы v1.1.
 
-        Reports written by older code lack `sensor_*` and `generated_at`; the disk
-        mtime is a faithful stand-in for the generation timestamp.
+        В отчётах, созданных старым кодом, отсутствуют `sensor_*` и `generated_at`; время
+        изменения файла на диске служит точной заменой метки времени генерации.
         """
         pair_meta = self.get_pair_meta(pair_id)
         if pair_meta:
@@ -194,7 +194,7 @@ class DataLoader:
         return None
 
     def _query_inside_mask(self, src: Any, query_geom: Any) -> Any:
-        """Boolean raster mask of pixels overlapping the WGS84 query geometry."""
+        """Булева растровая маска пикселей, перекрывающих запросную геометрию WGS84."""
         from rasterio.features import rasterize
         from rasterio.warp import transform_geom
 
@@ -208,11 +208,11 @@ class DataLoader:
         ).astype(bool)
 
     def _measure_layer_area_ha(self, pair_id: str, layer: str, query_geom: Any | None = None) -> float | None:
-        """Flood/water area in hectares measured from the model raster.
+        """Площадь затопления и воды в гектарах, измеренная по растру модели.
 
-        ``query_geom`` (a WGS84 shapely geometry) restricts the measured pixels to
-        the query polygon; ``None`` measures the whole AOI. Returns ``None`` when
-        the layer raster has not been produced (never falls back to reference masks).
+        ``query_geom`` (геометрия shapely в WGS84) ограничивает измеряемые пиксели
+        запросным полигоном; ``None`` измеряет весь AOI. Возвращает ``None``, когда
+        растр слоя не был создан (никогда не откатывается к эталонным маскам).
         """
         tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
         if not tif.exists():
@@ -231,10 +231,10 @@ class DataLoader:
         water_pre_ha: float | None,
         water_peak_ha: float | None,
     ) -> None:
-        """Warn when raster-measured areas diverge from submission.csv by >= 2%.
+        """Предупреждает, когда измеренные по растру площади расходятся с submission.csv на >= 2%.
 
-        ``src/predict.py`` guarantees raster/CSV agreement below 2%; submission.csv
-        is retained here purely as a cross-check, it is never the served value.
+        ``src/predict.py`` гарантирует согласованность растра и CSV ниже 2%; submission.csv
+        здесь хранится исключительно как перекрёстная проверка и никогда не является отдаваемым значением.
         """
         if not self.submission_csv.exists():
             return
@@ -255,14 +255,14 @@ class DataLoader:
                 )
 
     def get_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
-        """Hydrological report for a pair.
+        """Гидрологический отчёт для пары.
 
-        All served areas (``flood_ha``/``water_pre_ha``/``water_peak_ha``) are
-        measured from the model rasters in ``predictions/``; ``submission.csv`` is
-        only ever used as a divergence cross-check, never as the source of truth.
-        When ``query_geom`` (a WGS84 shapely geometry) is given, the measurement is
-        restricted to that geometry and the result is neither read from nor written
-        to the disk cache.
+        Все отдаваемые площади (``flood_ha``/``water_pre_ha``/``water_peak_ha``)
+        измеряются по растрам модели в ``predictions/``; ``submission.csv``
+        используется только как перекрёстная проверка расхождения и никогда как источник истины.
+        Когда задан ``query_geom`` (геометрия shapely в WGS84), измерение
+        ограничивается этой геометрией, и результат не читается из дискового кэша
+        и не записывается в него.
         """
         cache_file: Path | None = None
         if query_geom is None:
@@ -285,17 +285,17 @@ class DataLoader:
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
         aux_tif = self.data_dir / str(row["rasters_dir"]) / "AUX_terrain_gsw.tif"
 
-        # Areas always come from measuring the model rasters (whole AOI or, when a
-        # query geometry is given, restricted to it). Never from submission.csv and
-        # never from the organizer reference masks.
+        # Площади всегда берутся из измерения растров модели (весь AOI или, при наличии
+        # запросной геометрии, ограниченные ею). Никогда из submission.csv и
+        # никогда из эталонных масок организатора.
         flood_ha = self._measure_layer_area_ha(pair_id, "flood", query_geom)
         water_pre_ha = self._measure_layer_area_ha(pair_id, "water_pre", query_geom)
         water_peak_ha = self._measure_layer_area_ha(pair_id, "water_peak", query_geom)
 
-        # Target flood raster: use model prediction (do not fall back to organizer reference)
+        # Целевой растр затопления: используем прогноз модели (не откатываемся к эталону организатора)
         target_flood_tif = pred_tif if pred_tif.exists() else None
 
-        # Compute or extract landcover distribution from AUX
+        # Вычисляем или извлекаем распределение типов поверхности из AUX
         built_ha = 0.0
         nat_ha = flood_ha if flood_ha is not None else 0.0
         built_pct = 0.0
@@ -375,7 +375,7 @@ class DataLoader:
 
             tot_pix = int(flood_pts.sum())
 
-            # Cropland from a locally cached ESA WorldCover mask (may be absent)
+            # Пашня по локально закэшированной маске ESA WorldCover (может отсутствовать)
             cropland_tif = self.data_dir / str(row["rasters_dir"]) / "CROPLAND_worldcover.tif"
             if cropland_tif.exists():
                 try:
@@ -394,7 +394,7 @@ class DataLoader:
 
             if tot_pix > 0:
                 b_built = int((builtup[flood_pts] == 1).sum())
-                # Cropland only counts non-built-up pixels; built-up wins on overlap
+                # Пашня учитывает только незастроенные пиксели; при перекрытии приоритет у застройки
                 b_crop = int(((cropland[flood_pts] == 1) & (builtup[flood_pts] != 1)).sum())
                 b_nat = tot_pix - b_built - b_crop
                 b_hist = int((max_extent[flood_pts] == 1).sum())
@@ -414,11 +414,11 @@ class DataLoader:
                 valid_hand = valid_hand[np.isfinite(valid_hand) & (valid_hand >= 0)]
                 mean_hand = round(float(np.mean(valid_hand)), 2) if len(valid_hand) > 0 else 0.0
 
-                # Water depth estimation and MCHS risk classification
+                # Оценка глубины воды и классификация риска МЧС
                 water_depth = estimate_water_depth(flood_mask=flood_pts, elevation=hand)
                 depth_stats = classify_depth_risk(depth=water_depth, flood_mask=flood_pts, px_ha=px_ha)
 
-            # Permanent water from GSW occurrence >= 80% (standard hydrological baseline)
+            # Постоянная вода по occurrence GSW >= 80% (стандартная гидрологическая база)
             perm_pts = (occurrence >= 80.0) & np.isfinite(occurrence)
             if inside is not None:
                 perm_pts = perm_pts & inside
@@ -428,8 +428,8 @@ class DataLoader:
         else:
             permanent_ha = round(max(0.0, water_pre_ha - flood_ha), 2) if (water_pre_ha and flood_ha) else 0.0
 
-        # submission.csv is a cross-check only: warn if the served raster numbers
-        # diverge from it beyond the <2% agreement guaranteed by src/predict.py.
+        # submission.csv это только перекрёстная проверка: предупреждаем, если отдаваемые
+        # числа растра расходятся с ним сильнее согласованности <2%, гарантированной src/predict.py.
         self._cross_check_submission(pair_id, flood_ha, water_pre_ha, water_peak_ha)
 
         if flood_ha is None:
@@ -443,7 +443,7 @@ class DataLoader:
         water_pre_km2 = round(water_pre_ha / 100.0, 3)
         water_peak_km2 = round(water_peak_ha / 100.0, 3)
 
-        # Receded water: water on pre date, gone by peak date (own water masks)
+        # Отступившая вода: вода на дату pre, исчезнувшая к дате пика (собственные маски воды)
         receded_ha = 0.0
         own_pre_tif = self.predictions_dir / f"{pair_id}_water_pre.tif"
         own_peak_tif = self.predictions_dir / f"{pair_id}_water_peak.tif"
@@ -528,7 +528,7 @@ class DataLoader:
         if layer not in ("flood", "water_pre", "water_peak"):
             return None
 
-        # Contour export limits come from config (0 contours = unlimited)
+        # Лимиты экспорта контуров берутся из конфигурации (0 контуров = без ограничений)
         cfg = HydroConfig.from_yaml()
         min_area_sqm = float(cfg.extra.get("geojson_min_area_sqm", 500.0))
         max_contours = int(cfg.extra.get("geojson_max_contours", 0))
@@ -544,7 +544,7 @@ class DataLoader:
 
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
 
-        # Use the team's own model outputs only (never serve organizer reference masks)
+        # Используем только собственные выходы модели команды (никогда не отдаём эталонные маски организатора)
         own_tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
         if layer == "flood" and pred_tif.exists():
             src_tif = pred_tif
@@ -592,8 +592,8 @@ class DataLoader:
             mask = (arr == 1).astype(bool)
             del arr
 
-            # Morphological noise filtering of micro-islands before polygon vectorization
-            # (scipy.ndimage connected components / binary opening)
+            # Морфологическая фильтрация шума микроостровов перед векторизацией полигонов
+            # (связные компоненты scipy.ndimage / бинарное открытие)
             min_pixels = max(1, int(min_area_sqm / 100.0))
             if min_pixels > 1:
                 labeled, num_features = ndimage.label(mask, structure=ndimage.generate_binary_structure(2, 1))
@@ -607,7 +607,7 @@ class DataLoader:
                 struct = ndimage.generate_binary_structure(2, 1)
                 mask = ndimage.binary_opening(mask, structure=struct)
 
-            # Compact uint8 array for polygon vectorization
+            # Компактный массив uint8 для векторизации полигонов
             clean_arr = mask.astype(np.uint8, copy=False)
             poly_shapes = list(shapes(clean_arr, mask=mask, transform=src.transform))
             del clean_arr, mask
@@ -617,12 +617,12 @@ class DataLoader:
                 del poly_shapes
                 gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
                 del geoms
-                # Keep polygons >= min area to avoid sub-pixel noise while preserving real flood patches
+                # Оставляем полигоны >= минимальной площади, убирая субпиксельный шум и сохраняя реальные участки
                 gdf = gdf[gdf.geometry.area >= min_area_sqm].copy()
                 if not gdf.empty:
                     gdf["area_sqm"] = gdf.geometry.area
                     gdf = gdf.sort_values(by="area_sqm", ascending=False).reset_index(drop=True)
-                    # Optional cap on contour count (config-driven, 0 = keep all contours)
+                    # Необязательное ограничение числа контуров (из конфигурации, 0 = сохранять все контуры)
                     if max_contours > 0 and len(gdf) > max_contours:
                         gdf = gdf.iloc[:max_contours].copy()
 
@@ -664,10 +664,10 @@ class DataLoader:
         layer: str,
         query_geom: Any,
     ) -> tuple[dict[str, Any] | None, float | None]:
-        """Clip one vector layer to a query geometry and return (geojson, area_ha).
+        """Обрезает один векторный слой по запросной геометрии и возвращает (geojson, area_ha).
 
-        Contour ``area_ha`` attributes are recomputed in the pair's local metric CRS.
-        Returns ``(None, None)`` when the layer has no features at all.
+        Атрибуты ``area_ha`` контуров пересчитываются в локальной метрической CRS пары.
+        Возвращает ``(None, None)``, когда у слоя вообще нет объектов.
         """
         geojson = self.get_geojson(pair_id, layer=layer)
         if not geojson or not geojson.get("features"):
@@ -701,10 +701,10 @@ class DataLoader:
         }, round(total_ha, 2)
 
     def get_shapefile_zip(self, pair_id: str, layer: str = "flood") -> bytes | None:
-        """Export layer polygons as a zipped ESRI Shapefile archive.
+        """Экспортирует полигоны слоя как архив ESRI Shapefile в zip.
 
-        Guarantees standard ESRI Shapefile components (.shp, .shx, .dbf, .prj)
-        with required attributes: feature_id, class, area_ha, date_peak, crs.
+        Гарантирует стандартные компоненты ESRI Shapefile (.shp, .shx, .dbf, .prj)
+        с обязательными атрибутами: feature_id, class, area_ha, date_peak, crs.
         """
         import io
         import tempfile
@@ -765,7 +765,7 @@ class DataLoader:
         return buf.getvalue()
 
     def get_mchs_dispatch(self, pair_id: str) -> dict[str, Any] | None:
-        """Official operational field report conforming to EMERCOM / MCHS RF standards."""
+        """Официальное оперативное полевое донесение по стандартам МЧС / EMERCOM РФ."""
         report = self.get_report(pair_id)
         if not report:
             return None
@@ -779,18 +779,18 @@ class DataLoader:
         date_peak: str | None = None,
         polygon: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Resolve a monitored pair from pair_id, bbox or polygon and return its flood summary.
+        """Определяет наблюдаемую пару по pair_id, bbox или полигону и возвращает её сводку по затоплению.
 
-        Pair resolution precedence:
-          1. explicit ``pair_id``;
-          2. spatial+temporal match: among pairs overlapping the requested
-             bbox/polygon, prefer the one whose SAR scene dates are closest to the
-             requested ``date_pre``/``date_peak`` (ties broken by spatial overlap);
-          3. purely spatial match (largest overlap) when no dates are supplied.
+        Приоритет определения пары:
+          1. явный ``pair_id``;
+          2. пространственно-временное совпадение: среди пар, перекрывающих запрошенный
+             bbox/полигон, предпочитается та, чьи даты сцен SAR ближе всего к
+             запрошенным ``date_pre``/``date_peak`` (при равенстве - по пространственному перекрытию);
+          3. чисто пространственное совпадение (наибольшее перекрытие), когда даты не переданы.
         """
         target_pair_id = pair_id
 
-        # Resolve the requested query geometry (polygon wins over bbox when both given)
+        # Определяем запросную геометрию (при наличии обоих приоритет у полигона, а не у bbox)
         query_geom = None
         if polygon is not None:
             try:
@@ -815,22 +815,22 @@ class DataLoader:
 
             if not candidates:
                 raise ValueError("Requested bounds do not overlap any monitored Amur basin AOI")
-            # Smallest date distance first; larger overlap (more negative) as tie-break
+            # Сначала наименьшее расстояние по дате; большее перекрытие (более отрицательное) разрешает ничью
             candidates.sort()
             target_pair_id = candidates[0][2]
         elif not target_pair_id:
             target_pair_id = self._pairs_cache[0]["pair_id"]
 
-        # A spatial query binds BOTH the reported numbers and the returned geometry:
-        # all areas are recomputed from the model rasters inside the query polygon.
+        # Пространственный запрос связывает И отдаваемые числа, И возвращаемую геометрию:
+        # все площади пересчитываются по растрам модели внутри запросного полигона.
         report = self.get_report(target_pair_id, query_geom=query_geom)
         if not report:
             raise ValueError(f"Pair {target_pair_id} not found")
 
         geojson = self.get_geojson(target_pair_id, layer="flood")
 
-        # If a query geometry was given, clip feature geometries to its intersection
-        # and recompute area_ha in a metric (UTM) projection rather than degrees.
+        # Если задана запросная геометрия, обрезаем геометрии объектов по их пересечению
+        # и пересчитываем area_ha в метрической проекции (UTM), а не в градусах.
         if query_geom is not None:
             geojson, _ = self.clip_layer_to_geometry(target_pair_id, "flood", query_geom)
 
@@ -874,5 +874,5 @@ class DataLoader:
         }
 
 
-# Singleton instance
+# Синглтон-экземпляр
 data_loader = DataLoader()

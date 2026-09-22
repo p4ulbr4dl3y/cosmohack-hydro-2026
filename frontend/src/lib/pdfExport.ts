@@ -15,7 +15,7 @@ export async function downloadReportPdf(
 
   try {
     if (!targetElement) {
-      // Create offscreen container with exact fixed width for high-DPI rendering
+      // Создание закадрового контейнера с точной фиксированной шириной для рендеринга с высоким DPI
       tempContainer = document.createElement('div');
       tempContainer.id = 'report-pdf-temp-render';
       tempContainer.style.position = 'fixed';
@@ -35,7 +35,7 @@ export async function downloadReportPdf(
         })
       );
 
-      // Wait for React to render and fonts/DOM to stabilize
+      // Ожидание отрисовки React и стабилизации шрифтов/DOM
       await new Promise((resolve) => setTimeout(resolve, 350));
       targetElement = tempContainer.querySelector('#report-printable-area') || tempContainer;
     }
@@ -49,7 +49,7 @@ export async function downloadReportPdf(
     const pageWidthMm = 210;
     const pageHeightMm = 297;
 
-    // Detect explicit page sections (data-pdf-page)
+    // Определение явных секций страниц (data-pdf-page)
     const pageNodes = targetElement.querySelectorAll<HTMLElement>('[data-pdf-page]');
     const pagesToRender = pageNodes.length > 0 ? Array.from(pageNodes) : [targetElement];
 
@@ -78,7 +78,7 @@ export async function downloadReportPdf(
       let offsetX = 0;
       let offsetY = 0;
 
-      // Scale down proportionally if content height exceeds A4 (297mm) so nothing is clipped
+      // Пропорциональное уменьшение, если высота контента превышает A4 (297mm), чтобы ничего не обрезалось
       if (imgHeightMm > pageHeightMm) {
         const scaleFactor = pageHeightMm / imgHeightMm;
         renderWidth = pageWidthMm * scaleFactor;
@@ -92,7 +92,7 @@ export async function downloadReportPdf(
     pdf.save(`report_${report.pair_id || 'amur'}.pdf`);
   } catch (error) {
     console.error('Failed to generate PDF via canvas, fallback to basic PDF:', error);
-    // Fallback if canvas capture fails
+    // Запасной вариант, если захват canvas не удался
     const pdf = new jsPDF('p', 'mm', 'a4');
     pdf.setFontSize(16);
     pdf.text(report.event_name || 'HydroWatch Report', 14, 20);
@@ -106,7 +106,7 @@ export async function downloadReportPdf(
       try {
         rootInstance.unmount();
       } catch {
-        // ignore unmount errors
+        // игнорирование ошибок размонтирования
       }
     }
     if (tempContainer && tempContainer.parentNode) {

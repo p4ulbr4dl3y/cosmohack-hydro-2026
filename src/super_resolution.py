@@ -1,9 +1,9 @@
-"""Mass-Preserving Super-Resolution & Downscaling Module.
+"""Модуль суперразрешения и понижения разрешения с сохранением массы.
 
-Downscales coarse auxiliary rasters (e.g. 30m GSW occurrence, DEM derivatives,
-or coarse optical indices) to 10m Sentinel resolution using high-resolution guide
-weights (e.g. Sentinel-2 MNDWI/NDVI or Sentinel-1 SAR intensity) with rigorous
-conservation of integrals (Mass Conservation).
+Понижает разрешение грубых вспомогательных растров (например, occurrence GSW 30 м, производные DEM
+или грубые оптические индексы) до разрешения Sentinel 10 м с использованием весов-проводников
+высокого разрешения (например, MNDWI/NDVI Sentinel-2 или интенсивность SAR Sentinel-1) со строгим
+сохранением интегралов (сохранение массы).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class SuperResolutionResult:
-    """Outcome of mass-conserving super-resolution processing."""
+    """Результат обработки суперразрешения с сохранением массы."""
 
     original_shape: tuple[int, int]
     upscaled_shape: tuple[int, int]
@@ -31,22 +31,22 @@ def super_resolve_raster_10m(
     upscale_factor: int = 3,
     min_guide_val: float = 0.01,
 ) -> tuple[np.ndarray, SuperResolutionResult]:
-    """Downscale coarse raster to high-resolution grid with strict integral conservation.
+    """Понижает разрешение грубого растра до сетки высокого разрешения со строгим сохранением интегралов.
 
-    For each coarse cell (r, c), allocates value across (upscale_factor x upscale_factor)
-    sub-pixels proportionally to the guide weights:
+    Для каждой грубой ячейки (r, c) распределяет значение по (upscale_factor x upscale_factor)
+    субпикселям пропорционально весам проводника:
         w_sub = max(min_guide_val, guide_sub) / sum(max(min_guide_val, guide_sub))
         fine_val = coarse_val * (w_sub * upscale_factor^2)
-    This guarantees that the mean of the sub-pixels equals coarse_val.
+    Это гарантирует, что среднее субпикселей равно coarse_val.
 
-    Args:
-        coarse_raster: 2D array of coarse values (e.g., 30m).
-        guide_10m: 2D array of 10m guide features (e.g., MNDWI, VV backscatter, or NDVI).
-                   If None, uniform nearest downscaling is used.
-        upscale_factor: Downscaling factor (default 3, e.g. 30m to 10m).
-        min_guide_val: Baseline floor for weights to prevent zero divisions.
+    Аргументы:
+        coarse_raster: двумерный массив грубых значений (например, 30 м).
+        guide_10m: двумерный массив признаков-проводников 10 м (например, MNDWI, обратное рассеяние VV или NDVI).
+                   Если None, используется равномерное понижение разрешения методом ближайшего соседа.
+        upscale_factor: коэффициент понижения разрешения (по умолчанию 3, например с 30 м до 10 м).
+        min_guide_val: базовый минимум для весов, предотвращающий деление на ноль.
 
-    Returns:
+    Возвращает:
         (superres_raster, result_dataclass)
     """
     coarse = np.asarray(coarse_raster, dtype=np.float64)

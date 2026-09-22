@@ -1,4 +1,4 @@
-"""Configuration and hyperparameters for HydroWatch Amur."""
+"""Конфигурация и гиперпараметры для HydroWatch Amur."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-# Global constants / default values
+# Глобальные константы и значения по умолчанию
 LEE_LOOKS: float = 4.4
 LEE_SIZE: int = 7
 OTSU_MIN_DB: float = -22.0
@@ -34,14 +34,17 @@ SAR_DUAL_POL_VV_WEIGHT: float = 0.7
 SAR_DUAL_POL_VH_WEIGHT: float = 0.3
 SLOPE_MAX_DEG: float = 3.0
 HAND_MAX_M: float = 10.0
+PLANAR_HAND_FILTER_ENABLED: bool = True
+PLANAR_HAND_PERCENTILE: float = 90.0
+PLANAR_HAND_TOLERANCE_M: float = 1.5
 
 
-# Radar-shadow geometry (orbit/aspect-aware guard). Sentinel-1 IW carries no per-pixel
-# incidence-angle band in this dataset, so the nominal mid-swath look angle is used
-# together with the orbit pass; facets at/above the shadow limit are geometrically dark.
+# Геометрия радиолокационной тени (защита с учётом орбиты и экспозиции). Sentinel-1 IW не несёт попиксельной
+# полосы углов падения в этом датасете, поэтому используется номинальный угол визирования середины полосы
+# вместе с направлением орбиты; грани на пределе тени и выше геометрически тёмные.
 SAR_NOMINAL_INCIDENCE_DEG: float = 38.0
 RADAR_SHADOW_MIN_INCIDENCE_DEG: float = 90.0
-# Row block size for windowed (rasterio.windows.Window) reads of the full S1 scenes.
+# Размер блока строк для оконного чтения (rasterio.windows.Window) полных сцен S1.
 SAR_READ_BLOCK_ROWS: int = 1024
 GSW_OCCURRENCE_MIN_PCT: float = 80.0
 OPTICAL_MNDWI_MIN: float = 0.1
@@ -54,7 +57,7 @@ PIXEL_SIZE_HA: float = 0.01
 
 @dataclass
 class HydroConfig:
-    """Dataclass holding all hydrological segmentation and processing parameters."""
+    """Датакласс со всеми параметрами гидрологической сегментации и обработки."""
 
     lee_looks: float = LEE_LOOKS
     lee_size: int = LEE_SIZE
@@ -81,6 +84,9 @@ class HydroConfig:
     sar_dual_pol_vh_weight: float = SAR_DUAL_POL_VH_WEIGHT
     slope_max_deg: float = SLOPE_MAX_DEG
     hand_max_m: float = HAND_MAX_M
+    planar_hand_filter_enabled: bool = PLANAR_HAND_FILTER_ENABLED
+    planar_hand_percentile: float = PLANAR_HAND_PERCENTILE
+    planar_hand_tolerance_m: float = PLANAR_HAND_TOLERANCE_M
 
     sar_nominal_incidence_deg: float = SAR_NOMINAL_INCIDENCE_DEG
     radar_shadow_min_incidence_deg: float = RADAR_SHADOW_MIN_INCIDENCE_DEG
@@ -96,7 +102,7 @@ class HydroConfig:
 
     @classmethod
     def from_yaml(cls, path: str | Path | None = None) -> HydroConfig:
-        """Load HydroConfig from a YAML file, falling back to defaults if not found."""
+        """Загружает HydroConfig из файла YAML, возвращаясь к значениям по умолчанию, если файл не найден."""
         path = Path(__file__).resolve().parent.parent / "config.yaml" if path is None else Path(path)
 
         data: dict[str, Any] = {}
@@ -117,7 +123,7 @@ class HydroConfig:
         return cls(**init_kwargs, extra=extra)
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert configuration to dictionary matching original load_config schema."""
+        """Преобразует конфигурацию в словарь, соответствующий исходной схеме load_config."""
         res: dict[str, Any] = {
             "otsu_min_db": self.otsu_min_db,
             "otsu_max_db": self.otsu_max_db,

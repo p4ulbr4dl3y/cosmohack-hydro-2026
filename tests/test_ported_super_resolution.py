@@ -1,4 +1,4 @@
-"""Unit tests for mass-preserving super-resolution and downscaling module."""
+"""Модульные тесты модуля суперразрешения и даунскейлинга с сохранением массы."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from src.super_resolution import (
 
 
 def test_super_resolve_raster_mass_conservation():
-    # Coarse raster 4x4 with varying positive values
+    # Грубый растр 4x4 с различающимися положительными значениями
     coarse = np.array(
         [
             [10.0, 20.0, 0.0, 50.0],
@@ -23,7 +23,7 @@ def test_super_resolve_raster_mass_conservation():
         dtype=np.float64,
     )
 
-    # High-resolution guide (factor 3 downscaling -> 12x12 grid)
+    # Направляющий растр высокого разрешения (понижение разрешения в 3 раза, сетка 12x12)
     guide = np.random.default_rng(42).uniform(0.1, 1.0, size=(12, 12))
 
     fine, res = super_resolve_raster_10m(coarse, guide_10m=guide, upscale_factor=3)
@@ -32,10 +32,10 @@ def test_super_resolve_raster_mass_conservation():
     assert fine.shape == (12, 12)
     assert res.upscaled_shape == (12, 12)
     assert res.upscale_factor == 3
-    # Conservation error should be virtually 0 (< 0.001%)
+    # Ошибка сохранения массы должна быть практически нулевой (< 0.001%)
     assert res.conservation_error_pct < 0.01
 
-    # Verify per-block mass conservation: mean of 3x3 fine window equals coarse pixel
+    # Проверка сохранения массы по блокам: среднее окна 3x3 мелкого растра равно грубому пикселю
     for r in range(4):
         for c in range(4):
             sub_mean = np.mean(fine[r * 3 : (r + 1) * 3, c * 3 : (c + 1) * 3])

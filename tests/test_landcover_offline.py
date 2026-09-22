@@ -1,7 +1,7 @@
-"""Tests for landcover stratification and offline (vendored) frontend assets.
+"""Тесты стратификации землепользования и офлайн (встроенных) ресурсов фронтенда.
 
-Covers audit findings 1.10: cropland used to be lumped into "natural_vegetation",
-and the dashboard depended on CDN-hosted Leaflet/Chart.js/fonts.
+Покрывает замечания аудита 1.10: пашня раньше относилась к "natural_vegetation",
+а дашборд зависел от размещённых на CDN Leaflet/Chart.js/шрифтов.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "src" / "service" / "stati
 
 
 def _make_pair_workspace(tmp_path, pair_id="test_pair"):
-    """Build a minimal data_dir with a flood raster, AUX and cropland mask."""
+    """Сборка минимального data_dir с растром паводка, AUX и маской пашни."""
     data_dir = tmp_path / "data"
     rasters_dir = data_dir / "rasters" / "ev" / "aoi"
     rasters_dir.mkdir(parents=True, exist_ok=True)
@@ -32,7 +32,7 @@ def _make_pair_workspace(tmp_path, pair_id="test_pair"):
     shape = (20, 20)
     crs = "EPSG:32652"
 
-    # Simple AOI polygon containing the raster
+    # Простой полигон AOI, содержащий растр
     minx, miny = transform * (0, shape[0])
     maxx, maxy = transform * (shape[1], 0)
     geom = shapely.geometry.box(minx, miny, maxx, maxy)
@@ -40,12 +40,12 @@ def _make_pair_workspace(tmp_path, pair_id="test_pair"):
     gdf_4326 = gdf.to_crs("EPSG:4326")
     gdf_4326.to_file(data_dir / "vectors" / "aoi.geojson", driver="GeoJSON")
 
-    # AUX: 6 bands [slope, hand, occurrence, seasonality, max_extent, builtup]
+    # AUX: 6 полос [slope, hand, occurrence, seasonality, max_extent, builtup]
     aux = np.zeros((6, shape[0], shape[1]), dtype=np.float32)
     aux[1] = 5.0  # hand
-    aux[2] = 90.0  # occurrence -> permanent
+    aux[2] = 90.0  # occurrence -> постоянная вода
     aux[4] = 1.0  # max_extent
-    aux[5, :10, :] = 1.0  # builtup top half
+    aux[5, :10, :] = 1.0  # builtup - верхняя половина
     with rasterio.open(
         rasters_dir / "AUX_terrain_gsw.tif",
         "w",
@@ -59,7 +59,7 @@ def _make_pair_workspace(tmp_path, pair_id="test_pair"):
     ) as dst:
         dst.write(aux)
 
-    # Cropland: right half
+    # Пашня: правая половина
     cropland = np.zeros(shape, dtype=np.uint8)
     cropland[:, 10:] = 1
     with rasterio.open(
@@ -75,7 +75,7 @@ def _make_pair_workspace(tmp_path, pair_id="test_pair"):
     ) as dst:
         dst.write(cropland, 1)
 
-    # Flood raster: entire AOI flooded -> 20*20 px, each 0.01 ha
+    # Растр паводка: затоплен весь AOI -> 20*20 px, каждый 0.01 ha
     preds = tmp_path / "predictions"
     preds.mkdir(parents=True, exist_ok=True)
     flood = np.ones(shape, dtype=np.uint8)
@@ -122,11 +122,11 @@ def test_cropland_is_separated_from_natural_vegetation(tmp_path):
     assert report is not None
     lc = report["landcover"]
 
-    # 400 px total, each 0.01 ha. Builtup = top half (200 px = 2.0 ha).
-    # Cropland = right half (200 px), but builtup wins where they overlap.
+    # Всего 400 px, каждый 0.01 ha. Builtup = верхняя половина (200 px = 2.0 ha).
+    # Пашня = правая половина (200 px), но builtup выигрывает там, где они пересекаются.
     assert lc["builtup_ha"] == 2.0
-    assert lc["cropland_ha"] == 1.0  # right half below top -> 100 px
-    assert lc["natural_vegetation_ha"] == 1.0  # remaining left-bottom quarter
+    assert lc["cropland_ha"] == 1.0  # правая половина ниже верха -> 100 px
+    assert lc["natural_vegetation_ha"] == 1.0  # оставшаяся левая нижняя четверть
     assert abs(lc["builtup_ha"] + lc["cropland_ha"] + lc["natural_vegetation_ha"] - 4.0) < 1e-6
 
 
@@ -135,7 +135,7 @@ def test_cropland_missing_is_graceful(tmp_path):
 
     pair_id = "test_pair"
     data_dir, preds, sub, shape = _make_pair_workspace(tmp_path, pair_id)
-    # Remove the cropland mask -> cropland must be 0 and natural absorbs the rest
+    # Удаление маски пашни -> пашня должна стать 0, а остаток поглощается естественной растительностью
     (data_dir / "rasters" / "ev" / "aoi" / "CROPLAND_worldcover.tif").unlink()
 
     loader = DataLoader(
@@ -150,7 +150,7 @@ def test_cropland_missing_is_graceful(tmp_path):
 
 
 def test_dashboard_assets_are_vendored_offline():
-    """index.html must not reference external CDNs; vendor files must exist."""
+    """index.html не должен ссылаться на внешние CDN; встроенные файлы должны существовать."""
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     for cdn in ("unpkg.com", "cdn.jsdelivr.net", "cdnjs.cloudflare.com", "fonts.googleapis.com", "fonts.gstatic.com"):
         assert cdn not in html, f"index.html still references external CDN: {cdn}"
@@ -165,7 +165,7 @@ def test_dashboard_assets_are_vendored_offline():
     ):
         assert (STATIC_DIR / asset).exists(), f"missing vendored asset: {asset}"
 
-    # Vendored font CSS must not point back at gstatic
+    # Встроенный CSS шрифтов не должен обращаться обратно к gstatic
     fonts_css = (STATIC_DIR / "vendor/fonts/fonts.css").read_text(encoding="utf-8")
     assert "gstatic" not in fonts_css
 

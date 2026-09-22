@@ -23,7 +23,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
 
   return (
     <div className="space-y-3">
-      {/* Flood Card */}
+      {/* Карточка затопления */}
       <div className="bg-white border border-[#EAECF0] rounded-xl p-3.5 shadow-card relative pl-4 overflow-hidden">
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#F97316]" />
         <div className="text-[11px] font-semibold text-text-muted tracking-wider uppercase">
@@ -47,7 +47,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
         )}
       </div>
 
-      {/* Water Peak Card */}
+      {/* Карточка воды на пик */}
       <div className="bg-white border border-[#EAECF0] rounded-xl p-3.5 shadow-card relative pl-4 overflow-hidden">
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#06B6D4]" />
         <div className="text-[11px] font-semibold text-text-muted tracking-wider">
@@ -63,7 +63,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
         </div>
       </div>
 
-      {/* Water Pre Card */}
+      {/* Карточка воды до */}
       <div className="bg-white border border-[#EAECF0] rounded-xl p-3.5 shadow-card relative pl-4 overflow-hidden">
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#60A5FA]" />
         <div className="text-[11px] font-semibold text-text-muted tracking-wider">
@@ -79,7 +79,7 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
         </div>
       </div>
 
-      {/* Receded Card */}
+      {/* Карточка спада воды */}
       <div className="bg-white border border-[#EAECF0] rounded-xl p-3.5 shadow-card relative pl-4 overflow-hidden">
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[#A78BFA]" />
         <div className="text-[11px] font-semibold text-text-muted tracking-wider">

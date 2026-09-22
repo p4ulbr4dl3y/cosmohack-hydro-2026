@@ -1,12 +1,12 @@
-"""Water depth estimation and MCHS rescue vehicle traversability risk classification.
+"""Оценка глубины воды и классификация риска проходимости спасательной техники МЧС.
 
-Based on hydrodynamic HAND/DEM boundary edge water level profiling:
+Основано на профилировании уровня воды по краевым границам HAND/DEM:
 Depth = Elevation_edge - DEM_pixel (or HAND_edge - HAND_pixel).
 
-Categorizes water depth into MCHS vehicle traversability risk classes:
-- Low risk (< 0.5 m): accessible by regular all-wheel trucks / KamAZ
-- Medium risk (0.5 m - 1.5 m): PTS-M tracked amphibious transporters only
-- High risk (> 1.5 m): boats, water rescue crafts only
+Разделяет глубину воды на классы риска проходимости техники МЧС:
+- Низкий риск (< 0.5 м): доступно для обычных полноприводных грузовиков и KamAZ
+- Средний риск (0.5 м - 1.5 м): только гусеничные плавающие транспортеры PTS-M
+- Высокий риск (> 1.5 м): только лодки и спасательные катера
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 from scipy.ndimage import binary_erosion, distance_transform_edt
 
-# MCHS traversability thresholds in meters
+# Пороги проходимости МЧС в метрах
 DEPTH_LOW_THRESHOLD_M: float = 0.5
 DEPTH_MEDIUM_THRESHOLD_M: float = 1.5
 
@@ -28,27 +28,27 @@ def estimate_water_depth(
     edge_percentile: float = 95.0,
     max_depth_m: float = 30.0,
 ) -> np.ndarray:
-    """Calculate per-pixel estimated water depth over the flood mask.
+    """Вычисляет попиксельную оценку глубины воды по маске затопления.
 
-    Parameters
+    Аргументы
     ----------
     flood_mask : np.ndarray
-        2D boolean array or uint8 array (1 for flooded, 0 for dry).
+        Двумерный булев массив или массив uint8 (1 - затоплено, 0 - сухо).
     elevation : np.ndarray
-        2D float array of DEM or HAND (Height Above Nearest Drainage).
+        Двумерный массив float с DEM или HAND (превышение над ближайшим водотоком).
     method : str
-        Method for edge water level estimation:
-        - "nearest_edge": local water level propagated from the nearest flood boundary pixel.
-        - "global_edge": single statistical water level (edge_percentile) across all edge pixels.
+        Метод оценки уровня воды на краях:
+        - "nearest_edge": локальный уровень воды, распространяемый от ближайшего краевого пикселя затопления.
+        - "global_edge": единый статистический уровень воды (edge_percentile) по всем краевым пикселям.
     edge_percentile : float
-        Percentile (0-100) to filter outliers when calculating edge water levels.
+        Перцентиль (0-100) для отсева выбросов при расчёте краевых уровней воды.
     max_depth_m : float
-        Plausible maximum water depth cap to clip DEM artifacts.
+        Правдоподобный максимум глубины воды для отсечения артефактов DEM.
 
-    Returns
+    Возвращает
     -------
     np.ndarray
-        2D float32 array with estimated water depth in meters (0.0 on dry land).
+        Двумерный массив float32 с оценкой глубины воды в метрах (0.0 на суше).
     """
     if flood_mask.shape != elevation.shape:
         raise ValueError(f"Shape mismatch: flood_mask {flood_mask.shape} vs elevation {elevation.shape}")
@@ -59,15 +59,15 @@ def estimate_water_depth(
     if not np.any(f_bool):
         return depth
 
-    # Identify boundary edge pixels: flooded pixels adjacent to unflooded terrain
-    # border_value=1 treats array boundaries as continuous flooded terrain, avoiding artificial boundary edges
+    # Определение краевых пикселей границы: затопленные пиксели, соседние с незатопленной местностью
+    # border_value=1 считает границы массива продолжением затопленной местности, избегая искусственных краевых границ
     edge = f_bool ^ binary_erosion(f_bool, border_value=1)
 
-    # Fallback to entire flood mask if completely filled or erosion removed everything
+    # Откат ко всей маске затопления, если она полностью заполнена или эрозия удалила всё
     if not np.any(edge):
         edge = f_bool.copy()
 
-    # Mask valid finite elevation on edges
+    # Отбор корректных конечных значений высоты на краях
     valid_edge = edge & np.isfinite(elevation)
     if not np.any(valid_edge):
         return depth
@@ -77,13 +77,13 @@ def estimate_water_depth(
         h_edge = float(np.percentile(edge_vals, edge_percentile))
         depth[f_bool] = np.maximum(0.0, h_edge - elevation[f_bool])
     else:
-        # Default: local water level profile propagated from nearest edge pixel
-        # distance_transform_edt returns coordinates of nearest True pixel in valid_edge
+        # По умолчанию: локальный профиль уровня воды, распространяемый от ближайшего краевого пикселя
+        # distance_transform_edt возвращает координаты ближайшего истинного пикселя в valid_edge
         _, (indices_y, indices_x) = distance_transform_edt(~valid_edge, return_indices=True)
         edge_elevation = elevation[indices_y, indices_x]
         depth[f_bool] = np.maximum(0.0, edge_elevation[f_bool] - elevation[f_bool])
 
-    # Clean non-finite and clip to physically plausible maximum depth
+    # Очистка неконечных значений и ограничение физически правдоподобной максимальной глубиной
     depth[~np.isfinite(depth)] = 0.0
     depth = np.clip(depth, 0.0, max_depth_m)
     depth[~f_bool] = 0.0
@@ -95,26 +95,26 @@ def classify_depth_risk(
     flood_mask: np.ndarray | None = None,
     px_ha: float = 0.01,
 ) -> dict[str, Any]:
-    """Categorize water depth into MCHS vehicle traversability risk classes.
+    """Разделяет глубину воды на классы риска проходимости техники МЧС.
 
-    Classes:
-    - Low risk (< 0.5 m): accessible by all-wheel trucks / KamAZ
-    - Medium risk (0.5 m - 1.5 m): PTS-M tracked amphibious transporters only
-    - High risk (> 1.5 m): boats, water rescue crafts only
+    Классы:
+    - Низкий риск (< 0.5 м): доступно для полноприводных грузовиков и KamAZ
+    - Средний риск (0.5 м - 1.5 м): только гусеничные плавающие транспортеры PTS-M
+    - Высокий риск (> 1.5 м): только лодки и спасательные катера
 
-    Parameters
+    Аргументы
     ----------
     depth : np.ndarray
-        2D float array of water depth in meters.
+        Двумерный массив float с глубиной воды в метрах.
     flood_mask : np.ndarray | None
-        Optional explicit flood mask. If None, considers pixels with depth > 0.
+        Необязательная явная маска затопления. Если None, учитываются пиксели с глубиной > 0.
     px_ha : float
-        Area of one pixel in hectares (default: 0.01 ha for 10m Sentinel resolution).
+        Площадь одного пикселя в гектарах (по умолчанию: 0.01 га для разрешения Sentinel 10 м).
 
-    Returns
+    Возвращает
     -------
     dict[str, Any]
-        Dictionary containing statistics:
+        Словарь со статистикой:
         - low_risk_ha, low_risk_pct
         - medium_risk_ha, medium_risk_pct
         - high_risk_ha, high_risk_pct

@@ -115,7 +115,7 @@ describe('ReportDocument component', () => {
       <ReportDocument report={mockReport} comparison={mockComparison} forPdf={true} />
     );
     expect(screen.getByText('ПРИГОДНА')).toBeDefined();
-    expect(screen.getByText('2019-06-18 → 2019-07-30')).toBeDefined();
+    expect(screen.getByText('2019-06-18 -> 2019-07-30')).toBeDefined();
     unmount();
 
     render(
@@ -156,7 +156,7 @@ describe('ReportDocument component', () => {
     expect(screen.getByText(/ВОДНОЕ ЗЕРКАЛО \(ПИК\)/)).toBeDefined();
     expect(screen.getByText(/ВОДНОЕ ЗЕРКАЛО \(ДО\)/)).toBeDefined();
 
-    // Check that numeric text nodes are rendered
+    // Проверка, что числовые текстовые узлы отрисованы
     expect(screen.getAllByText(/2[\s\u00A0\u202F]847/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/9[\s\u00A0\u202F]106/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/6[\s\u00A0\u202F]259/i).length).toBeGreaterThan(0);
@@ -199,15 +199,15 @@ describe('ReportDocument component', () => {
     expect(page1).toBeDefined();
     expect(page2).toBeDefined();
 
-    // Section 1 and 2 in Page 1
+    // Разделы 1 и 2 на странице 1
     expect(page1?.textContent).toContain('1. ИСХОДНЫЕ ДАННЫЕ');
     expect(page1?.textContent).toContain('2. РЕЗУЛЬТАТЫ ГИДРОЛОГИЧЕСКОГО АНАЛИЗА');
 
-    // Section 3 (Map) and Section 4 in Page 2
+    // Раздел 3 (карта) и раздел 4 на странице 2
     expect(page2?.textContent).toContain('3. КАРТА ЗАТОПЛЕНИЯ');
     expect(page2?.textContent).toContain('4. РАСПРЕДЕЛЕНИЕ ПО ТИПАМ ПОКРОВА');
 
-    // Check print break before page 2
+    // Проверка разрыва печати перед страницей 2
     expect((page2 as HTMLElement)?.style.breakBefore || (page2 as HTMLElement)?.className).toMatch(
       /page|break/i
     );

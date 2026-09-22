@@ -58,7 +58,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
 
   return (
     <div className="bg-gradient-to-br from-[#F0F9FF] to-white border border-[#BAE6FD] rounded-xl p-4 shadow-2xs text-xs space-y-3">
-      {/* Header */}
+      {/* Заголовок */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-semibold text-slate-900">
           <Award className="w-4 h-4 text-[#0284C7]" />
@@ -79,7 +79,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
         </div>
       </div>
 
-      {/* Main Score Banner */}
+      {/* Баннер основной оценки */}
       <div className="bg-white/80 border border-[#E0F2FE] rounded-lg p-2.5 flex items-center justify-between">
         <div>
           <div className="text-[10px] text-text-secondary uppercase tracking-wider font-semibold">
@@ -97,7 +97,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
         </div>
       </div>
 
-      {/* 4 Components Formula Breakdown */}
+      {/* Разбор формулы из 4 компонентов */}
       <div className="grid grid-cols-4 gap-1.5 text-center">
         <div className="bg-white/90 border border-slate-200 rounded p-1.5">
           <div className="text-[9px] text-text-secondary">Q_flood (0.45)</div>
@@ -117,7 +117,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
         </div>
       </div>
 
-      {/* Active Pair Accuracy Detail */}
+      {/* Детализация точности активной пары */}
       {activeDetail && (
         <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-2 space-y-1">
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-800">
@@ -139,7 +139,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
         </div>
       )}
 
-      {/* Expandable Breakdown Button */}
+      {/* Кнопка раскрытия детализации */}
       <div className="flex items-center justify-between pt-1">
         <button
           onClick={() => setShowTable(!showTable)}
@@ -158,7 +158,7 @@ export const OfficialScoreCard: React.FC<OfficialScoreCardProps> = ({ activePair
         </Link>
       </div>
 
-      {/* 11 Pairs Table */}
+      {/* Таблица 11 пар */}
       {showTable && (
         <div className="border border-slate-200 rounded-lg overflow-x-auto max-h-48 overflow-y-auto bg-white animate-in fade-in">
           <table className="w-full text-[10px] text-left">

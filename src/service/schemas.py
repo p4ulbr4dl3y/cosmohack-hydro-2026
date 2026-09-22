@@ -1,4 +1,4 @@
-"""Pydantic schemas for HydroWatch Amur FastAPI service."""
+"""Схемы Pydantic для сервиса FastAPI HydroWatch Amur."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class LandcoverDistribution(BaseModel):
-    """Distribution of landcover classes and historical water in flood zone."""
+    """Распределение классов типов поверхности и исторической воды в зоне затопления."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -34,7 +34,7 @@ class LandcoverDistribution(BaseModel):
 
 
 class DepthStatistics(BaseModel):
-    """Water depth and MCHS vehicle traversability risk breakdown."""
+    """Разбивка рисков по глубине воды и проходимости техники МЧС."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -58,7 +58,7 @@ class DepthStatistics(BaseModel):
 
 
 class GaugeStatus(BaseModel):
-    """Hydrological station gauge status and water levels relative to critical marks."""
+    """Состояние гидрологического поста и уровни воды относительно критических отметок."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -75,7 +75,7 @@ class GaugeStatus(BaseModel):
 
 
 class PairInfo(BaseModel):
-    """Metadata passport for an AOI monitoring pair."""
+    """Паспорт метаданных наблюдаемой пары AOI."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -99,13 +99,13 @@ class PairInfo(BaseModel):
 
 
 class PairsListResponse(RootModel[list[PairInfo]]):
-    """List of all monitored pairs with metadata."""
+    """Список всех наблюдаемых пар с метаданными."""
 
     root: list[PairInfo] = Field(description="Collection of monitored AOI pairs")
 
 
 class ReportResponse(BaseModel):
-    """Detailed hydrological summary report for a pair."""
+    """Подробный сводный гидрологический отчёт для пары."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -149,7 +149,7 @@ class ReportResponse(BaseModel):
 
 
 class PredictSummary(BaseModel):
-    """Summary metrics of flood inference."""
+    """Сводные метрики вывода по затоплению."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -173,7 +173,7 @@ class PredictSummary(BaseModel):
 
 
 class PredictMetadata(BaseModel):
-    """Spatial and temporal metadata for inference output."""
+    """Пространственные и временные метаданные выходных данных вывода."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -190,7 +190,7 @@ class PredictMetadata(BaseModel):
 
 
 class PredictResponse(BaseModel):
-    """Response payload for spatial-temporal flood prediction."""
+    """Нагрузка ответа для пространственно-временного прогноза затопления."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -207,7 +207,7 @@ class PredictResponse(BaseModel):
 
 
 class PredictionTaskResponse(BaseModel):
-    """Status payload for an asynchronous prediction task."""
+    """Нагрузка статуса для асинхронной задачи прогнозирования."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -222,7 +222,7 @@ class PredictionTaskResponse(BaseModel):
 
 
 class PredictRequest(BaseModel):
-    """Request payload for spatial-temporal flood prediction."""
+    """Нагрузка запроса для пространственно-временного прогноза затопления."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -237,7 +237,7 @@ class PredictRequest(BaseModel):
 
 
 class DepthRiskZone(BaseModel):
-    """Statistical breakdown of flood risk zone by depth and terrain HAND."""
+    """Статистическая разбивка зоны риска затопления по глубине и рельефу HAND."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -248,7 +248,7 @@ class DepthRiskZone(BaseModel):
 
 
 class DepthRiskBreakdown(BaseModel):
-    """Risk breakdown across high, moderate, and low depth tiers."""
+    """Разбивка риска по высокому, умеренному и низкому уровням глубины."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -258,7 +258,7 @@ class DepthRiskBreakdown(BaseModel):
 
 
 class TransportInfrastructureRisk(BaseModel):
-    """Estimated transport network cut-off and isolation risk."""
+    """Оценка риска отсечения и изоляции транспортной сети."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -269,7 +269,7 @@ class TransportInfrastructureRisk(BaseModel):
 
 
 class MchsDispatchResponse(BaseModel):
-    """Official MCHS operational emergency field dispatch conforming to EMERCOM standards."""
+    """Официальное оперативное полевое донесение МЧС по стандартам EMERCOM."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -303,7 +303,7 @@ class MchsDispatchResponse(BaseModel):
 
 
 class HydroAuditCertificateResponse(BaseModel):
-    """Cryptographic Merkle audit certificate response schema."""
+    """Схема ответа криптографического аудиторского сертификата Merkle."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -319,7 +319,7 @@ class HydroAuditCertificateResponse(BaseModel):
     summary: dict[str, Any] = Field(description="Summary hydrological metrics")
     leaves: list[dict[str, Any]] = Field(description="Audited Merkle leaf nodes")
 
-    # Aliases for frontend compatibility
+    # Псевдонимы для совместимости с фронтендом
     merkle_root_sha256: str | None = Field(default=None, description="Alias for merkle_root")
     inputs_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of input scenes")
     parameters_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of processing parameters")
@@ -329,7 +329,7 @@ class HydroAuditCertificateResponse(BaseModel):
 
 
 class FloodUncertaintyResponse(BaseModel):
-    """Spatial uncertainty and confidence intervals response schema."""
+    """Схема ответа пространственной неопределённости и доверительных интервалов."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -346,7 +346,7 @@ class FloodUncertaintyResponse(BaseModel):
 
 
 class SARAnalyticsResponse(BaseModel):
-    """Sentinel-1 radar analytics response schema."""
+    """Схема ответа радиолокационной аналитики Sentinel-1."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -362,7 +362,7 @@ class SARAnalyticsResponse(BaseModel):
 
 
 class OverlayMetadataResponse(BaseModel):
-    """Metadata response for raster PNG map overlay."""
+    """Ответ с метаданными для растрового PNG-оверлея карты."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -376,7 +376,7 @@ class OverlayMetadataResponse(BaseModel):
 
 
 class OfficialMetricsResponse(BaseModel):
-    """Live official competition score breakdown (docs/TASK_SPEC.md)."""
+    """Разбивка актуальной официальной оценки соревнования (docs/TASK_SPEC.md)."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -394,7 +394,7 @@ class OfficialMetricsResponse(BaseModel):
 
 
 class SubmissionValidationResponse(BaseModel):
-    """Validation report for submission.csv and raster masks (docs/CRITERIA.md)."""
+    """Отчёт проверки submission.csv и растровых масок (docs/CRITERIA.md)."""
 
     model_config = ConfigDict(extra="ignore")
 
@@ -407,7 +407,7 @@ class SubmissionValidationResponse(BaseModel):
 
 
 class FloodCarbonImpactResponse(BaseModel):
-    """Biomass and carbon stock loss assessment for flood events."""
+    """Оценка потерь биомассы и запасов углерода для паводковых событий."""
 
     model_config = ConfigDict(extra="ignore")
 

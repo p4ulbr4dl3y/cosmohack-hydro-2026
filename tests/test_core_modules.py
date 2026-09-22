@@ -1,4 +1,4 @@
-"""Tests for core algorithmic modules: config, filters, indices, geo_utils."""
+"""Тесты основных алгоритмических модулей: config, filters, indices, geo_utils."""
 
 import numpy as np
 import rasterio
@@ -35,15 +35,15 @@ def test_hydro_config_defaults():
 
 
 def test_hydro_config_from_yaml(tmp_path):
-    # Non-existent yaml
+    # Несуществующий yaml
     cfg = HydroConfig.from_yaml(tmp_path / "non_existent.yaml")
     assert cfg.mmu_min_pixels == 25
 
-    # Default yaml path (None)
+    # Путь к yaml по умолчанию (None)
     cfg_default = HydroConfig.from_yaml(None)
     assert cfg_default.mmu_min_pixels == 25
 
-    # Custom yaml with extra fields
+    # Пользовательский yaml с дополнительными полями
     custom_yaml = tmp_path / "custom.yaml"
     custom_yaml.write_text("mmu_min_pixels: 50\ncustom_field: 123\n", encoding="utf-8")
     cfg_custom = HydroConfig.from_yaml(custom_yaml)
@@ -57,14 +57,14 @@ def test_filters_refined_lee_and_speckle():
     filtered = refined_lee_filter(data, size=5, n_looks=4.4)
     assert np.allclose(filtered, -15.0, atol=0.1)
 
-    # speckle_filter with None
+    # speckle_filter с None
     assert speckle_filter(None) is None
 
-    # speckle_filter invalid
+    # Некорректный вход speckle_filter
     inv = np.full((5, 5), -999.0, dtype=np.float32)
     assert np.array_equal(speckle_filter(inv), inv)
 
-    # speckle_filter methods
+    # Методы speckle_filter
     res_lee = speckle_filter(data, method="lee", size=5)
     assert res_lee.shape == data.shape
     res_med = speckle_filter(data, method="median", size=5)
@@ -74,19 +74,19 @@ def test_filters_refined_lee_and_speckle():
 
 
 def test_filters_apply_mmu():
-    # Empty mask
+    # Пустая маска
     empty = np.zeros((10, 10), dtype=bool)
     assert np.array_equal(apply_mmu(empty, min_size=5), empty)
 
-    # Small cluster
+    # Малый кластер
     mask = np.zeros((20, 20), dtype=bool)
-    mask[2:4, 2:4] = True  # 4 pixels
-    mask[10:15, 10:15] = True  # 25 pixels
+    mask[2:4, 2:4] = True  # 4 пикселя
+    mask[10:15, 10:15] = True  # 25 пикселей
     cleaned = apply_mmu(mask, min_size=10)
     assert not np.any(cleaned[2:4, 2:4])
     assert np.all(cleaned[10:15, 10:15])
 
-    # min_size is None defaults to MMU_MIN_PIXELS
+    # min_size равный None использует значение по умолчанию MMU_MIN_PIXELS
     cleaned_def = apply_mmu(mask, min_size=None)
     assert not np.any(cleaned_def[2:4, 2:4])
 
@@ -109,16 +109,16 @@ def test_indices_calculations(tmp_path):
     assert "ndwi" in indices
     assert "mndwi" in indices
     assert indices["ndwi"].shape == (2, 2)
-    # NDVI/AWEIsh require their own bands and must not be silently fabricated
+    # NDVI/AWEIsh требуют собственных полос и не должны молча подделываться
     assert "ndvi" not in indices
     assert "aweish" not in indices
 
-    # segment_optical non-existent
+    # Несуществующий вход segment_optical
     w, v = segment_optical(tmp_path / "non_existent.tif", (10, 10))
     assert w is None
     assert not np.any(v)
 
-    # segment_optical < 8 bands
+    # segment_optical < 8 полос
     short_tif = tmp_path / "short.tif"
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
     with rasterio.open(
@@ -139,7 +139,7 @@ def test_indices_calculations(tmp_path):
 
 
 def test_indices_optional_bands_enable_ndvi_and_aweish():
-    """NDVI and AWEIsh are emitted only when the red/blue bands are provided."""
+    """NDVI и AWEIsh формируются только при предоставлении полос red/blue."""
     green = np.array([[0.20, 0.30]], dtype=np.float32)
     nir = np.array([[0.10, 0.40]], dtype=np.float32)
     swir1 = np.array([[0.05, 0.10]], dtype=np.float32)
@@ -182,17 +182,17 @@ def test_geo_utils_read_raster_with_meta(tmp_path):
     ) as dst:
         dst.write(data)
 
-    # Read all bands
+    # Чтение всех полос
     arr_all, meta = read_raster_with_meta(tif_path)
     assert arr_all.shape == (2, 10, 10)
     assert meta["count"] == 2
 
-    # Read single band
+    # Чтение одной полосы
     arr_b1, _ = read_raster_with_meta(tif_path, band=1)
     assert arr_b1.shape == (10, 10)
     assert arr_b1[0, 0] == 1.0
 
-    # Read band list
+    # Чтение списка полос
     arr_list, _ = read_raster_with_meta(tif_path, band=[1, 2])
     assert arr_list.shape == (2, 10, 10)
 
@@ -234,10 +234,10 @@ def test_geo_utils_clip_by_aoi():
     mask = np.ones((10, 10), dtype=np.uint8)
     transform = from_origin(0.0, 100.0, 10.0, 10.0)
 
-    # Polygon covering left half (0 to 50 in X, 0 to 100 in Y)
+    # Полигон, покрывающий левую половину (от 0 до 50 по X, от 0 до 100 по Y)
     geom = box(0.0, 0.0, 50.0, 100.0)
     clipped = clip_by_aoi(mask, geom, transform)
     assert clipped.shape == (10, 10)
-    # Left columns (0 to 4) should be 1, right columns (5 to 9) should be 0
+    # Левые столбцы (от 0 до 4) должны быть 1, правые столбцы (от 5 до 9) должны быть 0
     assert np.all(clipped[:, :5] == 1)
     assert np.all(clipped[:, 5:] == 0)

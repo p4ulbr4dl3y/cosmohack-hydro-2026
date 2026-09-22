@@ -1,23 +1,23 @@
-"""Evaluation and ablation analysis module for HydroWatch Amur.
+"""Модуль оценки и аблационного анализа для HydroWatch Amur.
 
-Computes the official competition metric:
+Вычисляет официальную метрику соревнования:
   Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
-Thresholds: 50 ha for flood, 200 ha for water mirror.
-Spec_base penalizes baseline pairs when false flood > 0.5% AOI.
+Пороги: 50 га для затопления, 200 га для водного зеркала.
+Spec_base штрафует базовые пары, когда ложное затопление > 0.5% AOI.
 
-Runs ablations across 4 configurations:
-  1: Naive SAR Otsu alone.
-  2: SAR Otsu + HAND/Slope filter.
-  3: SAR + MSI fusion (where available).
-  4: Full pipeline (+ MMU 25px + GSW permanent).
-Saves results to data/ablation_results.json.
+Запускает аблации по 4 конфигурациям:
+  1: только наивный SAR Otsu.
+  2: SAR Otsu + фильтр по HAND и уклону.
+  3: объединение SAR и MSI (где доступно).
+  4: полный конвейер (+ MMU 25 пикс. + постоянная вода GSW).
+Сохраняет результаты в data/ablation_results.json.
 
-Also runs a spatial leave-one-AOI-out (LOAO) hold-out diagnostic with the
-*very same* metric (``compute_official_score``): the submission is re-scored per
-held-out AOI, so no threshold is ever reported against the same pairs it was
-chosen on without a separate, clearly labelled fold-by-fold number.
-Saves results to data/holdout_results.json (additional diagnostic only: the
-official pooled Score stays untouched in submission.csv / ablation_results.json).
+Также запускает пространственную диагностику hold-out leave-one-AOI-out (LOAO) с
+*той же самой* метрикой (``compute_official_score``): сабмит пересчитывается для каждой
+отложенной AOI, поэтому ни один порог не оценивается на тех же парах, на которых он
+выбирался, без отдельного явно обозначенного числа по каждому фолду.
+Сохраняет результаты в data/holdout_results.json (только дополнительная диагностика:
+официальный сводный Score остаётся неизменным в submission.csv / ablation_results.json).
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import logging
 import sys
 from pathlib import Path
 
-# Ensure repository root is in sys.path
+# Гарантируем наличие корня репозитория в sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from typing import Any
@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_reference_stats(pairs_df: pd.DataFrame, data_dir: Path) -> pd.DataFrame:
-    """Load reference statistics from reference_*.json metadata files."""
+    """Загружает эталонную статистику из файлов метаданных reference_*.json."""
     rows = []
     for _, row in pairs_df.iterrows():
         pair_id = str(row["pair_id"])
@@ -75,44 +75,44 @@ def compute_official_score(
     submission_df: pd.DataFrame,
     ref_df: pd.DataFrame,
 ) -> dict[str, Any]:
-    """Compute official HydroWatch Amur metric score.
+    """Вычисляет официальную метрику HydroWatch Amur.
 
-    Formula:
+    Формула:
       Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base
       q = max(0, 1 - |X_sub - X_ref| / max(X_ref, threshold))
-      threshold: flood=50 ha, water=200 ha
+      порог: flood=50 га, water=200 га
 
       Spec_base = mean(1 - min(1, excess / 0.005))
       excess = max(0, flood_sub - flood_ref) / aoi_ha
 
-    Scoring is driven by the official reference pair list (``ref_df``): every
-    reference pair is scored, even when it is absent from ``submission_df``.
-    A missing pair scores **0 for its own objective** (official rule):
+    Расчёт ведётся по официальному списку эталонных пар (``ref_df``): каждая
+    эталонная пара оценивается, даже если она отсутствует в ``submission_df``.
+    Отсутствующая пара получает **0 по своей собственной цели** (официальное правило):
 
-      * A missing *event* pair contributes ``q_flood = q_water_peak =
-        q_water_pre = 0.0`` explicitly. The threshold formula is *not* applied
-        to an absent pair, because a zero area could otherwise yield a non-zero
-        ``q`` whenever ``ref < threshold``.
-      * A missing *baseline* pair contributes ``spec = 0.0`` explicitly: an
-        absent baseline is a *missed* specificity contribution, so it scores 0
-        (not 1.0). Otherwise deleting the baseline pair that carries a false
-        alarm would delete its penalty and raise the score.
+      * Отсутствующая *событийная* пара вносит ``q_flood = q_water_peak =
+        q_water_pre = 0.0`` явно. Формула порога к отсутствующей паре *не* применяется,
+        поскольку нулевая площадь иначе могла бы дать ненулевое
+        ``q`` всякий раз при ``ref < threshold``.
+      * Отсутствующая *базовая* пара вносит ``spec = 0.0`` явно:
+        отсутствующая базовая линия это *пропущенный* вклад в специфичность, поэтому она даёт 0
+        (а не 1.0). Иначе удаление базовой пары, несущей ложную
+        тревогу, убрало бы её штраф и повысило бы оценку.
 
-    Submission rows whose ``pair_id`` is not present in ``ref_df`` are extra
-    unknown pairs and are ignored (never scored).
+    Строки сабмита, чей ``pair_id`` отсутствует в ``ref_df``, это лишние
+    неизвестные пары, и они игнорируются (никогда не оцениваются).
     """
     sub = submission_df.copy()
     sub["pair_id"] = sub["pair_id"].astype(str)
     ref = ref_df.copy()
     ref["pair_id"] = ref["pair_id"].astype(str)
 
-    # Left join onto the official pair list so missing reference pairs are kept
-    # and unknown submission pairs are dropped.
+    # Левое соединение с официальным списком пар, чтобы отсутствующие эталонные пары сохранялись,
+    # а неизвестные пары сабмита отбрасывались.
     merged = pd.merge(ref, sub, on="pair_id", how="left")
 
-    # Record which reference pairs are actually present in the submission BEFORE
-    # filling missing areas, so absent pairs can be scored 0 for their own
-    # objective rather than letting the threshold formula leak a non-zero value.
+    # Фиксируем, какие эталонные пары фактически присутствуют в сабмите, ДО
+    # заполнения отсутствующих площадей, чтобы отсутствующие пары получали 0 по своей
+    # собственной цели, а не получали ненулевое значение от формулы порога.
     present_ids = set(sub["pair_id"])
     merged["present"] = merged["pair_id"].isin(present_ids)
 
@@ -121,13 +121,13 @@ def compute_official_score(
             merged[col] = 0.0
         merged[col] = merged[col].fillna(0.0)
 
-    # Split into event pairs and baseline pairs
+    # Разделение на событийные и базовые пары
     events = merged[merged["event_kind"] != "baseline"].copy()
     baselines = merged[merged["event_kind"] == "baseline"].copy()
 
-    # 1. Event pairs convergence. A reference event pair absent from the
-    # submission scores 0 for its own objective (the threshold formula is NOT
-    # applied, since a zero area would otherwise yield q > 0 when ref < threshold).
+    # 1. Сходимость событийных пар. Эталонная событийная пара, отсутствующая в
+    # сабмите, даёт 0 по своей собственной цели (формула порога НЕ
+    # применяется, так как нулевая площадь иначе дала бы q > 0 при ref < threshold).
     events["q_flood"] = np.where(
         events["present"],
         np.maximum(
@@ -161,10 +161,10 @@ def compute_official_score(
     q_water_peak = float(events["q_water_peak"].mean()) if len(events) > 0 else 0.0
     q_water_pre = float(events["q_water_pre"].mean()) if len(events) > 0 else 0.0
 
-    # 2. Baseline pairs specificity (false alarm penalty). A reference baseline
-    # pair absent from the submission is a *missed* specificity contribution and
-    # scores 0 (not 1.0): otherwise deleting a baseline false alarm would delete
-    # its penalty and inflate the score.
+    # 2. Специфичность базовых пар (штраф за ложную тревогу). Эталонная базовая
+    # пара, отсутствующая в сабмите, это *пропущенный* вклад в специфичность, и
+    # она даёт 0 (а не 1.0): иначе удаление базовой ложной тревоги убрало бы
+    # её штраф и завысило бы оценку.
     if len(baselines) > 0:
         excess = np.maximum(0.0, baselines["flood_ha"] - baselines["ref_flood_ha"])
         excess_share = excess / baselines["aoi_ha"]
@@ -177,7 +177,7 @@ def compute_official_score(
     else:
         spec_base = 1.0
 
-    # 3. Overall official composite score
+    # 3. Итоговая официальная композитная оценка
     total_score = 0.45 * q_flood + 0.25 * q_water_peak + 0.15 * q_water_pre + 0.15 * spec_base
 
     per_pair_details = []
@@ -212,7 +212,7 @@ def compute_raster_metrics(
     pairs_df: pd.DataFrame,
     data_dir: Path,
 ) -> dict[str, float]:
-    """Compute pixel-level IoU, Precision, Recall, F1 against reference masks."""
+    """Вычисляет попиксельные IoU, Precision, Recall, F1 относительно эталонных масок."""
     ious, precisions, recalls, f1s = [], [], [], []
 
     for _, row in pairs_df.iterrows():
@@ -254,7 +254,7 @@ def run_ablation_study(
     data_dir: Path = Path("hydrowatch_amur"),
     output_json_path: Path = Path("data/ablation_results.json"),
 ) -> dict[str, Any]:
-    """Execute ablation experiments across 4 pipeline configurations."""
+    """Выполняет аблационные эксперименты по 4 конфигурациям конвейера."""
     pairs_df = pd.read_csv(pairs_csv_path)
     ref_df = load_reference_stats(pairs_df, data_dir)
 
@@ -300,7 +300,7 @@ def run_ablation_study(
             f"Mean IoU={raster_res['mean_iou']}, F1={raster_res['mean_f1']}"
         )
 
-    # Save to json
+    # Сохранение в json
     output_json_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_json_path, "w", encoding="utf-8") as fp:
         json.dump(ablation_results, fp, indent=2, ensure_ascii=False)
@@ -315,20 +315,20 @@ def run_holdout_study(
     ref_df: pd.DataFrame,
     output_json_path: Path = Path("data/holdout_results.json"),
 ) -> dict[str, Any]:
-    """Spatial leave-one-AOI-out (LOAO) hold-out diagnostic.
+    """Пространственная диагностика hold-out leave-one-AOI-out (LOAO).
 
-    Every threshold in ``config.yaml`` was selected on the same 11 pairs that are
-    then reported as the result. This diagnostic re-scores the *unchanged*
-    submission with the *same* metric (:func:`compute_official_score`) once per
-    held-out AOI, so each AOI is scored as if it had been excluded from threshold
-    selection while the remaining AOIs play the role of the in-sample set.
+    Каждый порог в ``config.yaml`` выбирался на тех же 11 парах, которые затем
+    выдаются как результат. Эта диагностика пересчитывает *неизменённый*
+    сабмит *той же* метрикой (:func:`compute_official_score`) по одному разу на каждую
+    отложенную AOI, так что каждая AOI оценивается так, как будто была исключена из выбора
+    порогов, а остальные AOI играют роль обучающей выборки.
 
-    Only an ADDITIONAL diagnostic: the official pooled ``Score`` (all pairs) is
-    reported for reference and is never modified by this function.
+    Только ДОПОЛНИТЕЛЬНАЯ диагностика: официальный сводный ``Score`` (все пары)
+    приводится для справки и никогда не изменяется этой функцией.
 
-    Folds that contain no baseline (mid-water) pair have nothing to penalise and
-    therefore inherit the metric's documented ``Spec_base = 1.0`` default; the
-    per-fold baseline count is reported so this is explicit.
+    Фолды, не содержащие базовой пары (межень), не имеют что штрафовать и
+    поэтому наследуют документированное значение метрики по умолчанию ``Spec_base = 1.0``;
+    число базовых пар по каждому фолду приводится, чтобы это было явно.
     """
     submission_df = submission_df.copy()
     submission_df["pair_id"] = submission_df["pair_id"].astype(str)
@@ -402,7 +402,7 @@ def run_holdout_study(
         json.dump(results, fp, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 78)
-    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) — ADDITIONAL DIAGNOSTIC")
+    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) - ADDITIONAL DIAGNOSTIC")
     print("=" * 78)
     print(f"Official pooled Score (all {len(ref)} pairs, UNCHANGED): {pooled['score']:.4f}")
     print("Thresholds were tuned on these same pairs, so the pooled number is optimistic.")

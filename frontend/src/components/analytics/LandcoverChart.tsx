@@ -22,7 +22,7 @@ export const LandcoverChart: React.FC<LandcoverChartProps> = ({ landcover }) => 
         pct: Math.round(it.percentage),
       }));
     }
-    // API reports expose class aggregates only; derive chart rows from them
+    // Отчёты API содержат только агрегаты по классам; строки графика выводятся из них
     const derived = deriveLandcoverItems(landcover);
     if (derived) {
       return derived.map((it) => ({
@@ -31,7 +31,7 @@ export const LandcoverChart: React.FC<LandcoverChartProps> = ({ landcover }) => 
         pct: Math.round(it.percentage),
       }));
     }
-    // Standard breakdown values matching design
+    // Стандартные значения разбивки, соответствующие дизайну
     return [
       { name: 'Forest', ha: 1234, pct: 43 },
       { name: 'Cropland', ha: 982, pct: 34 },

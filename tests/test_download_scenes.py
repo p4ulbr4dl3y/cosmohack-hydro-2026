@@ -1,9 +1,9 @@
-"""Tests for the Sentinel-1/2 scene downloader (audit finding 1.1).
+"""Тесты загрузчика снимков Sentinel-1/2 (замечание аудита 1.1).
 
-The downloader reads assets from Microsoft Planetary Computer, whose asset keys
-are lowercase for S1 ("vv"/"vh") and uppercase for S2 ("B03"). A historical bug
-used ``b_name.lower()`` for S2, so the lookup never matched and every band was
-written as nodata.
+Загрузчик читает ресурсы из Microsoft Planetary Computer, где ключи ресурсов
+в нижнем регистре для S1 ("vv"/"vh") и в верхнем регистре для S2 ("B03"). Историческая
+ошибка использовала ``b_name.lower()`` для S2, поэтому поиск никогда не совпадал
+и каждая полоса записывалась как nodata.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class _FakeAsset:
 
 
 class _FakeItem:
-    """Minimal STAC item stub carrying asset hrefs."""
+    """Минимальная заглушка элемента STAC с указателями href на ресурсы."""
 
     def __init__(self, assets: dict[str, str]):
         self.assets = {k: _FakeAsset(v) for k, v in assets.items()}
@@ -34,7 +34,7 @@ class _FakeItem:
 
 @pytest.fixture
 def s2_bands(tmp_path):
-    """Write six single-band S2 rasters (reflectance * 10000)."""
+    """Запись шести однополосных растров S2 (отражательная способность * 10000)."""
     transform = from_origin(500000.0, 5600000.0, 10.0, 10.0)
     shape = (12, 12)
     hrefs = {}
@@ -58,9 +58,9 @@ def s2_bands(tmp_path):
 
 
 def test_download_s2_uses_uppercase_asset_keys(tmp_path, s2_bands):
-    """Uppercase PC asset keys must be resolved (regression: b_name.lower())."""
+    """Ключи ресурсов PC в верхнем регистре должны разрешаться (регрессия: b_name.lower())."""
     hrefs, transform, shape = s2_bands
-    # Deliberately only provide uppercase keys, as Planetary Computer does.
+    # Намеренно предоставляются только ключи в верхнем регистре, как это делает Planetary Computer.
     item = _FakeItem(hrefs)
     out = tmp_path / "SENTINEL2_peak.tif"
     bounds = (499900.0, 5599880.0, 500020.0, 5600000.0)
@@ -73,15 +73,15 @@ def test_download_s2_uses_uppercase_asset_keys(tmp_path, s2_bands):
         mndwi = src.read(6)
     valid = mndwi[mndwi != -999.0]
     assert valid.size > 0, "optical bands must not be entirely nodata"
-    # Equal reflectance in all bands -> MNDWI == 0
+    # Одинаковая отражательная способность во всех полосах -> MNDWI == 0
     assert np.allclose(valid, 0.0, atol=1e-4)
 
 
 def test_download_s2_marks_cloudy_scl_pixels_as_nodata(tmp_path, s2_bands):
-    """SCL cloud classes must invalidate the corresponding index pixels."""
+    """Облачные классы SCL должны аннулировать соответствующие пиксели индекса."""
     hrefs, transform, shape = s2_bands
 
-    # SCL raster: left half clear (class 4 = vegetation), right half cloud (class 9)
+    # Растр SCL: левая половина ясная (класс 4 = растительность), правая половина облачная (класс 9)
     scl_path = tmp_path / "SCL.tif"
     scl = np.full(shape, 4, dtype=np.uint8)
     scl[:, shape[1] // 2 :] = 9
@@ -110,7 +110,7 @@ def test_download_s2_marks_cloudy_scl_pixels_as_nodata(tmp_path, s2_bands):
 
 
 def test_download_s1_uses_lowercase_asset_keys(tmp_path):
-    """S1 assets on Planetary Computer are lowercase ('vv'/'vh')."""
+    """Ресурсы S1 на Planetary Computer в нижнем регистре ('vv'/'vh')."""
     transform = from_origin(500000.0, 5600000.0, 10.0, 10.0)
     shape = (8, 8)
     vv = np.full(shape, 1000.0, dtype=np.float32)

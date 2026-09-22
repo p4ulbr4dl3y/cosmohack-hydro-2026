@@ -50,7 +50,7 @@ export const Methodology: React.FC = () => {
       text: 'Затопленная растительность не включается в маску воды — под пологом леса водная поверхность не наблюдается ни в оптике, ни надёжно в радиолокации.',
     },
     {
-      text: 'Разрыв SAR↔MSI достигает 5 суток — оптика не является «истиной» для радара.',
+      text: 'Разрыв SAR<->MSI достигает 5 суток — оптика не является «истиной» для радара.',
     },
     {
       text: 'Эталонная разметка построена автоматически и не проходила сплошную ручную верификацию.',
@@ -71,10 +71,10 @@ export const Methodology: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] text-text-primary font-sans flex flex-col">
-      {/* Topbar */}
+      {/* Верхняя панель */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-sm border-b border-[#EAECF0] px-4 sm:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-4 sm:gap-8">
-          {/* Mobile Hamburger */}
+          {/* Мобильная кнопка-гамбургер */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-slate-50 md:hidden transition-colors"
@@ -139,7 +139,7 @@ export const Methodology: React.FC = () => {
           </Link>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Мобильное навигационное меню */}
         {mobileMenuOpen && (
           <div className="md:hidden absolute top-16 left-0 right-0 bg-white/98 backdrop-blur-md border-b border-[#EAECF0] shadow-xl p-4 z-50 animate-in slide-in-from-top-2 duration-150">
             <div className="space-y-1">
@@ -172,9 +172,9 @@ export const Methodology: React.FC = () => {
         )}
       </header>
 
-      {/* Main Content */}
+      {/* Основной контент */}
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full space-y-10 sm:space-y-12">
-        {/* Title */}
+        {/* Заголовок */}
         <div className="space-y-2">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-text-primary tracking-tight">
             Методика и ограничения
@@ -243,7 +243,7 @@ export const Methodology: React.FC = () => {
               </p>
             </div>
 
-            {/* Formula Block */}
+            {/* Блок формулы */}
             <div className="bg-[#F0F9FF] border border-[#7DD3FC] rounded-xl p-4 font-mono text-xs sm:text-sm text-[#0369A1] font-bold text-center leading-relaxed">
               Score = 0.45 · Q_flood + 0.25 · Q_water_peak + 0.15 · Q_water_pre + 0.15 · Spec_base
             </div>
@@ -280,7 +280,7 @@ export const Methodology: React.FC = () => {
               </div>
             </div>
 
-            {/* Mandatory Submission Criteria from CRITERIA.md */}
+            {/* Обязательные критерии сдачи из CRITERIA.md */}
             <div className="border-t border-slate-200 pt-3 space-y-2">
               <h3 className="text-xs font-bold text-slate-900">
                 Обязательные технические правила валидности сабмита:
@@ -383,7 +383,7 @@ export const Methodology: React.FC = () => {
         </section>
       </main>
 
-      {/* Footer */}
+      {/* Подвал */}
       <footer className="border-t border-[#EAECF0] bg-white py-6 sm:py-8 px-4 sm:px-8 mt-12 text-xs text-text-muted">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>© HydroWatch Amur, 2026.</div>

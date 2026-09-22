@@ -52,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
         if (sortBy === 'name') {
           return a.aoi_name.localeCompare(b.aoi_name);
         }
-        // Default by date desc
+        // По умолчанию по убыванию даты
         return (b.date_peak_sar || '').localeCompare(a.date_peak_sar || '');
       });
   }, [pairs, filterKind, filterOnlyOptical, searchQuery, sortBy]);
@@ -65,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
 
   return (
     <aside className="w-full lg:w-80 bg-surface border-r border-border flex flex-col h-full shrink-0 select-none z-20">
-      {/* Top section */}
+      {/* Верхняя секция */}
       <div className="p-4 border-b border-border space-y-3.5">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
@@ -76,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
           </span>
         </div>
 
-        {/* Filter Pills */}
+        {/* Плашки фильтров */}
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setFilterKind('all')}
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
           </button>
         </div>
 
-        {/* Checkbox "Только с оптикой" */}
+        {/* Чекбокс "Только с оптикой" */}
         <div className="flex items-center justify-between pt-0.5">
           <label className="flex items-center gap-2 cursor-pointer text-xs text-text-secondary hover:text-text-primary">
             <input
@@ -126,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
           </label>
         </div>
 
-        {/* Sorting and Search */}
+        {/* Сортировка и поиск */}
         <div className="flex items-center justify-between gap-2 pt-1 text-xs">
           <span className="text-text-muted shrink-0">Сортировка:</span>
           <select
@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
           </select>
         </div>
 
-        {/* Quick Search */}
+        {/* Быстрый поиск */}
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-2.5 pointer-events-none" />
           <input
@@ -153,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
         </div>
       </div>
 
-      {/* Cards List */}
+      {/* Список карточек */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {isLoading ? (
           <div className="space-y-2 p-2">

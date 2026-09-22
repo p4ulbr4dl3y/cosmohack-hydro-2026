@@ -27,7 +27,7 @@ export const PairCard: React.FC<PairCardProps> = ({ pair, isSelected, onSelect }
   const dateSarPeak = formatDateShort(pair.date_peak_sar);
   const dateOptPeak = formatDateShort(pair.date_peak_opt || pair.date_pre_opt);
 
-  const sarStr = dateSarPre && dateSarPeak ? `SAR: ${dateSarPre} → ${dateSarPeak}` : '';
+  const sarStr = dateSarPre && dateSarPeak ? `SAR: ${dateSarPre} -> ${dateSarPeak}` : '';
   const optStr = dateOptPeak ? `MSI: ${dateOptPeak}` : '';
   const dateLine = [sarStr, optStr].filter(Boolean).join(' · ');
 

@@ -1,4 +1,4 @@
-"""Tests for official competition evaluation and ablation analysis."""
+"""Тесты официальной оценки конкурса и анализа абляций."""
 
 import json
 from pathlib import Path
@@ -63,7 +63,7 @@ def test_compute_official_score_baseline_penalty():
             {"pair_id": "base_1", "flood_ha": 100.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
         ]
     )
-    # AOI 10,000 ha -> 0.5% is 50 ha. Excess is 100 ha -> excess_share = 0.01 -> min(1, 0.01/0.005) = 1.0 -> Spec = 0.0
+    # AOI 10,000 ha -> 0.5% составляет 50 ha. Превышение 100 ha -> excess_share = 0.01 -> min(1, 0.01/0.005) = 1.0 -> Spec = 0.0
     ref_df = pd.DataFrame(
         [
             {
@@ -82,11 +82,11 @@ def test_compute_official_score_baseline_penalty():
 
 
 def test_missing_baseline_pair_scores_zero():
-    """A reference baseline pair absent from the submission is a missed specificity.
+    """Отсутствующая в submission референсная базовая пара - это пропущенная специфичность.
 
-    Missing a baseline pair must LOWER ``Spec_base`` versus submitting that same
-    pair with its correct (zero false-alarm) value: an absent pair scores 0 for
-    its own objective, it does **not** inherit ``spec = 1.0``.
+    Пропуск базовой пары должен ПОНИЖАТЬ ``Spec_base`` относительно подачи той же
+    пары с её корректным (без ложной тревоги) значением: отсутствующая пара
+    получает 0 по собственной цели и НЕ наследует ``spec = 1.0``.
     """
     ref_df = pd.DataFrame(
         [
@@ -108,11 +108,11 @@ def test_missing_baseline_pair_scores_zero():
             },
         ]
     )
-    # base_1 false alarm: excess 100 ha / 10,000 ha = 0.01 -> min(1, 0.01 / 0.005) = 1 -> spec 0.
+    # Ложная тревога на base_1: превышение 100 ha / 10,000 ha = 0.01 -> min(1, 0.01 / 0.005) = 1 -> spec 0.
     sub_missing_base_2 = pd.DataFrame(
         [{"pair_id": "base_1", "flood_ha": 100.0, "water_pre_ha": 500.0, "water_peak_ha": 500.0}]
     )
-    # Same submission but base_2 present with its correct value (spec 1.0).
+    # Тот же submission, но base_2 присутствует с корректным значением (spec 1.0).
     sub_with_base_2 = pd.DataFrame(
         [
             {"pair_id": "base_1", "flood_ha": 100.0, "water_pre_ha": 500.0, "water_peak_ha": 500.0},
@@ -123,17 +123,17 @@ def test_missing_baseline_pair_scores_zero():
     missing_score = compute_official_score(sub_missing_base_2, ref_df)
     present_score = compute_official_score(sub_with_base_2, ref_df)
 
-    # base_2 missing -> spec 0; base_1 present false alarm -> spec 0 => Spec_base = 0.0.
+    # base_2 отсутствует -> spec 0; base_1 присутствует с ложной тревогой -> spec 0 => Spec_base = 0.0.
     assert missing_score["Spec_base"] == 0.0
-    # base_2 present & correct -> spec 1; base_1 spec 0 => Spec_base = 0.5.
+    # base_2 присутствует и корректна -> spec 1; base_1 spec 0 => Spec_base = 0.5.
     assert present_score["Spec_base"] == 0.5
-    # Missing the baseline pair strictly lowers Spec_base (no exploit).
+    # Пропуск базовой пары строго понижает Spec_base (без эксплойта).
     assert missing_score["Spec_base"] < present_score["Spec_base"]
     assert missing_score["num_baselines"] == 2
 
 
 def test_missing_event_pair_drops_q_proportionally():
-    """An event pair absent from the submission contributes q = 0, not a vanished mean."""
+    """Отсутствующая в submission событийная пара вносит q = 0, а не исчезнувшее среднее."""
     ref_df = pd.DataFrame(
         [
             {
@@ -176,13 +176,13 @@ def test_missing_event_pair_drops_q_proportionally():
 
 
 def test_removing_baseline_rows_does_not_raise_score():
-    """Regression: dropping baseline rows must not inflate the score (auditor scenario).
+    """Регрессия: удаление строк базовых линий не должно завышать балл (сценарий аудитора).
 
-    The submission contains a *false alarm* on ``base_1`` (which caps Spec_base
-    below 1.0). Deleting the baseline rows would previously delete the false-alarm
-    penalty and raise the score. With the correct semantics a deleted baseline pair
-    scores ``spec = 0`` (missed specificity), so the damaged score is STRICTLY LESS
-    than the full score.
+    Submission содержит *ложную тревогу* на ``base_1`` (что ограничивает Spec_base
+    ниже 1.0). Удаление строк базовых линий ранее удаляло штраф за ложную тревогу
+    и повышало балл. При корректной семантике удалённая базовая пара получает
+    ``spec = 0`` (пропущенная специфичность), поэтому испорченный балл СТРОГО МЕНЬШЕ
+    полного балла.
     """
     ref_df = pd.DataFrame(
         [
@@ -220,7 +220,7 @@ def test_removing_baseline_rows_does_not_raise_score():
             },
         ]
     )
-    # base_1 carries a false alarm: excess 100 ha / 10,000 ha = 0.01 -> spec 0.
+    # base_1 несёт ложную тревогу: превышение 100 ha / 10,000 ha = 0.01 -> spec 0.
     full_sub = pd.DataFrame(
         [
             {"pair_id": "event_1", "flood_ha": 100.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
@@ -229,27 +229,27 @@ def test_removing_baseline_rows_does_not_raise_score():
             {"pair_id": "base_3", "flood_ha": 0.0, "water_pre_ha": 500.0, "water_peak_ha": 500.0},
         ]
     )
-    # Auditor scenario: delete the baseline rows, hoping the score goes up.
+    # Сценарий аудитора: удалить строки базовых линий в надежде повысить балл.
     damaged_sub = full_sub[~full_sub["pair_id"].str.startswith("base_")].reset_index(drop=True)
 
     full_score = compute_official_score(full_sub, ref_df)
     damaged_score = compute_official_score(damaged_sub, ref_df)
 
-    # Full submission: Spec_base = (0 + 1 + 1) / 3 = 0.6667, events perfect.
+    # Полный submission: Spec_base = (0 + 1 + 1) / 3 = 0.6667, события идеальны.
     assert full_score["Spec_base"] == 0.6667
     assert full_score["Q_flood"] == 1.0
-    # Damaged: all baseline pairs absent -> Spec_base = 0.0 -> score strictly lower.
+    # Испорченный: все базовые пары отсутствуют -> Spec_base = 0.0 -> балл строго ниже.
     assert damaged_score["Spec_base"] == 0.0
     assert damaged_score["score"] < full_score["score"]
     assert damaged_score["num_baselines"] == 3
 
 
 def test_removing_small_event_pair_lowers_score():
-    """Small-event exploit: an absent event pair with ref < 50 ha must score q = 0.
+    """Эксплойт малого события: отсутствующая событийная пара с ref < 50 ha должна давать q = 0.
 
-    With the old semantics a missing pair with ``ref_flood_ha = 20`` (< 50 ha
-    threshold) still got ``q = 1 - |0 - 20| / max(20, 50) = 0.6``, so *skipping*
-    the pair raised the total score. It must now strictly DECREASE.
+    При старой семантике отсутствующая пара с ``ref_flood_ha = 20`` (< порога 50 ha)
+    всё равно получала ``q = 1 - |0 - 20| / max(20, 50) = 0.6``, поэтому *пропуск*
+    пары повышал итоговый балл. Теперь он должен строго УМЕНЬШАТЬСЯ.
     """
     ref_df = pd.DataFrame(
         [
@@ -271,7 +271,7 @@ def test_removing_small_event_pair_lowers_score():
             },
         ]
     )
-    # Imperfect big event: flood overshoots -> q_flood < 1; small event perfect.
+    # Неидеальное большое событие: паводок завышен -> q_flood < 1; малое событие идеально.
     full_sub = pd.DataFrame(
         [
             {"pair_id": "event_big", "flood_ha": 200.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
@@ -283,17 +283,17 @@ def test_removing_small_event_pair_lowers_score():
     full_score = compute_official_score(full_sub, ref_df)
     damaged_score = compute_official_score(damaged_sub, ref_df)
 
-    # event_big q_flood = 1 - 100/100 = 0.0; event_small q_flood = 1.0 -> mean 0.5.
+    # event_big q_flood = 1 - 100/100 = 0.0; event_small q_flood = 1.0 -> среднее 0.5.
     assert full_score["Q_flood"] == 0.5
-    # event_small absent -> q_flood = 0.0; event_big q_flood = 0.0 -> mean 0.0.
+    # event_small отсутствует -> q_flood = 0.0; event_big q_flood = 0.0 -> среднее 0.0.
     assert damaged_score["Q_flood"] == 0.0
     assert damaged_score["score"] < full_score["score"]
     assert damaged_score["num_events"] == 2
 
 
 def test_dropping_any_single_pair_never_raises_score():
-    """Monotonicity guard: for a non-perfect submission, dropping any single pair
-    must never increase the total score."""
+    """Защита монотонности: для неидеального submission удаление любой отдельной пары
+    никогда не должно повышать итоговый балл."""
     ref_df = pd.DataFrame(
         [
             {
@@ -338,7 +338,7 @@ def test_dropping_any_single_pair_never_raises_score():
             },
         ]
     )
-    # Non-perfect submission: event_1 overshoots, base_1 has a false alarm.
+    # Неидеальный submission: event_1 завышен, base_1 содержит ложную тревогу.
     full_sub = pd.DataFrame(
         [
             {"pair_id": "event_1", "flood_ha": 250.0, "water_pre_ha": 500.0, "water_peak_ha": 600.0},
@@ -357,7 +357,7 @@ def test_dropping_any_single_pair_never_raises_score():
 
 
 def test_extra_unknown_pair_ids_are_ignored():
-    """Submission rows whose pair_id is not in ref_df must never be scored."""
+    """Строки submission, чей pair_id отсутствует в ref_df, никогда не должны оцениваться."""
     ref_df = pd.DataFrame(
         [
             {
@@ -394,11 +394,11 @@ def test_extra_unknown_pair_ids_are_ignored():
 
 def test_load_reference_stats(tmp_path):
     pairs_df = pd.DataFrame([{"pair_id": "p1", "event_kind": "flood", "reference_mask": "ref.tif"}])
-    # Missing json
+    # Отсутствующий json
     with pytest.raises(FileNotFoundError):
         load_reference_stats(pairs_df, tmp_path)
 
-    # Valid json
+    # Корректный json
     ref_json = tmp_path / "ref.json"
     ref_json.write_text(
         json.dumps(
@@ -427,12 +427,12 @@ def test_compute_raster_metrics(tmp_path):
     data_dir.mkdir()
 
     transform = from_origin(127.0, 50.0, 10.0, 10.0)
-    # Shape 10x10
+    # Размер 10x10
     pred_arr = np.zeros((10, 10), dtype=np.uint8)
     ref_arr = np.zeros((10, 10), dtype=np.uint8)
-    # 4 pixels TP, 1 pixel FP, 1 pixel FN
-    pred_arr[0, :5] = 1  # 5 positive
-    ref_arr[0, 1:6] = 1  # 5 positive, overlap is cols 1..4 (4 pixels)
+    # 4 пикселя TP, 1 пиксель FP, 1 пиксель FN
+    pred_arr[0, :5] = 1  # 5 положительных
+    ref_arr[0, 1:6] = 1  # 5 положительных, перекрытие - столбцы 1..4 (4 пикселя)
 
     pred_tif = pred_dir / "p1_flood.tif"
     ref_tif = data_dir / "ref_p1.tif"
@@ -496,7 +496,7 @@ def test_run_ablation_study_mocked(tmp_path):
 
 
 def _write_holdout_fixture(tmp_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Write a 5-pair / 3-AOI fixture and return (pairs_df, ref_df)."""
+    """Запись фикстуры из 5 пар / 3 AOI и возврат (pairs_df, ref_df)."""
     rows = [
         ("base_alpha", "alpha", "baseline", 0.0),
         ("ev_alpha", "alpha", "flood_summer", 50.0),
@@ -530,7 +530,7 @@ def _write_holdout_fixture(tmp_path: Path) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def test_run_holdout_study_folds_match_aois_and_schema(tmp_path):
-    """One fold per AOI, and a machine-readable artifact with the expected schema."""
+    """Один фолд на AOI и машиночитаемый артефакт с ожидаемой схемой."""
     pairs_df, ref_df = _write_holdout_fixture(tmp_path)
     sub_df = pd.DataFrame(
         [
@@ -551,7 +551,7 @@ def test_run_holdout_study_folds_match_aois_and_schema(tmp_path):
     assert sorted(res["folds"].keys()) == expected_aois
     assert res["num_pairs"] == len(pairs_df)
 
-    # Schema of the persisted artifact.
+    # Схема сохраняемого артефакта.
     assert out_json.exists()
     with open(out_json, encoding="utf-8") as fp:
         stored = json.load(fp)
@@ -568,7 +568,7 @@ def test_run_holdout_study_folds_match_aois_and_schema(tmp_path):
 
 
 def test_run_holdout_study_reuses_official_metric(tmp_path):
-    """Each fold is scored by the SAME ``compute_official_score`` on the held-out AOI."""
+    """Каждый фолд оценивается ТОЙ ЖЕ ``compute_official_score`` на удержанном AOI."""
     pairs_df, ref_df = _write_holdout_fixture(tmp_path)
     sub_df = pd.DataFrame(
         [
@@ -590,9 +590,9 @@ def test_run_holdout_study_reuses_official_metric(tmp_path):
         manual = compute_official_score(sub_df, ref[ref["aoi_id"] == aoi].drop(columns=["aoi_id"]))
         assert res["folds"][aoi]["official_metrics"] == manual
 
-    # Pooled metrics are the untouched official metric over all pairs.
+    # Сводные метрики - это неизменённая официальная метрика по всем парам.
     assert res["official_pooled_metrics"] == compute_official_score(sub_df, ref_df)
-    # Held-out mean is a genuine diagnostic of the fold spread.
+    # Среднее по удержанным фолдам - реальная диагностика разброса фолдов.
     assert res["fold_summary"]["min_score"] <= res["fold_summary"]["mean_score"] <= res["fold_summary"]["max_score"]
 
 
@@ -634,12 +634,12 @@ def test_holdout_main_cli_prints_table_and_writes_json(tmp_path, monkeypatch, ca
     with open(out_json, encoding="utf-8") as fp:
         stored = json.load(fp)
     assert stored["num_folds"] == len(pairs_df["aoi_id"].unique())
-    # The official pooled number is reported, never replaced.
+    # Официальное сводное число сообщается и никогда не подменяется.
     assert "official_pooled_metrics" in stored
 
 
 def test_default_evaluate_path_unchanged_no_holdout(tmp_path, monkeypatch, capsys):
-    """The default (no-flag) evaluate output must stay pooled-only: no hold-out section."""
+    """Вывод evaluate по умолчанию (без флага) должен оставаться только сводным: без раздела hold-out."""
     dummy_pairs = tmp_path / "pairs.csv"
     dummy_pairs.write_text("pair_id,event_kind,reference_mask\np1,flood,ref.tif\n", encoding="utf-8")
     (tmp_path / "ref.json").write_text(

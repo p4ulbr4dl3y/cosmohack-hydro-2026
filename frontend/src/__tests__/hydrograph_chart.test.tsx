@@ -4,7 +4,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { HydrographChart } from '../components/analytics/HydrographChart';
 
-// Recharts needs a ResizeObserver in jsdom
+// Recharts требует ResizeObserver в jsdom
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
@@ -22,7 +22,7 @@ describe('HydrographChart component', () => {
       />
     );
 
-    // Real delta in days between the SAR scenes, not a hardcoded label
+    // Реальная разница в днях между сценами SAR, а не захардкоженная подпись
     expect(screen.getByText('SAR: 42 суток')).toBeDefined();
     expect(screen.getByText('водное зеркало, га')).toBeDefined();
     expect(container.querySelector('.recharts-responsive-container')).not.toBeNull();
@@ -34,7 +34,7 @@ describe('HydrographChart component', () => {
     expect(screen.getByText('Недостаточно данных для построения гидрографа')).toBeDefined();
   });
 
-  it('never fabricates the S1↔S2 offset label', () => {
+  it('never fabricates the S1<->S2 offset label', () => {
     render(
       <HydrographChart
         datePre="2019-06-13"
@@ -44,6 +44,6 @@ describe('HydrographChart component', () => {
       />
     );
 
-    expect(screen.queryByText(/Δt S1↔S2/)).toBeNull();
+    expect(screen.queryByText(/Δt S1<->S2/)).toBeNull();
   });
 });

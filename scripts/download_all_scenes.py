@@ -18,17 +18,17 @@ def get_stac_catalog():
     )
 
 
-#: Sentinel-1 GRD collection on Planetary Computer. ``sentinel-1-grd`` holds the
-#: calibrated $\sigma^0$ backscatter matching the scene passports
-#: (``sensor: Sentinel-1 IW GRD (dB, sigma0)``); ``sentinel-1-rtc`` would be the
-#: terrain-flattened $\gamma^0$ product, i.e. a different radiometric quantity.
+#: Коллекция Sentinel-1 GRD на Planetary Computer. ``sentinel-1-grd`` содержит
+#: калиброванное обратное рассеяние $\sigma^0$, соответствующее паспортам сцен
+#: (``sensor: Sentinel-1 IW GRD (dB, sigma0)``); ``sentinel-1-rtc`` был бы
+#: продуктом $\gamma^0$ с выравниванием рельефа, то есть другой радиометрической величиной.
 S1_COLLECTION = "sentinel-1-grd"
 
 
 def download_s1_raster(catalog, items, target_bounds, target_shape, target_transform, out_path):
     """
-    Downloads and mosaics VV and VH from items, converts to dB, computes VV/VH ratio,
-    and writes to out_path matching target grid (EPSG:32652, 10m).
+    Скачивает и мозаичит VV и VH из items, переводит в дБ, вычисляет отношение VV/VH
+    и записывает в out_path, соответствующий целевой сетке (EPSG:32652, 10 м).
     """
     height, width = target_shape
     vv_mosaic = np.full((height, width), np.nan, dtype=np.float32)
@@ -36,7 +36,7 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
 
     left, bottom, right, top = target_bounds
 
-    # Planetary Computer ships Sentinel-1 assets as lowercase band keys ("vv"/"vh").
+    # Planetary Computer поставляет активы Sentinel-1 с ключами каналов в нижнем регистре ("vv"/"vh").
     for item in items:
         for band_key, mosaic in (("vv", vv_mosaic), ("vh", vh_mosaic)):
             if band_key not in item.assets:
@@ -52,11 +52,11 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
                 mask = (data != nodata) & (~np.isnan(data)) & (data > 0)
                 mosaic[mask] = data[mask]
 
-    # Convert linear power to dB
+    # Перевод линейной мощности в дБ
     vv_db = 10.0 * np.log10(np.maximum(vv_mosaic, 1e-6))
     vh_db = 10.0 * np.log10(np.maximum(vh_mosaic, 1e-6))
 
-    # Missing values fill with plausible values / nan
+    # Пропущенные значения заполняются правдоподобными значениями / nan
     vv_db[np.isnan(vv_mosaic)] = -999.0
     vh_db[np.isnan(vh_mosaic)] = -999.0
 
@@ -88,14 +88,14 @@ def download_s1_raster(catalog, items, target_bounds, target_shape, target_trans
 
 def download_s2_raster(catalog, items, target_bounds, target_shape, target_transform, out_path):
     """
-    Downloads S2 L2A bands (B02, B03, B04, B08, B11, B12) and the SCL scene
-    classification layer, computes water indices, and writes to out_path.
+    Скачивает каналы S2 L2A (B02, B03, B04, B08, B11, B12) и слой классификации
+    сцены SCL, вычисляет водные индексы и записывает в out_path.
     """
     height, width = target_shape
     left, bottom, right, top = target_bounds
 
-    # Planetary Computer names the assets with uppercase keys ("B03"), so the
-    # asset lookup must be case-sensitive (historical bug: b_name.lower()).
+    # Planetary Computer именует активы ключами в верхнем регистре ("B03"), поэтому
+    # поиск активов должен быть регистрозависимым (историческая ошибка: b_name.lower()).
     band_names = ["B02", "B03", "B04", "B08", "B11", "B12"]
     bands_data = {b: np.full((height, width), np.nan, dtype=np.float32) for b in band_names}
     scl_data = np.full((height, width), 255, dtype=np.uint8)
@@ -119,7 +119,7 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
                 mask = (~np.isnan(data)) & (data > 0)
                 bands_data[b_name][mask] = data[mask] / 10000.0  # Surface reflectance [0, 1]
 
-        # SCL: Scene Classification Layer (cloud/shadow screening), nearest-resampled
+        # SCL: Scene Classification Layer (отбор облаков и теней), перепроецирован методом ближайшего соседа
         if "SCL" in item.assets:
             with rasterio.open(item.assets["SCL"].href) as src:
                 scl = np.full((height, width), 255, dtype=np.uint8)
@@ -141,8 +141,8 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     b11 = bands_data["B11"]
     b12 = bands_data["B12"]
 
-    # SCL classes 3 (cloud shadow), 8/9 (cloud medium/high), 10 (thin cirrus),
-    # 11 (snow) are invalid for optical water detection.
+    # Классы SCL 3 (тень облака), 8/9 (облако средней/высокой плотности), 10 (тонкая пелена),
+    # 11 (снег) недействительны для оптического обнаружения воды.
     scl_invalid = np.isin(scl_data, [3, 8, 9, 10, 11])
 
     def _valid(*arrs):
@@ -161,7 +161,7 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     ndvi = np.where(_valid(b8, b4), (b8 - b4) / denom_ndvi, -999.0).astype(np.float32)
 
     # AWEIsh (Feyisa et al. 2014): Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2.
-    # Requires B02 and B12; without them the index is not computable and stays nodata.
+    # Требует B02 и B12; без них индекс невычислим и остаётся nodata.
     aweish = np.where(_valid(b2, b3, b8, b11, b12), b2 + 2.5 * b3 - 1.5 * (b8 + b11) - 0.25 * b12, -999.0).astype(
         np.float32
     )
@@ -220,7 +220,7 @@ def process_all():
         print("\n==========================================")
         print(f"[{idx + 1}/{len(pairs)}] Processing {row.pair_id}...")
 
-        # 1. S1 Pre
+        # 1. S1 (до события)
         s1_pre_path = os.path.join(rasters_dir, f"S1_pre_{row.date_pre_sar}.tif")
         if not os.path.exists(s1_pre_path):
             d_pre = datetime.strptime(row.date_pre_sar, "%Y-%m-%d")
@@ -242,7 +242,7 @@ def process_all():
         else:
             print(f"S1 Pre already exists: {s1_pre_path}")
 
-        # 2. S1 Peak
+        # 2. S1 (на пике)
         s1_peak_path = os.path.join(rasters_dir, f"S1_peak_{row.date_peak_sar}.tif")
         if not os.path.exists(s1_peak_path):
             d_peak = datetime.strptime(row.date_peak_sar, "%Y-%m-%d")
@@ -262,7 +262,7 @@ def process_all():
         else:
             print(f"S1 Peak already exists: {s1_peak_path}")
 
-        # 3. Sentinel-2 (if applicable)
+        # 3. Sentinel-2 (при наличии)
         if pd.notna(row.date_pre_opt):
             s2_pre_path = os.path.join(rasters_dir, f"SENTINEL2_pre_{row.date_pre_opt}.tif")
             if not os.path.exists(s2_pre_path):

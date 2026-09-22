@@ -1,4 +1,4 @@
-"""Unit tests for multi-spectral remote sensing and SCL cloud masking module."""
+"""Модульные тесты модуля мультиспектрального дистанционного зондирования и маскирования облаков по SCL."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from src.remote_sensing import (
 
 
 def test_scl_classes_and_masking():
-    # Construct SCL array with vegetation (4), water (6), clouds (9), shadows (3)
+    # Формируется массив SCL с растительностью (4), водой (6), облаками (9), тенями (3)
     scl = np.array(
         [
             [SCLClass.VEGETATION, SCLClass.WATER],
@@ -38,7 +38,7 @@ def test_scl_classes_and_masking():
     assert valid_mask[1, 0] is False or valid_mask[1, 0] == 0
     assert valid_mask[1, 1] is False or valid_mask[1, 1] == 0
 
-    # Test masking 2D and 3D
+    # Проверка маскирования 2D и 3D
     refl_2d = np.ones((2, 2), dtype=np.float32)
     masked_2d = mask_scene_clouds(refl_2d, scl)
     assert np.isnan(masked_2d[1, 0])
@@ -58,7 +58,7 @@ def test_normalized_difference_physical_bounds():
     res = normalized_difference(a, b)
     assert res[0] == pytest.approx((0.4 - 0.1) / (0.4 + 0.1))
     assert res[1] == pytest.approx((0.2 - 0.6) / (0.2 + 0.6))
-    # Unphysical negative or zero denominator values masked to NaN
+    # Физически некорректные отрицательные или нулевые значения знаменателя маскируются в NaN
     assert np.isnan(res[3])
 
 
@@ -70,13 +70,13 @@ def test_spectral_indices():
     blue = np.array([[0.2, 0.1]])
 
     ndwi = calculate_ndwi(green, nir)
-    assert ndwi[0, 0] > 0.0  # Green > NIR -> water signal
+    assert ndwi[0, 0] > 0.0  # Green > NIR -> водный сигнал
 
     mndwi = calculate_mndwi(green, swir)
     assert mndwi[0, 0] > 0.0
 
     ndvi = calculate_ndvi(nir, red)
-    assert ndvi[0, 1] > 0.5  # High vegetation
+    assert ndvi[0, 1] > 0.5  # Высокая растительность
 
     nbr = calculate_nbr(nir, swir)
     assert nbr.shape == (1, 2)
@@ -94,12 +94,12 @@ def test_spectral_indices():
 def test_apply_sentinel2_radiometry():
     dn = np.array([[1000, 2000], [0, 5000]], dtype=np.int16)
 
-    # Baseline >= 04.00 (scale 0.0001, offset -0.1)
+    # Baseline >= 04.00 (масштаб 0.0001, смещение -0.1)
     refl_ge04 = apply_sentinel2_radiometry(dn, baseline="05.00")
     assert refl_ge04[0, 0] == pytest.approx(0.0, abs=1e-5)
     assert refl_ge04[0, 1] == pytest.approx(0.1, abs=1e-5)
-    assert np.isnan(refl_ge04[1, 0])  # nodata = 0 masked to NaN
+    assert np.isnan(refl_ge04[1, 0])  # nodata = 0 маскируется в NaN
 
-    # Baseline < 04.00 (scale 0.0001, offset 0.0)
+    # Baseline < 04.00 (масштаб 0.0001, смещение 0.0)
     refl_lt04 = apply_sentinel2_radiometry(dn, baseline="03.01")
     assert refl_lt04[0, 0] == pytest.approx(1000 * 0.0001)  # 0.1

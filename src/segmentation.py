@@ -1,8 +1,8 @@
-"""Multimodal water segmentation module for HydroWatch Amur.
+"""Модуль мультимодальной сегментации воды для HydroWatch Amur.
 
-Integrates SAR (Sentinel-1 VV/VH), Optical (Sentinel-2 MNDWI, NDVI, AWEIsh),
-and Topographic/Hydrological priors (HAND, Slope, Builtup, GSW occurrence)
-with Minimum Mapping Unit (MMU) filtering.
+Объединяет SAR (Sentinel-1 VV/VH), оптику (Sentinel-2 MNDWI, NDVI, AWEIsh)
+и топографические и гидрологические априорные данные (HAND, уклон, застройка, occurrence GSW)
+с фильтрацией по минимальной единице картирования (MMU).
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from src.config import HydroConfig
 from src.filters import apply_hydrological_connectivity as _filters_apply_hydrological_connectivity
 from src.filters import apply_mmu as _filters_apply_mmu
 from src.filters import apply_morphological_closing as _filters_apply_morphological_closing
+from src.filters import apply_planar_hand_filter as _filters_apply_planar_hand_filter
 from src.filters import refined_lee_filter as _filters_refined_lee_filter
 from src.filters import speckle_filter as _filters_speckle_filter
 from src.geo_utils import clip_by_aoi, read_raster_with_meta, resample_to_target
@@ -38,6 +39,7 @@ __all__ = [
     "apply_mmu",
     "apply_morphological_closing",
     "apply_hydrological_connectivity",
+    "apply_planar_hand_filter",
     "detect_flooded_vegetation",
     "segment_water",
     "read_raster_with_meta",
@@ -46,12 +48,12 @@ __all__ = [
 ]
 
 
-# Default config cache
+# Кэш конфигурации по умолчанию
 _CONFIG_CACHE: dict[str, Any] | None = None
 
 
 def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
-    """Load configuration dictionary from config.yaml or HydroConfig."""
+    """Загружает словарь конфигурации из config.yaml или HydroConfig."""
     global _CONFIG_CACHE
     if _CONFIG_CACHE is not None and config_path is None:
         return _CONFIG_CACHE
@@ -95,10 +97,10 @@ def refined_lee_filter(
     size: int = 7,
     n_looks: float = 4.4,
 ) -> np.ndarray:
-    """Apply Lee MMSE speckle filter (7x7 square window, n_looks=4.4).
+    """Применяет спекл-фильтр Lee MMSE (квадратное окно 7x7, n_looks=4.4).
 
-    This is the classical Lee minimum-mean-square-error filter with a square
-    window. The directional edge-aligned "Refined Lee" variant is NOT implemented.
+    Это классический фильтр Lee с минимумом среднеквадратичной ошибки и квадратным
+    окном. Направленный вариант "Refined Lee" с выравниванием по краям НЕ реализован.
     """
     return _filters_refined_lee_filter(data=data, size=size, n_looks=n_looks)
 
@@ -108,7 +110,7 @@ def speckle_filter(
     method: str = "lee",
     size: int = 7,
 ) -> np.ndarray | None:
-    """Apply speckle noise filtering on radar backscatter data."""
+    """Применяет подавление спекла к данным обратного рассеяния радара."""
     return _filters_speckle_filter(data=data, method=method, size=size)
 
 
@@ -123,16 +125,16 @@ def compute_otsu_threshold(
     min_valid_pixels: int | None = None,
     fallback_db: float | None = None,
 ) -> float:
-    """Compute Otsu threshold on VV radar backscatter, clipped to [min_db, max_db].
+    """Вычисляет порог Otsu по обратному рассеянию радара VV с ограничением [min_db, max_db].
 
-    The histogram is built over the *full* validity window
-    [valid_min_db, valid_max_db] so both the water mode (~ -20 dB) and the dry-land
-    mode (~ -8 dB) are represented; Otsu on a truncated single-mode tail is
-    meaningless. The resulting threshold is then clipped into the physically
-    admissible corridor [min_db, max_db] (task spec: [-22, -12] dB).
+    Гистограмма строится по *полному* окну валидности
+    [valid_min_db, valid_max_db], так что представлены и мода воды (~ -20 дБ), и мода
+    суши (~ -8 дБ); Otsu по урезанному одномодальному хвосту
+    бессмыслен. Полученный порог затем ограничивается физически
+    допустимым коридором [min_db, max_db] (ТЗ: [-22, -12] дБ).
 
-    Pixels outside [valid_min_db, valid_max_db] are treated as nodata and excluded
-    from the histogram; if fewer than min_valid_pixels remain, fallback_db is returned.
+    Пиксели вне [valid_min_db, valid_max_db] считаются nodata и исключаются
+    из гистограммы; если остаётся меньше min_valid_pixels, возвращается fallback_db.
     """
     cfg = load_config()
     min_val = min_db if min_db is not None else float(cfg["otsu_min_db"])
@@ -151,7 +153,7 @@ def compute_otsu_threshold(
     if len(valid_vals) < min_pixels:
         return fallback
 
-    # Histogram spans the full validity window (both modes), threshold is clipped afterwards.
+    # Гистограмма охватывает полное окно валидности (обе моды), порог ограничивается после этого.
     counts, bin_edges = np.histogram(valid_vals, bins=num_bins, range=(valid_min, valid_max))
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2.0
 
@@ -162,9 +164,9 @@ def compute_otsu_threshold(
     mean2 = (np.cumsum((counts * bin_centers)[::-1]) / np.maximum(weight2[::-1], 1))[::-1]
 
     variance = weight1[:-1] * weight2[1:] * (mean1[:-1] - mean2[1:]) ** 2
-    # The between-class variance is flat across an empty gap between two modes.
-    # Pick the centre of the maximal plateau rather than the first bin, which
-    # otherwise biases the threshold towards the water (dark) mode.
+    # Межклассовая дисперсия постоянна на пустом промежутке между двумя модами.
+    # Берём центр максимального плато, а не первый бин, который
+    # иначе смещает порог в сторону моды воды (тёмной).
     best = float(variance.max())
     plateau_idx = np.flatnonzero(variance >= best * (1.0 - 1e-9))
     best_idx = int(plateau_idx[len(plateau_idx) // 2])
@@ -182,14 +184,14 @@ def load_aux_priors(
     target_transform: rasterio.Affine,
     target_crs: Any,
 ) -> dict[str, np.ndarray]:
-    """Load and reproject AUX terrain and GSW layers to target grid.
+    """Загружает и перепроецирует слои рельефа AUX и GSW в целевую сетку.
 
-    Besides slope/HAND/GSW layers, a terrain ``aspect`` layer is derived from the HAND
-    relief grid: HAND increases monotonically upslope near the drainage network, so the
-    horizontal direction of its steepest ascent approximates the terrain upslope azimuth.
-    The dataset ships no DEM-derived aspect band, so this proxy is used only by the
-    orbit-aware radar-shadow guard (:func:`radar_shadow_mask`) and only acts on facets
-    steep enough to be geometrically shadowed (> 52 deg for the nominal 38 deg incidence).
+    Помимо слоёв уклона, HAND и GSW, из сетки рельефа HAND выводится слой экспозиции
+    рельефа ``aspect``: HAND монотонно растёт вверх по склону вблизи дренажной сети, поэтому
+    горизонтальное направление его наискорейшего подъёма приближает азимут подъёма рельефа.
+    В датасете нет канала экспозиции, полученного из DEM, поэтому этот прокси используется только
+    защитой от радиолокационной тени с учётом орбиты (:func:`radar_shadow_mask`) и действует только на гранях,
+    достаточно крутых для геометрического затенения (> 52 град при номинальном угле падения 38 град).
     """
     cfg = load_config()
     slope_max = float(cfg["slope_max_deg"])
@@ -229,18 +231,18 @@ def load_aux_priors(
         resampling=Resampling.nearest,
     )
 
-    # Sanitize invalid or corrupted nodata values (e.g. -inf in Svobodny 2021-08)
+    # Очистка невалидных или повреждённых значений nodata (например, -inf в Свободном 2021-08)
     valid_slope = np.isfinite(slope) & (slope >= 0.0)
     valid_hand = np.isfinite(hand) & (hand >= 0.0)
     topo_mask = valid_slope & valid_hand & (slope <= slope_max) & (hand <= hand_max)
     permanent_mask = (occurrence >= gsw_min) & np.isfinite(occurrence)
 
-    # Terrain aspect (downslope azimuth, degrees clockwise from north) from the HAND
-    # relief. HAND grows going upslope, so the direction of steepest descent is the
-    # terrain aspect used by the radar-shadow geometry.
-    dy = np.gradient(hand, axis=0)  # d(HAND)/d(row); rows increase southwards
-    dx = np.gradient(hand, axis=1)  # d(HAND)/d(col); cols increase eastwards
-    # Downslope vector in (north, east) = (dy, -dx) -> azimuth = atan2(east, north)
+    # Экспозиция рельефа (азимут вниз по склону, градусы по часовой стрелке от севера) из рельефа
+    # HAND. HAND растёт вверх по склону, поэтому направление наискорейшего спуска это
+    # экспозиция рельефа, используемая геометрией радиолокационной тени.
+    dy = np.gradient(hand, axis=0)  # d(HAND)/d(row); строки растут в южном направлении
+    dx = np.gradient(hand, axis=1)  # d(HAND)/d(col); столбцы растут в восточном направлении
+    # Вектор вниз по склону в (north, east) = (dy, -dx), азимут = atan2(east, north)
     aspect = np.degrees(np.arctan2(-dx, dy)) % 360.0
     aspect = np.where(np.isfinite(aspect), aspect, 0.0).astype(np.float32)
 
@@ -259,7 +261,7 @@ def segment_optical(
     s2_path: str | Path | None,
     target_shape: tuple[int, int],
 ) -> tuple[np.ndarray | None, np.ndarray]:
-    """Segment water using Sentinel-2 MSI indices where available."""
+    """Сегментирует воду по индексам Sentinel-2 MSI там, где они доступны."""
     cfg = load_config()
     mndwi_min = float(cfg["optical_mndwi_min"])
     aweish_min = float(cfg["optical_aweish_min"])
@@ -277,7 +279,7 @@ def apply_mmu(
     mask: np.ndarray,
     min_size: int | None = None,
 ) -> np.ndarray:
-    """Remove isolated noise clusters smaller than min_size pixels (config-aware wrapper)."""
+    """Удаляет изолированные кластеры шума меньше min_size пикселей (обёртка с учётом конфигурации)."""
     if min_size is None:
         cfg = load_config()
         min_size = int(cfg["mmu_min_pixels"])
@@ -288,7 +290,7 @@ def apply_hydrological_connectivity(
     flood_mask: np.ndarray,
     seed_mask: np.ndarray,
 ) -> np.ndarray:
-    """Filter flood clusters by hydrological connectivity to permanent seed network."""
+    """Фильтрует кластеры затопления по гидрологической связности с постоянной опорной сетью."""
     return _filters_apply_hydrological_connectivity(flood_mask=flood_mask, seed_mask=seed_mask)
 
 
@@ -296,8 +298,25 @@ def apply_morphological_closing(
     mask: np.ndarray,
     kernel_size: int = 5,
 ) -> np.ndarray:
-    """Close small speckle holes and wave gaps inside water bodies."""
+    """Закрывает мелкие спекл-провалы и разрывы от волн внутри водных объектов."""
     return _filters_apply_morphological_closing(mask=mask, kernel_size=kernel_size)
+
+
+def apply_planar_hand_filter(
+    flood_mask: np.ndarray,
+    seed_mask: np.ndarray,
+    hand: np.ndarray | None,
+    percentile: float = 90.0,
+    tolerance_m: float = 1.5,
+) -> np.ndarray:
+    """Filter flood water elevation exceeding river boundary HAND + tolerance."""
+    return _filters_apply_planar_hand_filter(
+        flood_mask=flood_mask,
+        seed_mask=seed_mask,
+        hand=hand,
+        percentile=percentile,
+        tolerance_m=tolerance_m,
+    )
 
 
 def detect_flooded_vegetation(
@@ -311,16 +330,16 @@ def detect_flooded_vegetation(
     filter_method: str = "lee",
     filter_size: int = 7,
 ) -> np.ndarray:
-    """Detect sub-canopy (flooded) vegetation via the double-bounce mechanism.
+    """Обнаруживает затопленную растительность под пологом по механизму двойного отражения.
 
-    Double bounce = open water + vertical stem. Physically the *pre* date pixel is
-    dry vegetation (bright VV, e.g. ~ -8 dB) and it becomes flooded at peak, so VH
-    rises. A pixel that was already open water at the pre date cannot produce a
-    double bounce, so the pre-date VV must be >= ``double_bounce_vv_pre_min_db``.
+    Двойное отражение = открытая вода + вертикальный стебель. Физически пиксель на дату *pre* это
+    сухая растительность (яркий VV, например ~ -8 дБ), и на пике он затопляется, поэтому VH
+    растёт. Пиксель, который уже был открытой водой на дату pre, не может дать
+    двойное отражение, поэтому VV на дату pre должен быть >= ``double_bounce_vv_pre_min_db``.
 
-    Per task spec section 5 the flooded vegetation is a separate product layer and
-    is NOT part of the open-water mirror, hence this mask is returned separately and
-    never merged into :func:`segment_water`.
+    Согласно разделу 5 ТЗ затопленная растительность это отдельный слой продукта и
+    НЕ входит в зеркало открытой воды, поэтому маска возвращается отдельно и
+    никогда не объединяется с :func:`segment_water`.
     """
     if vh is None or vh_ref is None or vv_ref is None:
         return np.zeros(vv.shape, dtype=bool)
@@ -356,60 +375,60 @@ def radar_shadow_mask(
     nominal_incidence_deg: float | None = None,
     shadow_min_incidence_deg: float | None = None,
 ) -> np.ndarray | None:
-    """Flag terrain facets that are geometrically in the Sentinel-1 radar shadow.
+    """Отмечает грани рельефа, геометрически находящиеся в радиолокационной тени Sentinel-1.
 
-    Geometry
+    Геометрия
     --------
-    Sentinel-1 is a *right-looking* side-looking radar, so the side it illuminates
-    depends on the flight direction:
+    Sentinel-1 это *правосторонний* радиолокатор бокового обзора, поэтому освещаемая им сторона
+    зависит от направления полёта:
 
-      * descending pass (satellite flying N->S) -> looks **west**,  sensor azimuth ~270 deg
-      * ascending  pass (satellite flying S->N) -> looks **east**,  sensor azimuth ~90 deg
+      * нисходящий виток (спутник летит с севера на юг) смотрит на **запад**,  азимут сенсора ~270 град
+      * восходящий виток (спутник летит с юга на север) смотрит на **восток**,  азимут сенсора ~90 град
 
-    A facet of slope ``s`` whose steepest descent points to azimuth ``A`` is illuminated
-    at a *local* incidence angle that differs from the flat-terrain (nominal) incidence
-    ``theta_0`` by the projection of the range slope onto the sensor-target plane. With
-    ``L`` the target-to-sensor azimuth (the upslope unit vector is ``-(downslope)``),
+    Грань с уклоном ``s``, наискорейший спуск которой направлен по азимуту ``A``, освещается
+    под *локальным* углом падения, который отличается от угла падения на плоском рельефе (номинального)
+    ``theta_0`` на проекцию уклона по дальности на плоскость сенсор-цель. Где
+    ``L`` это азимут от цели к сенсору (единичный вектор вверх по склону равен ``-(downslope)``),
 
         cos(theta_local) = cos(s) * cos(theta_0) + sin(s) * sin(theta_0) * cos(A - L)
 
-    When the facet descends *towards* the sensor (``A -> L``) the local incidence shrinks
-    (foreshortening, the near-range slope is still imaged) and ``theta_local`` tends to
-    ``|s - theta_0|``. When it descends *away* from the sensor (``A -> L + 180 deg``) the
-    local incidence grows, ``theta_local -> s + theta_0``, and once ``theta_local >= 90 deg``
-    the surface normal points away from the line of sight: the beam grazes the crest and
-    never reaches that facet. Backscatter then collapses to system noise (sigma0 < -24 dB)
-    and a naive Otsu classifier calls it open water -- a systematic false positive.
+    Когда грань спускается *к* сенсору (``A -> L``), локальный угол падения уменьшается
+    (сокращение, ближний по дальности склон всё ещё отображается), и ``theta_local`` стремится к
+    ``|s - theta_0|``. Когда она спускается *от* сенсора (``A -> L + 180 град``),
+    локальный угол падения растёт, ``theta_local -> s + theta_0``, и как только ``theta_local >= 90 град``,
+    нормаль поверхности уходит от линии визирования: луч скользит по гребню и
+    никогда не достигает этой грани. Обратное рассеяние падает до системного шума (sigma0 < -24 дБ),
+    и наивный классификатор Otsu считает это открытой водой - систематическое ложное срабатывание.
 
-    This is exactly why ascending != descending: the shadowed aspect flips by 180 deg
-    between passes, so the same hillside is in shadow on one orbit and fully imaged on the
-    other. Orbit direction is therefore a physically meaningful input, not a label.
+    Именно поэтому восходящий виток не равен нисходящему: затенённая экспозиция меняется на 180 град
+    между витками, так что один и тот же склон в тени на одной орбите и полностью отображается на
+    другой. Поэтому направление орбиты это физически значимый вход, а не метка.
 
-    Assumptions (conservative by design)
+    Допущения (намеренно консервативные)
     ------------------------------------
-    * The dataset carries no per-pixel incidence-angle band, so the mid-swath nominal
-      incidence (``SAR_NOMINAL_INCIDENCE_DEG``, ~38 deg for S1 IW) is used as ``theta_0``.
-    * ``aspect`` is the downslope azimuth in degrees clockwise from north, derived from the
-      AUX HAND relief (see :func:`load_aux_priors`); it is a proxy, not a DEM aspect band.
-    * Only the strict self-shadow criterion is applied (``theta_local`` at/above
-      ``RADAR_SHADOW_MIN_INCIDENCE_DEG``, i.e. slope steeper than ``90 - theta_0`` ~ 52 deg
-      when facing perfectly away). Cast/self-shadow from neighbouring ridges needs a DEM
-      profile along the range direction and is deliberately NOT modelled here. Foreshortened
-      near-range slopes are never suppressed.
+    * В датасете нет попиксельного канала углов падения, поэтому номинальный угол падения
+      середины полосы (``SAR_NOMINAL_INCIDENCE_DEG``, ~38 град для S1 IW) используется как ``theta_0``.
+    * ``aspect`` это азимут вниз по склону в градусах по часовой стрелке от севера, полученный из
+      рельефа HAND из AUX (см. :func:`load_aux_priors`); это прокси, а не канал экспозиции DEM.
+    * Применяется только строгий критерий самозатенения (``theta_local`` на уровне
+      ``RADAR_SHADOW_MIN_INCIDENCE_DEG`` и выше, то есть уклон круче ``90 - theta_0`` ~ 52 град
+      при направлении строго в сторону). Отбрасываемая и собственная тень от соседних хребтов требует
+      профиля DEM вдоль направления дальности и намеренно здесь НЕ моделируется. Сокращённые
+      склоны ближней зоны дальности никогда не подавляются.
 
-    Returns:
-        Boolean array of shadowed pixels, or ``None`` when the guard cannot be evaluated
-        (missing slope/aspect layers or an unrecognised ``orbit_pass``). ``None`` means
-        "no suppression", so callers can treat it as a no-op.
+    Возвращает:
+        Булев массив затенённых пикселей или ``None``, когда защиту нельзя оценить
+        (отсутствуют слои уклона и экспозиции или нераспознан ``orbit_pass``). ``None`` означает
+        "без подавления", поэтому вызывающий код может считать это пустой операцией.
     """
     if slope is None or aspect is None or orbit_pass is None:
         return None
 
     pass_norm = str(orbit_pass).strip().upper()
     if pass_norm.startswith("D"):
-        look_azimuth_deg = 270.0  # descending, right-looking -> illuminates from the west
+        look_azimuth_deg = 270.0  # нисходящий, правосторонний - освещает с запада
     elif pass_norm.startswith("A"):
-        look_azimuth_deg = 90.0  # ascending, right-looking -> illuminates from the east
+        look_azimuth_deg = 90.0  # восходящий, правосторонний - освещает с востока
     else:
         return None
 
@@ -427,17 +446,17 @@ def radar_shadow_mask(
 
     slope_arr = np.asarray(slope, dtype=np.float64)
     aspect_arr = np.asarray(aspect, dtype=np.float64)
-    # Some AOIs carry NaN/inf in the slope/aspect bands; the libm cos/sin below would
-    # raise on them. Substitute a neutral 0 deg for those pixels and let `finite` keep
-    # them out of the returned mask (non-finite pixels stay unshadowed, as before).
+    # Некоторые AOI содержат NaN/inf в каналах уклона и экспозиции; приведённые ниже cos/sin из libm
+    # вызвали бы на них ошибку. Подставляем для таких пикселей нейтральные 0 град и позволяем `finite`
+    # исключить их из возвращаемой маски (неконечные пиксели остаются незатенёнными, как и раньше).
     finite = np.isfinite(slope_arr) & np.isfinite(aspect_arr)
 
     theta0_rad = np.radians(theta0)
     slope_rad = np.radians(np.where(finite, slope_arr, 0.0))
     psi = np.radians(look_azimuth_deg - np.where(finite, aspect_arr, look_azimuth_deg))
     # cos(theta_local) = cos(theta0)cos(s) + sin(theta0)sin(s)cos(L - A):
-    # downslope azimuth A == look azimuth L -> foreshortened near-range slope (theta_local
-    # shrinks); A == L + 180 -> back slope (theta_local grows towards s + theta0).
+    # азимут вниз по склону A равен азимуту визирования L - сокращённый склон ближней зоны (theta_local
+    # уменьшается); A равен L + 180 - обратный склон (theta_local растёт к s + theta0).
     cos_incidence = np.cos(slope_rad) * np.cos(theta0_rad) + np.sin(slope_rad) * np.sin(theta0_rad) * np.cos(psi)
     local_incidence_deg = np.degrees(np.arccos(np.clip(cos_incidence, -1.0, 1.0)))
 
@@ -468,15 +487,15 @@ def segment_water(
     filter_size: int = 7,
     mmu_min_size: int | None = None,
 ) -> np.ndarray:
-    """End-to-end water segmentation for a single acquisition date (pre or peak).
+    """Сквозная сегментация воды для одной даты съёмки (pre или peak).
 
-    The optional ``aspect`` (downslope azimuth, degrees from north) and ``orbit_pass``
-    arguments enable an orbit-aware radar-shadow guard: facets steeper than the local
-    incidence limit *and* facing away from the sensor look direction are suppressed
-    before the topographic priors, because they carry no radar signal and would
-    otherwise be misread as open water. The guard is inert (no-op) when either argument
-    is ``None``, so existing callers keep their previous behaviour. See
-    :func:`radar_shadow_mask` for the geometry and its stated assumptions.
+    Необязательные аргументы ``aspect`` (азимут вниз по склону, градусы от севера) и ``orbit_pass``
+    включают защиту от радиолокационной тени с учётом орбиты: грани круче локального
+    предела угла падения *и* направленные в сторону от направления визирования сенсора подавляются
+    до применения топографических априорных данных, поскольку они не несут радиолокационного сигнала и иначе
+    были бы неверно прочитаны как открытая вода. Защита неактивна (пустая операция), когда любой
+    из аргументов равен ``None``, поэтому существующий вызывающий код сохраняет прежнее поведение. См.
+    :func:`radar_shadow_mask` для геометрии и её описанных допущений.
     """
     cfg = load_config()
     drop_thresh = float(cfg["sar_flood_drop_db"])
@@ -493,8 +512,8 @@ def segment_water(
 
     sar_valid = np.isfinite(vv) & (vv > nodata_max_db)
 
-    # 1. Speckle filtering (Lee MMSE, 7x7 square window by default; the
-    #    directional edge-aligned "Refined Lee" variant is NOT implemented)
+    # 1. Подавление спекла (Lee MMSE, по умолчанию квадратное окно 7x7;
+    #    направленный вариант "Refined Lee" с выравниванием по краям НЕ реализован)
     vv_filt = speckle_filter(vv, method=filter_method, size=filter_size)
     vh_filt = speckle_filter(vh, method=filter_method, size=filter_size) if vh is not None else None
 
@@ -502,7 +521,7 @@ def segment_water(
     vv_w = float(cfg.get("sar_dual_pol_vv_weight", 0.7))
     vh_w = float(cfg.get("sar_dual_pol_vh_weight", 0.3))
 
-    # 2. SAR Otsu thresholding within floodplain
+    # 2. Порог Otsu по SAR в пределах поймы
     mask_for_otsu = topo_mask if (use_topo and topo_mask is not None) else None
     if use_dual_pol and vh_filt is not None:
         sar_feature = vv_w * vv_filt + vh_w * vh_filt
@@ -518,7 +537,7 @@ def segment_water(
 
     sar_water = otsu_water
 
-    # 3. Peak flood change detection & double bounce
+    # 3. Обнаружение изменений на пике паводка и двойное отражение
     if is_peak and vv_ref is not None:
         vv_ref_filt = speckle_filter(vv_ref, method=filter_method, size=filter_size)
         drop = vv_ref_filt - vv_filt
@@ -528,23 +547,23 @@ def segment_water(
             drop_vh = vh_ref_filt - vh_filt
             drop_cond = drop_cond & (drop_vh >= sar_drop_vh_min) & (vh_filt < sar_drop_vh_max)
 
-        # Peak water combines drop >= 3dB and constrained Otsu water.
-        # Sub-canopy flooded vegetation (double bounce) is intentionally NOT merged
-        # into the open-water mirror (task spec section 5); see detect_flooded_vegetation().
+        # Вода на пике объединяет провал >= 3 дБ и ограниченную воду Otsu.
+        # Затопленная растительность под пологом (двойное отражение) намеренно НЕ объединяется
+        # с зеркалом открытой воды (раздел 5 ТЗ); см. detect_flooded_vegetation().
         sar_water = (sar_water | drop_cond) & sar_valid
 
-    # 3b. Orbit-aware radar-shadow guard. Facets in geometric shadow (steep slope facing
-    #     away from the look direction) return only thermal noise, which the Otsu path
-    #     above misreads as open water. Suppress them on the SAR-derived mask only, so
-    #     independent evidence (optical water, GSW permanent prior) is preserved.
+    # 3b. Защита от радиолокационной тени с учётом орбиты. Грани в геометрической тени (крутой склон,
+    #     направленный от направления визирования) возвращают только тепловой шум, который путь
+    #     Otsu выше неверно читает как открытую воду. Подавляем их только на маске, полученной из SAR, чтобы
+    #     независимые свидетельства (оптическая вода, априорная постоянная вода GSW) сохранялись.
     shadow = radar_shadow_mask(slope, aspect, orbit_pass)
     if shadow is not None:
         sar_water = sar_water & ~shadow
 
-    # Handle partial/nodata SAR gracefully (e.g. Poyarkovo track boundaries).
-    # Explicit, config-driven heuristic: when SAR coverage is too sparse to be
-    # trusted (< sar_valid_frac_min of the AOI), fall back to permanent GSW water
-    # plus a conservative low-HAND floodplain expansion instead of SAR Otsu.
+    # Аккуратная обработка частичного SAR и nodata (например, границы треков Поярково).
+    # Явная эвристика из конфигурации: когда покрытие SAR слишком разрежено, чтобы ему
+    # доверять (< sar_valid_frac_min от AOI), откат к постоянной воде GSW
+    # плюс консервативное расширение поймы по низкому HAND вместо SAR Otsu.
     if sar_valid.mean() < sar_valid_frac_min and permanent_mask is not None:
         if is_peak and topo_mask is not None and hand is not None and occurrence is not None:
             flood_expansion = topo_mask & (hand <= fb_hand_max) & (occurrence >= fb_occ_min) & (~permanent_mask)
@@ -552,21 +571,21 @@ def segment_water(
         else:
             sar_water = permanent_mask.copy()
 
-    # 4. Optical fusion where available
+    # 4. Объединение с оптикой там, где она доступна
     if use_optical and optical_water is not None and optical_valid is not None and np.any(optical_valid):
         water = np.where(optical_valid, optical_water | sar_water, sar_water)
     else:
         water = sar_water
 
-    # 5. Topographic priors
+    # 5. Топографические априорные данные
     if use_topo and topo_mask is not None:
         water = water & topo_mask
 
-    # 6. GSW permanent water prior
+    # 6. Априорная постоянная вода GSW
     if use_permanent and permanent_mask is not None:
         water = water | permanent_mask
 
-    # 7. MMU filtering
+    # 7. Фильтрация MMU
     if use_mmu:
         water = apply_mmu(water, min_size=mmu_pixels)
 

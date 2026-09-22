@@ -40,6 +40,11 @@ double_bounce_vv_pre_min_db: -14.0
 slope_max_deg: 3.0
 hand_max_m: 10.0
 
+# Planar river level HAND elevation filter (Hypothesis 18)
+planar_hand_filter_enabled: true
+planar_hand_percentile: 90.0
+planar_hand_tolerance_m: 1.5
+
 
 # Orbit-aware radar-shadow guard (D3). Sentinel-1 is right-looking: descending passes
 # look west (~270 deg), ascending passes look east (~90 deg), so the shadowed terrain
@@ -66,8 +71,8 @@ mmu_min_pixels: 25
 
 # Partial-SAR fallback (Poyarkovo-style track boundary gaps)
 sar_valid_frac_min: 0.1
-fallback_hand_max_m: 1.0
-fallback_occurrence_min_pct: 5.0
+fallback_hand_max_m: 1.5
+fallback_occurrence_min_pct: 1.0
 
 # GeoJSON contour export limits
 # geojson_max_contours: 0 disables truncation (preserves total mapped area)

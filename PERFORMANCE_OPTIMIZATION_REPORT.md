@@ -46,7 +46,7 @@
   - Промежуточный массив для `shapes()` приводится к компактному типу `np.uint8`.
 - **Результат**:
   - Предотвращено создание тысяч фиктивных полигональных объектов Shapely для субпиксельного шума.
-  - Сокращение веса отдаваемого GeoJSON и ускорение передачи по сети в 3–5 раз.
+  - Сокращение веса отдаваемого GeoJSON и ускорение передачи по сети в 3-5 раз.
   - Покрыто тестом `test_data_loader_morphological_micro_island_filtering` в [`tests/test_data_loader.py`](file:///C:/project/water/cosmohack-hydro-2026/tests/test_data_loader.py#L301-L345).
 
 ---

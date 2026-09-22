@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { downloadReportPdf } from '../lib/pdfExport';
 import type { ReportData } from '../types/domain';
 
-// Mock canvas getContext and toDataURL in jsdom
+// Мок getContext и toDataURL у canvas в jsdom
 beforeEach(() => {
   HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
     fillRect: vi.fn(),
@@ -12,7 +12,7 @@ beforeEach(() => {
   HTMLCanvasElement.prototype.toDataURL = vi.fn().mockReturnValue('data:image/jpeg;base64,mock');
 });
 
-// Mock html2canvas
+// Мок html2canvas
 vi.mock('html2canvas', () => {
   return {
     default: vi.fn().mockImplementation(() => {
@@ -24,7 +24,7 @@ vi.mock('html2canvas', () => {
   };
 });
 
-// Mock jsPDF
+// Мок jsPDF
 const saveMock = vi.fn();
 const addImageMock = vi.fn();
 const addPageMock = vi.fn();
@@ -115,7 +115,7 @@ describe('downloadReportPdf', () => {
 
     await downloadReportPdf(mockReport);
 
-    expect(addPageMock).toHaveBeenCalledTimes(1); // 2 pages total = 1 call to addPage()
+    expect(addPageMock).toHaveBeenCalledTimes(1); // 2 страницы всего = 1 вызов addPage()
     expect(addImageMock).toHaveBeenCalledTimes(2);
     expect(saveMock).toHaveBeenCalledWith('report_flood_2019_07_amur__blagoveshchensk.pdf');
     document.body.removeChild(existing);

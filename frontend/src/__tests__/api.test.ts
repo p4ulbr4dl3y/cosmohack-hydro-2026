@@ -51,7 +51,7 @@ describe('API Client & Fetch Mocking', () => {
       expect(pairs.length).toBe(1);
       expect(pairs[0].pair_id).toBe('flood_2019_07_amur__blagoveshchensk');
       expect(pairs[0].status).toBe('active');
-      // /api/v1/pairs carries no areas and none may be invented client-side
+      // /api/v1/pairs не несёт площадей, и ни одна не может быть выдумана на клиенте
       expect(pairs[0].flood_ha).toBeUndefined();
     });
 

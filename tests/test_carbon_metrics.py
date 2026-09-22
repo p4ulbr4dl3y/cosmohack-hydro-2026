@@ -1,4 +1,4 @@
-"""Unit tests for IPCC carbon math and flood ESG metrics."""
+"""Модульные тесты расчётов углерода по методологии IPCC и метрик ESG для паводков."""
 
 import math
 
@@ -10,16 +10,16 @@ from src.carbon_metrics import (
 
 
 def test_ipcc_synthetic_case_from_specs():
-    """Verify exact synthetic case from competition specification:
+    """Проверка точного синтетического случая из спецификации конкурса:
 
-    - A = 100 ha, delta_t = 1 yr
-    - Biomass b: 100 -> 104 t dry matter / ha
-    - c: 47.0 -> 48.88 t C / ha
-    - delta_C = 188.0 t C
-    - E_proj = -689.333 t CO2e, e = -6.893 t CO2e/ha/yr
-    - E_base = -172.333 t CO2e => R = 517.0 t CO2e
-    - H = 103.4 => H/R = 0.20 => UNC = 0.10 => R_adj = 465.3 => B = 69.795, Q = 395
-    - Valuations V = 395 * [500, 1500, 4000]
+    - A = 100 ha, delta_t = 1 yr;
+    - биомасса b: 100 -> 104 t dry matter / ha;
+    - c: 47.0 -> 48.88 t C / ha;
+    - delta_C = 188.0 t C;
+    - E_proj = -689.333 t CO2e, e = -6.893 t CO2e/ha/yr;
+    - E_base = -172.333 t CO2e => R = 517.0 t CO2e;
+    - H = 103.4 => H/R = 0.20 => UNC = 0.10 => R_adj = 465.3 => B = 69.795, Q = 395;
+    - оценки V = 395 * [500, 1500, 4000].
     """
     diff = calculate_stock_difference(
         b_start_t_ha=100.0,
@@ -34,7 +34,7 @@ def test_ipcc_synthetic_case_from_specs():
     assert math.isclose(diff["E_proj_tCO2e"], -689.33, rel_tol=1e-3)
     assert math.isclose(diff["e_tCO2e_ha_yr"], -6.8933, rel_tol=1e-3)
 
-    # Credits calculation
+    # Расчёт кредитов
     E_base = -172.33333333333334
     res = calculate_carbon_credits(
         E_proj_tCO2e=diff["E_proj_tCO2e"],
@@ -59,7 +59,7 @@ def test_ipcc_synthetic_case_from_specs():
 
 
 def test_credit_edge_cases():
-    """Verify boundary conditions for carbon credit generation."""
+    """Проверка граничных условий генерации углеродных кредитов."""
     # R <= 0 -> Q = 0
     res_zero = calculate_carbon_credits(
         E_proj_tCO2e=100.0,
@@ -82,7 +82,7 @@ def test_credit_edge_cases():
 
 
 def test_flood_carbon_impact():
-    """Verify flood carbon footprint and biomass damage assessment."""
+    """Проверка углеродного следа паводка и оценки ущерба биомассе."""
     impact = compute_flood_carbon_impact(
         pair_id="flood_2019_07_amur__belogorsk",
         flood_ha=187.19,

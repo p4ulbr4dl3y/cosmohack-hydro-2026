@@ -1,7 +1,7 @@
-"""Official MCHS / EMERCOM Emergency Situation Dispatch generator.
+"""Генератор официальных донесений МЧС / EMERCOM о чрезвычайной ситуации.
 
-Constructs operational flood reports and printable HTML summaries conforming
-to Russian EMERCOM (МЧС России) field report standards (Форма 1/ЧС, 2/ЧС).
+Формирует оперативные донесения о паводках и печатные HTML-сводки в соответствии
+с российскими стандартами полевых донесений EMERCOM (МЧС России) (Форма 1/ЧС, 2/ЧС).
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ AOI_MUNICIPALITIES: dict[str, list[str]] = {
 
 
 def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
-    """Build structured operational MCHS dispatch dictionary from a hydrological report."""
+    """Строит структурированный словарь оперативного донесения МЧС из гидрологического отчёта."""
     pair_id = report.get("pair_id", "")
     aoi_id = report.get("aoi_id", "")
     aoi_name = report.get("aoi_name", "Бассейн р. Амур")
@@ -70,7 +70,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
     nat_ha = float(lc.get("natural_vegetation_ha", max(0.0, flood_ha - built_ha - crop_ha)))
     mean_hand = float(lc.get("mean_hand_m", 0.0))
 
-    # Municipalities resolution
+    # Определение муниципальных образований
     municipalities = AOI_MUNICIPALITIES.get(aoi_id, [f"Муниципальные образования района {aoi_name}"])
 
     is_baseline = event_kind == "baseline" or flood_ha <= 5.0
@@ -99,7 +99,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
             f"(суммарная протяженность порядка {cutoff_km} км). Требуется выставление постов и мониторинг мостовых переходов."
         )
 
-    # Depth risk breakdown
+    # Разбивка рисков по глубине
     depth_breakdown = report.get("depth_risk_breakdown")
     if not depth_breakdown:
         if flood_ha > 0:
@@ -114,7 +114,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
                     "description": "Опасное затопление: угроза первым этажам, подтопление инфраструктуры, эвакуация",
                 },
                 "moderate_risk": {
-                    "depth_range": "0.5 – 1.5 м (HAND 0.5 – 1.5 м)",
+                    "depth_range": "0.5-1.5 м (HAND 0.5-1.5 м)",
                     "area_ha": m_ha,
                     "share_pct": round(m_ha / flood_ha * 100.0, 2),
                     "description": "Умеренное затопление: перелив дорожного полотна, подтопление участков",
@@ -135,7 +135,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
                     "description": "Опасное затопление: угроза первым этажам, подтопление инфраструктуры, эвакуация",
                 },
                 "moderate_risk": {
-                    "depth_range": "0.5 – 1.5 м (HAND 0.5 – 1.5 м)",
+                    "depth_range": "0.5-1.5 м (HAND 0.5-1.5 м)",
                     "area_ha": 0.0,
                     "share_pct": 0.0,
                     "description": "Умеренное затопление: перелив дорожного полотна, подтопление участков",
@@ -212,7 +212,7 @@ def build_mchs_dispatch(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def render_mchs_html(dispatch: dict[str, Any]) -> str:
-    """Render official, printable HTML field dispatch conforming to EMERCOM standards."""
+    """Отрисовывает официальное печатное HTML-донесение по стандартам EMERCOM."""
     is_danger = "Штатн" not in dispatch.get("status", "")
     badge_bg = "#dc2626" if is_danger else "#16a34a"
     badge_text = dispatch.get("status", "Оперативная обстановка")
@@ -523,7 +523,7 @@ def render_mchs_html(dispatch: dict[str, Any]) -> str:
       </tbody>
     </table>
 
-    <div class="section-title">5. Дифференциация по глубинам затопления (Depth Risk Breakdown)</div>
+    <div class="section-title">5. Дифференциация по глубинам затопления</div>
     <table>
       <thead>
         <tr>
@@ -541,7 +541,7 @@ def render_mchs_html(dispatch: dict[str, Any]) -> str:
           <td class="num">{high.get("share_pct", 0.0):.1f}%</td>
         </tr>
         <tr>
-          <td><strong>Умеренный риск</strong><br/><span style="font-size:11px; color:#64748b;">{mod.get("depth_range", "0.5–1.5 м")}</span></td>
+          <td><strong>Умеренный риск</strong><br/><span style="font-size:11px; color:#64748b;">{mod.get("depth_range", "0.5-1.5 м")}</span></td>
           <td>{mod.get("description", "")}</td>
           <td class="num" style="color:#d97706;">{mod.get("area_ha", 0.0):,.2f}</td>
           <td class="num">{mod.get("share_pct", 0.0):.1f}%</td>

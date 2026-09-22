@@ -1,12 +1,12 @@
-// Stages the runtime data assets that the SPA loads (either from the API or as an
-// offline fallback) into frontend/public, so `vite build` can emit them into
-// src/service/static/ (which is wiped by emptyOutDir on every build).
+// Подготавливает ассеты данных времени выполнения, которые загружает SPA (из API или как
+// офлайн-фолбэк), в frontend/public, чтобы `vite build` мог положить их в
+// src/service/static/ (которая очищается emptyOutDir при каждой сборке).
 //
-// Canonical sources stay in the repository's single data tree (hydrowatch_amur/);
-// the copies under frontend/public are generated and therefore git-ignored:
+// Канонические источники остаются в едином дереве данных репозитория (hydrowatch_amur/);
+// копии в frontend/public генерируются и поэтому игнорируются git:
 //
-//   vendor/          <- src/service/static/vendor   (Leaflet, Font Awesome, fonts)
-//   icons/           <- src/service/static/icons    (branding / report illustrations)
+//   vendor/          <- src/service/static/vendor   (Leaflet, Font Awesome, шрифты)
+//   icons/           <- src/service/static/icons    (айдентика / иллюстрации отчёта)
 //   data/*.geojson   <- hydrowatch_amur/vectors
 //   data/pairs.csv   <- hydrowatch_amur/pairs.csv
 //   data/events_catalog.json <- hydrowatch_amur/tables/events_catalog.json
@@ -65,7 +65,7 @@ const iconsTarget = path.join(publicDir, 'icons');
 await rm(iconsTarget, { recursive: true, force: true });
 await cp(iconsSource, iconsTarget, { recursive: true });
 
-// canonical data tree -> public/data/
+// каноническое дерево данных -> public/data/
 await rm(dataDir, { recursive: true, force: true });
 await mkdir(dataDir, { recursive: true });
 for (const [source, name] of DATA_FILES) {
