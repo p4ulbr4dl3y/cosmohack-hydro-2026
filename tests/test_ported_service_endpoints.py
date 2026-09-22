@@ -52,7 +52,7 @@ def test_api_uncertainty_404():
     assert res.status_code == 404
 
 
-def test_api_sar_analytics_endpoint():
+def test_api_sar_analytics_endpoint(synthetic_s1_scene):
     res = client.get(f"/api/v1/sar-analytics/{SAMPLE_PAIR}")
     assert res.status_code == 200
     data = res.json()

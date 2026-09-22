@@ -600,7 +600,7 @@ def test_recompute_missing_data_returns_real_500(monkeypatch):
     assert "raster missing on disk" in resp.json()["detail"]
 
 
-def test_dynamic_sar_analytics_not_hardcoded():
+def test_dynamic_sar_analytics_not_hardcoded(synthetic_s1_scene):
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     resp = client.get(f"/api/v1/sar-analytics/{pair_id}")
     assert resp.status_code == 200
