@@ -276,6 +276,33 @@ def run_uncertainty(
     return out
 
 
+def run_manifest(
+    output_path: Path | None = None,
+    verify: bool = False,
+    base_dir: Path | None = None,
+    targets: list[str] | None = None,
+) -> dict[str, Any] | None:
+    """Генерирует или проверяет манифест целостности SHA-256 артефактов."""
+    from src.manifest import DEFAULT_MANIFEST_PATH, generate_manifest, verify_manifest
+
+    out = output_path or DEFAULT_MANIFEST_PATH
+    base = base_dir or Path(".")
+
+    if verify:
+        result = verify_manifest(out, base_dir=base)
+        print(result.summary())
+        if not result.is_valid:
+            sys.exit(1)
+        return None
+    else:
+        manifest = generate_manifest(targets=targets, base_dir=base, output_path=out)
+        print(f"Artifacts manifest generated successfully: {out}")
+        print(f"  Total artifacts : {manifest['total_files']}")
+        print(f"  Total size      : {manifest['total_size_bytes'] / (1024 * 1024):.2f} MB")
+        print(f"  Merkle root     : {manifest['merkle_root']}")
+        return manifest
+
+
 def run_benchmark(
     pairs_csv_path: Path,
     data_dir: Path,
@@ -527,6 +554,35 @@ def main() -> None:
     )
     unc_parser.add_argument("--output-json", type=Path, default=None, help="Path to save uncertainty results JSON")
 
+    # подкоманда manifest
+    manifest_parser = subparsers.add_parser(
+        "manifest", help="Generate or verify SHA-256 integrity manifest for artifacts and MRV verification"
+    )
+    manifest_parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        default=Path("data/artifacts_manifest.json"),
+        help="Path to manifest JSON file (default: data/artifacts_manifest.json)",
+    )
+    manifest_parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify existing manifest against disk artifacts",
+    )
+    manifest_parser.add_argument(
+        "--base-dir",
+        type=Path,
+        default=Path("."),
+        help="Base directory for artifact paths (default: .)",
+    )
+    manifest_parser.add_argument(
+        "--targets",
+        nargs="*",
+        default=None,
+        help="Specific files or directories to include",
+    )
+
     args, unknown = parser.parse_known_args()
 
     if args.command == "predict":
@@ -595,6 +651,13 @@ def main() -> None:
             confidence_level=args.confidence_level,
             spatial_correlation=args.spatial_correlation,
             output_json=args.output_json,
+        )
+    elif args.command == "manifest":
+        run_manifest(
+            output_path=args.output,
+            verify=args.verify,
+            base_dir=args.base_dir,
+            targets=args.targets,
         )
 
 

@@ -309,6 +309,14 @@ def validate_submission_file(
         passed_checks.append("Columns match required schema [pair_id, flood_ha, water_pre_ha, water_peak_ha]")
     else:
         errors.append(f"Invalid columns: expected {expected_cols}, got {list(sub_df.columns)}")
+        return SubmissionValidationResult(
+            is_valid=False,
+            num_pairs=len(sub_df),
+            passed_checks=[],
+            errors=errors,
+            warnings=[],
+            discrepancies=[],
+        )
 
     # 2. Количество пар и их соответствие
     if pairs_csv_path.exists():

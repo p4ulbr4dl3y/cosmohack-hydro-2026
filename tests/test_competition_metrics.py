@@ -50,6 +50,12 @@ def test_baseline_specificity():
     # Превышение > 50 ha -> ограничивается значением 0.0
     assert calculate_baseline_spec(100.0, 10.0, aoi_ha) == 0.0
 
+    # Некорректные параметры (aoi <= 0, NaN)
+    assert calculate_baseline_spec(10.0, 20.0, 0.0) == 0.0
+    assert calculate_baseline_spec(10.0, 20.0, -100.0) == 0.0
+    assert calculate_baseline_spec(float("nan"), 20.0, aoi_ha) == 0.0
+    assert calculate_baseline_spec(10.0, float("nan"), aoi_ha) == 0.0
+
 
 def test_official_score_live_computation():
     """Проверка онлайн-расчёта официального балла на существующем submission.csv."""
@@ -79,6 +85,121 @@ def test_official_score_live_computation():
     assert math.isclose(res.score, expected_score, abs_tol=1e-3)
 
 
+def test_official_score_missing_pairs_csv(tmp_path):
+    import pytest
+
+    fake_pairs = tmp_path / "non_existent_pairs.csv"
+    sub_df = pd.DataFrame({"pair_id": ["p1"]})
+    with pytest.raises(FileNotFoundError, match="pairs.csv not found"):
+        compute_live_official_score(sub_df, fake_pairs, tmp_path)
+
+
+def test_official_score_missing_ref_json_and_no_baselines(tmp_path):
+    pairs_csv = tmp_path / "pairs.csv"
+    pairs_df = pd.DataFrame(
+        [
+            {"pair_id": "pair_missing", "reference_mask": "missing.tif", "event_kind": "rain_flood"},
+            {"pair_id": "pair_exist", "reference_mask": "exist.tif", "event_kind": "rain_flood"},
+        ]
+    )
+    pairs_df.to_csv(pairs_csv, index=False)
+
+    # Only create exist.json, leave missing.json absent
+    import json
+
+    exist_json = tmp_path / "exist.json"
+    exist_json.write_text(
+        json.dumps(
+            {
+                "stats": {
+                    "aoi_ha": 50000.0,
+                    "flood_ha": 100.0,
+                    "water_pre_ha": 50.0,
+                    "water_peak_ha": 150.0,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sub_df = pd.DataFrame(
+        [
+            {"pair_id": "pair_exist", "flood_ha": 100.0, "water_pre_ha": 50.0, "water_peak_ha": 150.0},
+        ]
+    )
+
+    # predictions_dir with raster where sub_flood == 0 and raster_ha > 0 or reading error
+    preds_dir = tmp_path / "preds"
+    preds_dir.mkdir()
+    corrupt_tif = preds_dir / "pair_exist_flood.tif"
+    corrupt_tif.write_text("not a valid tiff file")
+
+    res = compute_live_official_score(
+        submission_df=sub_df,
+        pairs_csv_path=pairs_csv,
+        data_dir=tmp_path,
+        predictions_dir=preds_dir,
+    )
+
+    assert res.num_baselines == 0
+    assert res.spec_base == 1.0  # Line 251 branch: no baselines -> spec_base_mean = 1.0
+    assert len(res.details) == 1
+
+
+def test_official_score_raster_zero_sub_flood(tmp_path):
+    import json
+
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    pairs_csv = tmp_path / "pairs.csv"
+    pd.DataFrame(
+        [
+            {"pair_id": "p0", "reference_mask": "p0.tif", "event_kind": "rain_flood"},
+        ]
+    ).to_csv(pairs_csv, index=False)
+
+    (tmp_path / "p0.json").write_text(
+        json.dumps({"stats": {"aoi_ha": 10000.0, "flood_ha": 0.0, "water_pre_ha": 10.0, "water_peak_ha": 10.0}}),
+        encoding="utf-8",
+    )
+
+    sub_df = pd.DataFrame(
+        [
+            {"pair_id": "p0", "flood_ha": 0.0, "water_pre_ha": 10.0, "water_peak_ha": 10.0},
+        ]
+    )
+
+    preds_dir = tmp_path / "preds"
+    preds_dir.mkdir()
+    tif_path = preds_dir / "p0_flood.tif"
+    transform = from_origin(100.0, 50.0, 10.0, 10.0)
+    data = np.zeros((1, 10, 10), dtype=np.uint8)
+    data[0, 2:5, 2:5] = 1  # 9 pixels = 0.09 ha > 0
+    with rasterio.open(
+        tif_path,
+        "w",
+        driver="GTiff",
+        height=10,
+        width=10,
+        count=1,
+        dtype=np.uint8,
+        crs="EPSG:32652",
+        transform=transform,
+    ) as dst:
+        dst.write(data)
+
+    res = compute_live_official_score(
+        submission_df=sub_df,
+        pairs_csv_path=pairs_csv,
+        data_dir=tmp_path,
+        predictions_dir=preds_dir,
+    )
+    # Lines 212: raster_ha > 0 while sub_flood == 0 -> disc_pct = 100.0
+    assert res.details[0]["raster_csv_discrepancy_pct"] == 100.0
+
+
 def test_submission_validation(tmp_path):
     """Тест валидатора файла submission."""
     repo_root = Path(__file__).resolve().parent.parent
@@ -103,3 +224,145 @@ def test_submission_validation(tmp_path):
     assert bad_val.is_valid is False
     assert any("Missing required pairs" in e for e in bad_val.errors)
     assert any("exceeds water_peak_ha" in e for e in bad_val.errors)
+
+
+def test_submission_validation_edge_cases(tmp_path):
+    # 1. Non-existent submission file (line 285)
+    non_existent = tmp_path / "does_not_exist.csv"
+    res_none = validate_submission_file(non_existent, tmp_path / "pairs.csv")
+    assert res_none.is_valid is False
+    assert any("does not exist" in e for e in res_none.errors)
+
+    # 2. Unparseable CSV (lines 296-297)
+    corrupt_csv = tmp_path / "corrupt.csv"
+    # Write invalid byte stream that pandas fails on, or invalid syntax
+    corrupt_csv.write_bytes(b"\x00\x00\x00\xff\xfe\xff\xfe")
+    res_corrupt = validate_submission_file(corrupt_csv, tmp_path / "pairs.csv")
+    assert res_corrupt.is_valid is False
+    assert any("Failed to parse CSV" in e for e in res_corrupt.errors)
+
+    # 3. Invalid columns (line 311)
+    bad_cols_csv = tmp_path / "bad_cols.csv"
+    pd.DataFrame(
+        {
+            "pair_id": ["pair1"],
+            "wrong_col": [1],
+            "water_pre_ha": [5.0],
+            "water_peak_ha": [15.0],
+        }
+    ).to_csv(bad_cols_csv, index=False)
+    res_cols = validate_submission_file(bad_cols_csv, tmp_path / "non_existent_pairs.csv")
+    assert res_cols.is_valid is False
+    assert any("Invalid columns" in e for e in res_cols.errors)
+
+    # 4. Extra unexpected pairs (line 327)
+    pairs_csv = tmp_path / "pairs.csv"
+    pd.DataFrame({"pair_id": ["pair1"]}).to_csv(pairs_csv, index=False)
+    extra_pairs_csv = tmp_path / "extra_pairs.csv"
+    pd.DataFrame(
+        {
+            "pair_id": ["pair1", "unexpected_pair"],
+            "flood_ha": [10.0, 20.0],
+            "water_pre_ha": [5.0, 5.0],
+            "water_peak_ha": [15.0, 25.0],
+        }
+    ).to_csv(extra_pairs_csv, index=False)
+    res_extra = validate_submission_file(extra_pairs_csv, pairs_csv)
+    assert res_extra.is_valid is False
+    assert any("Unexpected extra pairs" in e for e in res_extra.errors)
+
+    # 5. NaN values (line 334)
+    nan_csv = tmp_path / "nan.csv"
+    pd.DataFrame(
+        {
+            "pair_id": ["pair1"],
+            "flood_ha": [float("nan")],
+            "water_pre_ha": [5.0],
+            "water_peak_ha": [15.0],
+        }
+    ).to_csv(nan_csv, index=False)
+    res_nan = validate_submission_file(nan_csv, pairs_csv)
+    assert res_nan.is_valid is False
+    assert any("contains NaN" in e for e in res_nan.errors)
+
+    # 6. Non-numeric values (lines 342-344) & negative area (line 347)
+    non_num_csv = tmp_path / "non_num.csv"
+    pd.DataFrame(
+        {
+            "pair_id": ["pair1", "pair2"],
+            "flood_ha": ["invalid_text", -5.0],
+            "water_pre_ha": [5.0, -2.0],
+            "water_peak_ha": [15.0, -1.0],
+        }
+    ).to_csv(non_num_csv, index=False)
+    res_non_num = validate_submission_file(non_num_csv, pairs_csv)
+    assert res_non_num.is_valid is False
+    assert any("non-numeric values" in e for e in res_non_num.errors)
+    assert any("negative area values" in e for e in res_non_num.errors)
+
+
+def test_submission_validation_raster_checks(tmp_path):
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    pairs_csv = tmp_path / "pairs.csv"
+    pd.DataFrame({"pair_id": ["p1", "p2", "p3", "p4"]}).to_csv(pairs_csv, index=False)
+
+    sub_csv = tmp_path / "sub.csv"
+    pd.DataFrame(
+        {
+            "pair_id": ["p1", "p2", "p3", "p4"],
+            "flood_ha": [0.0, 100.0, 100.0, 50.0],
+            "water_pre_ha": [5.0, 5.0, 5.0, 5.0],
+            "water_peak_ha": [10.0, 120.0, 120.0, 60.0],
+        }
+    ).to_csv(sub_csv, index=False)
+
+    preds_dir = tmp_path / "preds"
+    preds_dir.mkdir()
+
+    transform = from_origin(100.0, 50.0, 10.0, 10.0)
+
+    # p1: fl == 0, raster has 10 pixels (0.1 ha) -> triggers line 380-381 (disc_pct = 100.0, exceeds 2% limit)
+    with rasterio.open(
+        preds_dir / "p1_flood.tif",
+        "w",
+        driver="GTiff",
+        height=10,
+        width=10,
+        count=1,
+        dtype=np.uint8,
+        crs="EPSG:4326",  # Line 372: non-32652 CRS warning
+        transform=transform,
+    ) as dst:
+        d = np.zeros((1, 10, 10), dtype=np.uint8)
+        d[0, 0, :5] = 1
+        dst.write(d)
+
+    # p2: missing raster -> triggers lines 364-366
+
+    # p3: raster vs CSV discrepancy exceeds 2% -> triggers lines 393-396
+    with rasterio.open(
+        preds_dir / "p3_flood.tif",
+        "w",
+        driver="GTiff",
+        height=10,
+        width=10,
+        count=1,
+        dtype=np.uint8,
+        crs="EPSG:32652",
+        transform=transform,
+    ) as dst:
+        # 1000 pixels = 10.0 ha != 100.0 ha -> disc_pct = 90%
+        d = np.zeros((1, 10, 10), dtype=np.uint8)
+        dst.write(d)
+
+    # p4: raster unreadable exception -> triggers lines 397-399
+    (preds_dir / "p4_flood.tif").write_text("corrupted content")
+
+    val = validate_submission_file(sub_csv, pairs_csv, preds_dir)
+    assert any("expected EPSG:32652" in w for w in val.warnings)
+    assert any("Missing prediction raster: p2_flood.tif" in w for w in val.warnings)
+    assert any("exceeds 2% limit" in w for w in val.warnings)
+    assert any("Error checking raster p4_flood.tif" in w for w in val.warnings)

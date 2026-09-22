@@ -157,6 +157,10 @@ class ReportResponse(BaseModel):
         default=None, description="IPCC Carbon and biomass loss impact"
     )
     competition_score: dict[str, Any] | None = Field(default=None, description="Official competition score convergence")
+    anomaly_note: dict[str, Any] | None = Field(
+        default=None,
+        description="Detailed analysis of physical ground truth vs reference divergence for known anomalies",
+    )
 
 
 class PredictSummary(BaseModel):

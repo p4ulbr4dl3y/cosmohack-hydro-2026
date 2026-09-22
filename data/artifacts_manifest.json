@@ -1,0 +1,600 @@
+{
+  "manifest_version": "1.0.0",
+  "hash_algorithm": "sha256",
+  "generated_at": "2026-09-22T06:47:14.967995+00:00",
+  "total_files": 49,
+  "total_size_bytes": 7584972,
+  "merkle_root": "dabc8378fdc4db71da112ff40f494b9870909f8434d591b7ac9179a55653b103",
+  "artifacts": [
+    {
+      "filepath": "data/ablation_results.json",
+      "sha256": "e2ad16ea044ff4bdabf4c5625e8dd6409df25df68a1320daee4ccaee045d34bc",
+      "size_bytes": 16868,
+      "generated_at": "2026-09-21T21:00:11.610130+00:00"
+    },
+    {
+      "filepath": "data/benchmark_results.json",
+      "sha256": "393dab8762e6d45bdf3fe551cf7404ea514ec06fddc448fd2fe83e246a39ae4c",
+      "size_bytes": 174,
+      "generated_at": "2026-09-21T19:48:55.282197+00:00"
+    },
+    {
+      "filepath": "data/final_evaluation_results.json",
+      "sha256": "f9f39bd1b89c56ace5c8c6ef45c173e17b445b120e9488e4a3926cb010ce8de0",
+      "size_bytes": 3927,
+      "generated_at": "2026-09-22T05:30:33.470262+00:00"
+    },
+    {
+      "filepath": "data/holdout_results.json",
+      "sha256": "904d4a7df9d560e89eeb6c4370f24b0bce964bb99972e49feba5b05a10aea845",
+      "size_bytes": 28068,
+      "generated_at": "2026-09-22T06:25:05.549630+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_flood.tif",
+      "sha256": "e6ec81dfdfbe628f260a598b26089e33a9fdfd553ebe2066b28a12cbdd70b711",
+      "size_bytes": 130482,
+      "generated_at": "2026-09-22T03:31:53.326479+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "1e0d07dc65b544619f2862cc9aaa904472dd1b1badf47a6444a00fd4dfdc9505",
+      "size_bytes": 193457,
+      "generated_at": "2026-09-22T03:31:53.588340+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_water_peak.tif",
+      "sha256": "f1d1a3eb4429c2e852cea84b8091746a9e18662580d428ab8c4c279159263df7",
+      "size_bytes": 223101,
+      "generated_at": "2026-09-22T03:31:53.506498+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_water_pre.tif",
+      "sha256": "0de42e358eb1e92e062096f9856591f81d1eb18645bc9d3826f263452abd8e28",
+      "size_bytes": 229116,
+      "generated_at": "2026-09-22T03:31:53.419692+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_flood.tif",
+      "sha256": "8a44edf7d96ec4c12018279844a41103f3305498802b20203ea1f9f29c67bbe9",
+      "size_bytes": 70648,
+      "generated_at": "2026-09-22T03:31:49.743141+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_flooded_vegetation.tif",
+      "sha256": "6690d015328bee6152b082b18f50da96123c74cf2a8d69555f32fa4964ec79f3",
+      "size_bytes": 171661,
+      "generated_at": "2026-09-22T03:31:49.932625+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_water_peak.tif",
+      "sha256": "9dce8149fdde9b0e2f52e67da3ad2d5433215395191e5221d3a478831dd2bd59",
+      "size_bytes": 136268,
+      "generated_at": "2026-09-22T03:31:49.864813+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_water_pre.tif",
+      "sha256": "285879d27fd3a3bf26e9a6bafae66d075b40c89a405c4ed38df619c7ab8ca782",
+      "size_bytes": 149435,
+      "generated_at": "2026-09-22T03:31:49.804496+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_flood.tif",
+      "sha256": "5a8e66f81a7be304920355c9d2ca7944f05704e7acd60f3b0c235cb9779be017",
+      "size_bytes": 72563,
+      "generated_at": "2026-09-22T03:31:58.990778+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_flooded_vegetation.tif",
+      "sha256": "e63b041b84f36f6e096a2bd98a145ed754e862280ad96d01cb7025783e8430df",
+      "size_bytes": 82683,
+      "generated_at": "2026-09-22T03:31:59.164526+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_water_peak.tif",
+      "sha256": "9bd120c58556a2c7316c0c7ed6234d2d8aab391fcb3302708b31e90ae43221a2",
+      "size_bytes": 131054,
+      "generated_at": "2026-09-22T03:31:59.110978+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_water_pre.tif",
+      "sha256": "de4418e15eeebfd833c6837ae7f4ac4dee6c101fef165624866e62f73120b7fd",
+      "size_bytes": 128477,
+      "generated_at": "2026-09-22T03:31:59.050685+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_flood.tif",
+      "sha256": "a67751720e0cd16971a09384935cc543e4e946834be405a4e5d81dabff5739ed",
+      "size_bytes": 59177,
+      "generated_at": "2026-09-22T03:32:00.019897+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_flooded_vegetation.tif",
+      "sha256": "6819d206e413571b96fca3a25abc369b2ee98bdd0fc135a54685d8f3736baf92",
+      "size_bytes": 310116,
+      "generated_at": "2026-09-22T03:32:00.178540+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_water_peak.tif",
+      "sha256": "d1c80bc050cd575338c46e18165182f728d59d26bd2712e576fbb40cce684dcc",
+      "size_bytes": 73685,
+      "generated_at": "2026-09-22T03:32:00.093885+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_water_pre.tif",
+      "sha256": "38dcf1ac8e3bb611c9d0f27baca570c2f68d67b268f54791cd33dfb0c2c6d332",
+      "size_bytes": 72322,
+      "generated_at": "2026-09-22T03:32:00.057230+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_flood.tif",
+      "sha256": "1f1eab81764071fa05e67325014c588627d10aff06a19e3ec769e3e24526dc25",
+      "size_bytes": 161441,
+      "generated_at": "2026-09-22T03:32:10.414385+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "db20b1c1a2c94be0ea97298462e9ba77b251b788e2e9d70ce1349169ae98884e",
+      "size_bytes": 276145,
+      "generated_at": "2026-09-22T03:32:10.662026+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_water_peak.tif",
+      "sha256": "c05e807f220a22b33c1bff586918f058d8d2d3b01bfd568d09687d4513dd5809",
+      "size_bytes": 214922,
+      "generated_at": "2026-09-22T03:32:10.573268+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_water_pre.tif",
+      "sha256": "4e7ff82dc2ed5b41ffe0957b6e189c1022344e72e3ed3402ce15ee55b7e61d47",
+      "size_bytes": 223016,
+      "generated_at": "2026-09-22T03:32:10.494257+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_flood.tif",
+      "sha256": "8049c9bc50b2f9ed1d769240788c2338ab78b2068542eeb18c2925e592d6f39a",
+      "size_bytes": 80828,
+      "generated_at": "2026-09-22T03:32:07.918388+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_flooded_vegetation.tif",
+      "sha256": "b1b23547753e256a3b2c9e1b09e2bb093c5bcd5288d971563a4dc790497fd3ed",
+      "size_bytes": 381694,
+      "generated_at": "2026-09-22T03:32:08.142018+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_water_peak.tif",
+      "sha256": "5e21414c10a52e3ec028c798ab28f3ebdace373b762205f71a249e831e3f018d",
+      "size_bytes": 120960,
+      "generated_at": "2026-09-22T03:32:08.032616+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_water_pre.tif",
+      "sha256": "a5d3984da9db7b9ec4c52ba6230c7ec0b5ff1323b6465acb2a2e839171c85e19",
+      "size_bytes": 123924,
+      "generated_at": "2026-09-22T03:32:07.975654+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_flood.tif",
+      "sha256": "db86767f8c34b6b6c951ab9ee163a01aa820ee4a8eda9a11ef35736c4ee3a1e1",
+      "size_bytes": 85980,
+      "generated_at": "2026-09-22T03:32:18.288112+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_flooded_vegetation.tif",
+      "sha256": "a6e0d64297373805fbd8dd143eed21d16f239fe572029f2f8e1a348ae90d192b",
+      "size_bytes": 435035,
+      "generated_at": "2026-09-22T03:32:18.535523+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_water_peak.tif",
+      "sha256": "4b8e84100854fac9c3b0de3cc20bf777c10ca3ead294c12c104b2c4927424891",
+      "size_bytes": 135444,
+      "generated_at": "2026-09-22T03:32:18.409676+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_water_pre.tif",
+      "sha256": "06430413e8ab0f0f34029e9720490db5200d02b45bf67cf0535073fd876c6290",
+      "size_bytes": 130178,
+      "generated_at": "2026-09-22T03:32:18.348408+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_flood.tif",
+      "sha256": "4f7b80db7983aa979676a234d191bd11f90c969753761707891068d32ef64537",
+      "size_bytes": 152983,
+      "generated_at": "2026-09-22T03:32:23.040797+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "728a68aab4778b16d214270663ebad3fba7c78fcfdcd7fd2ab0b61a22504a679",
+      "size_bytes": 371434,
+      "generated_at": "2026-09-22T03:32:23.326730+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_water_peak.tif",
+      "sha256": "f0328800ac1441f4820dc780eaf78ddd82f5d4b7cc37436e6365c0d26a03f073",
+      "size_bytes": 285730,
+      "generated_at": "2026-09-22T03:32:23.217485+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_water_pre.tif",
+      "sha256": "ccc8b45d346437944b85ed8a768e048dba7a7dd913a9df427a56654af38e9c2a",
+      "size_bytes": 230314,
+      "generated_at": "2026-09-22T03:32:23.123458+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_flood.tif",
+      "sha256": "55854eb8122eec21cf071c63ef83dff8db2b06d2f81eac69a9ddebbccf45559e",
+      "size_bytes": 174464,
+      "generated_at": "2026-09-22T03:32:27.303073+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_flooded_vegetation.tif",
+      "sha256": "4b3b982bcda8f30b98cf35bdd81029053cbeed4d38d4ab9a83d6476821fae80f",
+      "size_bytes": 312729,
+      "generated_at": "2026-09-22T03:32:27.548812+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_water_peak.tif",
+      "sha256": "9d2e63fb4a65fe277e7bbe5f2b4cfffc29e2ccb853dad6aff67da0aaacf20657",
+      "size_bytes": 296900,
+      "generated_at": "2026-09-22T03:32:27.454399+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_water_pre.tif",
+      "sha256": "5fcd996b21f7ced9e9f1ff5cf199b6b742ae271bdef8f5c34f339d5b6af5dd1c",
+      "size_bytes": 130468,
+      "generated_at": "2026-09-22T03:32:27.361448+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_flood.tif",
+      "sha256": "1fca1891ff406dfc1414c7078f95443dbd26fbf23deb82b87bf5c144212ce3b0",
+      "size_bytes": 100359,
+      "generated_at": "2026-09-22T03:32:29.581680+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_flooded_vegetation.tif",
+      "sha256": "3a0c1f7133426c7f8e9b1cd98ca324d24b53a798b06fd5f9a61d55bef0fa2214",
+      "size_bytes": 58043,
+      "generated_at": "2026-09-22T03:32:29.724161+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_water_peak.tif",
+      "sha256": "13406af55bc48bb03748e999857634fca1c4be3dea34e2bee590f858f6c5f1bc",
+      "size_bytes": 148966,
+      "generated_at": "2026-09-22T03:32:29.685449+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_water_pre.tif",
+      "sha256": "4d756bd5f62572fb26862d659098468e8fc5124025901d0598f8c60c4b29fd93",
+      "size_bytes": 90648,
+      "generated_at": "2026-09-22T03:32:29.628219+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_flood.tif",
+      "sha256": "86d83f9b0b2c777aa081408099264ef406e7c9850a3a76ba92ed89f70e5088bb",
+      "size_bytes": 119360,
+      "generated_at": "2026-09-22T03:32:37.488571+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_flooded_vegetation.tif",
+      "sha256": "9bf788c08d57792a1c9cb56ffbffe64bdd6e4e223f8435ba55eb821956e109b8",
+      "size_bytes": 113494,
+      "generated_at": "2026-09-22T03:32:37.674067+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_water_peak.tif",
+      "sha256": "c25217a18e4be49655b21fd6f6ae37368a2c94bd0434e58679cd48ead864684c",
+      "size_bytes": 217848,
+      "generated_at": "2026-09-22T03:32:37.621053+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_water_pre.tif",
+      "sha256": "6f65b0833d5b43ab02023e1bae83fe932743405627e5a727ba091c376058ae77",
+      "size_bytes": 127722,
+      "generated_at": "2026-09-22T03:32:37.545953+00:00"
+    },
+    {
+      "filepath": "submission.csv",
+      "sha256": "a82fce49f0b8759184b8349b6a82b0a05d52b9ba0147f7473e9eaa3b924882c3",
+      "size_bytes": 661,
+      "generated_at": "2026-09-22T03:32:37.786983+00:00"
+    }
+  ],
+  "files": [
+    {
+      "filepath": "data/ablation_results.json",
+      "sha256": "e2ad16ea044ff4bdabf4c5625e8dd6409df25df68a1320daee4ccaee045d34bc",
+      "size_bytes": 16868,
+      "generated_at": "2026-09-21T21:00:11.610130+00:00"
+    },
+    {
+      "filepath": "data/benchmark_results.json",
+      "sha256": "393dab8762e6d45bdf3fe551cf7404ea514ec06fddc448fd2fe83e246a39ae4c",
+      "size_bytes": 174,
+      "generated_at": "2026-09-21T19:48:55.282197+00:00"
+    },
+    {
+      "filepath": "data/final_evaluation_results.json",
+      "sha256": "f9f39bd1b89c56ace5c8c6ef45c173e17b445b120e9488e4a3926cb010ce8de0",
+      "size_bytes": 3927,
+      "generated_at": "2026-09-22T05:30:33.470262+00:00"
+    },
+    {
+      "filepath": "data/holdout_results.json",
+      "sha256": "904d4a7df9d560e89eeb6c4370f24b0bce964bb99972e49feba5b05a10aea845",
+      "size_bytes": 28068,
+      "generated_at": "2026-09-22T06:25:05.549630+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_flood.tif",
+      "sha256": "e6ec81dfdfbe628f260a598b26089e33a9fdfd553ebe2066b28a12cbdd70b711",
+      "size_bytes": 130482,
+      "generated_at": "2026-09-22T03:31:53.326479+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "1e0d07dc65b544619f2862cc9aaa904472dd1b1badf47a6444a00fd4dfdc9505",
+      "size_bytes": 193457,
+      "generated_at": "2026-09-22T03:31:53.588340+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_water_peak.tif",
+      "sha256": "f1d1a3eb4429c2e852cea84b8091746a9e18662580d428ab8c4c279159263df7",
+      "size_bytes": 223101,
+      "generated_at": "2026-09-22T03:31:53.506498+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__blagoveshchensk_water_pre.tif",
+      "sha256": "0de42e358eb1e92e062096f9856591f81d1eb18645bc9d3826f263452abd8e28",
+      "size_bytes": 229116,
+      "generated_at": "2026-09-22T03:31:53.419692+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_flood.tif",
+      "sha256": "8a44edf7d96ec4c12018279844a41103f3305498802b20203ea1f9f29c67bbe9",
+      "size_bytes": 70648,
+      "generated_at": "2026-09-22T03:31:49.743141+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_flooded_vegetation.tif",
+      "sha256": "6690d015328bee6152b082b18f50da96123c74cf2a8d69555f32fa4964ec79f3",
+      "size_bytes": 171661,
+      "generated_at": "2026-09-22T03:31:49.932625+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_water_peak.tif",
+      "sha256": "9dce8149fdde9b0e2f52e67da3ad2d5433215395191e5221d3a478831dd2bd59",
+      "size_bytes": 136268,
+      "generated_at": "2026-09-22T03:31:49.864813+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__konstantinovka_water_pre.tif",
+      "sha256": "285879d27fd3a3bf26e9a6bafae66d075b40c89a405c4ed38df619c7ab8ca782",
+      "size_bytes": 149435,
+      "generated_at": "2026-09-22T03:31:49.804496+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_flood.tif",
+      "sha256": "5a8e66f81a7be304920355c9d2ca7944f05704e7acd60f3b0c235cb9779be017",
+      "size_bytes": 72563,
+      "generated_at": "2026-09-22T03:31:58.990778+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_flooded_vegetation.tif",
+      "sha256": "e63b041b84f36f6e096a2bd98a145ed754e862280ad96d01cb7025783e8430df",
+      "size_bytes": 82683,
+      "generated_at": "2026-09-22T03:31:59.164526+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_water_peak.tif",
+      "sha256": "9bd120c58556a2c7316c0c7ed6234d2d8aab391fcb3302708b31e90ae43221a2",
+      "size_bytes": 131054,
+      "generated_at": "2026-09-22T03:31:59.110978+00:00"
+    },
+    {
+      "filepath": "predictions/baseline_2018_09_low__svobodny_water_pre.tif",
+      "sha256": "de4418e15eeebfd833c6837ae7f4ac4dee6c101fef165624866e62f73120b7fd",
+      "size_bytes": 128477,
+      "generated_at": "2026-09-22T03:31:59.050685+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_flood.tif",
+      "sha256": "a67751720e0cd16971a09384935cc543e4e946834be405a4e5d81dabff5739ed",
+      "size_bytes": 59177,
+      "generated_at": "2026-09-22T03:32:00.019897+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_flooded_vegetation.tif",
+      "sha256": "6819d206e413571b96fca3a25abc369b2ee98bdd0fc135a54685d8f3736baf92",
+      "size_bytes": 310116,
+      "generated_at": "2026-09-22T03:32:00.178540+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_water_peak.tif",
+      "sha256": "d1c80bc050cd575338c46e18165182f728d59d26bd2712e576fbb40cce684dcc",
+      "size_bytes": 73685,
+      "generated_at": "2026-09-22T03:32:00.093885+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__belogorsk_water_pre.tif",
+      "sha256": "38dcf1ac8e3bb611c9d0f27baca570c2f68d67b268f54791cd33dfb0c2c6d332",
+      "size_bytes": 72322,
+      "generated_at": "2026-09-22T03:32:00.057230+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_flood.tif",
+      "sha256": "1f1eab81764071fa05e67325014c588627d10aff06a19e3ec769e3e24526dc25",
+      "size_bytes": 161441,
+      "generated_at": "2026-09-22T03:32:10.414385+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "db20b1c1a2c94be0ea97298462e9ba77b251b788e2e9d70ce1349169ae98884e",
+      "size_bytes": 276145,
+      "generated_at": "2026-09-22T03:32:10.662026+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_water_peak.tif",
+      "sha256": "c05e807f220a22b33c1bff586918f058d8d2d3b01bfd568d09687d4513dd5809",
+      "size_bytes": 214922,
+      "generated_at": "2026-09-22T03:32:10.573268+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__blagoveshchensk_water_pre.tif",
+      "sha256": "4e7ff82dc2ed5b41ffe0957b6e189c1022344e72e3ed3402ce15ee55b7e61d47",
+      "size_bytes": 223016,
+      "generated_at": "2026-09-22T03:32:10.494257+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_flood.tif",
+      "sha256": "8049c9bc50b2f9ed1d769240788c2338ab78b2068542eeb18c2925e592d6f39a",
+      "size_bytes": 80828,
+      "generated_at": "2026-09-22T03:32:07.918388+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_flooded_vegetation.tif",
+      "sha256": "b1b23547753e256a3b2c9e1b09e2bb093c5bcd5288d971563a4dc790497fd3ed",
+      "size_bytes": 381694,
+      "generated_at": "2026-09-22T03:32:08.142018+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_water_peak.tif",
+      "sha256": "5e21414c10a52e3ec028c798ab28f3ebdace373b762205f71a249e831e3f018d",
+      "size_bytes": 120960,
+      "generated_at": "2026-09-22T03:32:08.032616+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__konstantinovka_water_pre.tif",
+      "sha256": "a5d3984da9db7b9ec4c52ba6230c7ec0b5ff1323b6465acb2a2e839171c85e19",
+      "size_bytes": 123924,
+      "generated_at": "2026-09-22T03:32:07.975654+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_flood.tif",
+      "sha256": "db86767f8c34b6b6c951ab9ee163a01aa820ee4a8eda9a11ef35736c4ee3a1e1",
+      "size_bytes": 85980,
+      "generated_at": "2026-09-22T03:32:18.288112+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_flooded_vegetation.tif",
+      "sha256": "a6e0d64297373805fbd8dd143eed21d16f239fe572029f2f8e1a348ae90d192b",
+      "size_bytes": 435035,
+      "generated_at": "2026-09-22T03:32:18.535523+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_water_peak.tif",
+      "sha256": "4b8e84100854fac9c3b0de3cc20bf777c10ca3ead294c12c104b2c4927424891",
+      "size_bytes": 135444,
+      "generated_at": "2026-09-22T03:32:18.409676+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2019_07_amur__svobodny_water_pre.tif",
+      "sha256": "06430413e8ab0f0f34029e9720490db5200d02b45bf67cf0535073fd876c6290",
+      "size_bytes": 130178,
+      "generated_at": "2026-09-22T03:32:18.348408+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_flood.tif",
+      "sha256": "4f7b80db7983aa979676a234d191bd11f90c969753761707891068d32ef64537",
+      "size_bytes": 152983,
+      "generated_at": "2026-09-22T03:32:23.040797+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_flooded_vegetation.tif",
+      "sha256": "728a68aab4778b16d214270663ebad3fba7c78fcfdcd7fd2ab0b61a22504a679",
+      "size_bytes": 371434,
+      "generated_at": "2026-09-22T03:32:23.326730+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_water_peak.tif",
+      "sha256": "f0328800ac1441f4820dc780eaf78ddd82f5d4b7cc37436e6365c0d26a03f073",
+      "size_bytes": 285730,
+      "generated_at": "2026-09-22T03:32:23.217485+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__blagoveshchensk_water_pre.tif",
+      "sha256": "ccc8b45d346437944b85ed8a768e048dba7a7dd913a9df427a56654af38e9c2a",
+      "size_bytes": 230314,
+      "generated_at": "2026-09-22T03:32:23.123458+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_flood.tif",
+      "sha256": "55854eb8122eec21cf071c63ef83dff8db2b06d2f81eac69a9ddebbccf45559e",
+      "size_bytes": 174464,
+      "generated_at": "2026-09-22T03:32:27.303073+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_flooded_vegetation.tif",
+      "sha256": "4b3b982bcda8f30b98cf35bdd81029053cbeed4d38d4ab9a83d6476821fae80f",
+      "size_bytes": 312729,
+      "generated_at": "2026-09-22T03:32:27.548812+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_water_peak.tif",
+      "sha256": "9d2e63fb4a65fe277e7bbe5f2b4cfffc29e2ccb853dad6aff67da0aaacf20657",
+      "size_bytes": 296900,
+      "generated_at": "2026-09-22T03:32:27.454399+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__konstantinovka_water_pre.tif",
+      "sha256": "5fcd996b21f7ced9e9f1ff5cf199b6b742ae271bdef8f5c34f339d5b6af5dd1c",
+      "size_bytes": 130468,
+      "generated_at": "2026-09-22T03:32:27.361448+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_flood.tif",
+      "sha256": "1fca1891ff406dfc1414c7078f95443dbd26fbf23deb82b87bf5c144212ce3b0",
+      "size_bytes": 100359,
+      "generated_at": "2026-09-22T03:32:29.581680+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_flooded_vegetation.tif",
+      "sha256": "3a0c1f7133426c7f8e9b1cd98ca324d24b53a798b06fd5f9a61d55bef0fa2214",
+      "size_bytes": 58043,
+      "generated_at": "2026-09-22T03:32:29.724161+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_water_peak.tif",
+      "sha256": "13406af55bc48bb03748e999857634fca1c4be3dea34e2bee590f858f6c5f1bc",
+      "size_bytes": 148966,
+      "generated_at": "2026-09-22T03:32:29.685449+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_06_amur__poyarkovo_water_pre.tif",
+      "sha256": "4d756bd5f62572fb26862d659098468e8fc5124025901d0598f8c60c4b29fd93",
+      "size_bytes": 90648,
+      "generated_at": "2026-09-22T03:32:29.628219+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_flood.tif",
+      "sha256": "86d83f9b0b2c777aa081408099264ef406e7c9850a3a76ba92ed89f70e5088bb",
+      "size_bytes": 119360,
+      "generated_at": "2026-09-22T03:32:37.488571+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_flooded_vegetation.tif",
+      "sha256": "9bf788c08d57792a1c9cb56ffbffe64bdd6e4e223f8435ba55eb821956e109b8",
+      "size_bytes": 113494,
+      "generated_at": "2026-09-22T03:32:37.674067+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_water_peak.tif",
+      "sha256": "c25217a18e4be49655b21fd6f6ae37368a2c94bd0434e58679cd48ead864684c",
+      "size_bytes": 217848,
+      "generated_at": "2026-09-22T03:32:37.621053+00:00"
+    },
+    {
+      "filepath": "predictions/flood_2021_08_zeya__svobodny_water_pre.tif",
+      "sha256": "6f65b0833d5b43ab02023e1bae83fe932743405627e5a727ba091c376058ae77",
+      "size_bytes": 127722,
+      "generated_at": "2026-09-22T03:32:37.545953+00:00"
+    },
+    {
+      "filepath": "submission.csv",
+      "sha256": "a82fce49f0b8759184b8349b6a82b0a05d52b9ba0147f7473e9eaa3b924882c3",
+      "size_bytes": 661,
+      "generated_at": "2026-09-22T03:32:37.786983+00:00"
+    }
+  ]
+}

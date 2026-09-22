@@ -409,6 +409,24 @@ class DataLoader:
                 "is_within_2_percent": (discrepancy_pct is None or discrepancy_pct <= 2.0),
             }
 
+        # 6. Анатомия аномалии (Константиновка 2021)
+        if pair_id == "flood_2021_06_amur__konstantinovka":
+            data["anomaly_note"] = {
+                "title": "Анатомия аномалии: Константиновка 2021 (FP 8572 га vs эталон 107 га)",
+                "radar_flood_ha": flood_ha,
+                "reference_flood_ha": 107.28,
+                "reference_water_peak_ha": 172.92,
+                "permanent_water_ha": 5435.74,
+                "divergence_reason": (
+                    "Топологическая аномалия автоматической разметки эталона: water_peak_ref (172.92 га) "
+                    "меньше многолетней постоянной воды (5435.74 га), русло и паводок выпали из маски."
+                ),
+                "mchs_danger": (
+                    "Искусственное подавление реального паводка опасно для МЧС России. Топологические "
+                    "метрики границ (IoU, BF1) адекватно отражают физическую гидродинамику."
+                ),
+            }
+
     def get_pair_meta(self, pair_id: str) -> dict[str, Any] | None:
         for p in self._pairs_cache:
             if p["pair_id"] == pair_id:

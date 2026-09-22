@@ -248,3 +248,274 @@ def test_cli_predict_workers_flag(monkeypatch):
     main()
     assert "--workers" in called.get("predict_args", [])
     assert "4" in called.get("predict_args", [])
+
+
+def test_cli_run_audit_success(tmp_path, capsys):
+    from src.cli import run_audit
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    out_json = tmp_path / "audit.json"
+    cert = run_audit(pair_id=pair_id, output_json=out_json)
+
+    assert cert["pair_id"] == pair_id
+    assert "merkle_root" in cert
+    assert "signature_hash" in cert
+    assert out_json.exists()
+
+    with open(out_json, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["pair_id"] == pair_id
+
+    captured = capsys.readouterr()
+    assert f"HYDRO AUDIT CERTIFICATE: {cert['certificate_id']}" in captured.out
+    assert "Audit certificate saved to" in captured.out
+
+
+def test_cli_run_audit_unknown_pair_exits(capsys):
+    from src.cli import run_audit
+
+    with pytest.raises(SystemExit) as exc:
+        run_audit(pair_id="unknown_pair_xyz")
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "Error: Pair 'unknown_pair_xyz' not found." in err
+
+
+def test_cli_run_uncertainty_success(tmp_path, capsys):
+    from src.cli import run_uncertainty
+
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    out_json = tmp_path / "unc.json"
+    res = run_uncertainty(
+        pair_id=pair_id,
+        confidence_level=0.90,
+        spatial_correlation=0.15,
+        output_json=out_json,
+    )
+
+    assert res["pair_id"] == pair_id
+    assert res["confidence_level"] == 0.90
+    assert res["spatial_correlation"] == 0.15
+    assert res["flood_area_ha"] > 0
+    assert out_json.exists()
+
+    with open(out_json, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data["confidence_level"] == 0.90
+
+    captured = capsys.readouterr()
+    assert f"SPATIAL UNCERTAINTY ANALYSIS: {pair_id}" in captured.out
+    assert "Uncertainty summary saved to" in captured.out
+
+
+def test_cli_run_uncertainty_unknown_pair_exits(capsys):
+    from src.cli import run_uncertainty
+
+    with pytest.raises(SystemExit) as exc:
+        run_uncertainty(pair_id="unknown_pair_xyz")
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "Error: Pair 'unknown_pair_xyz' not found." in err
+
+
+def test_cli_run_uncertainty_zero_flood(monkeypatch):
+    from src.cli import run_uncertainty
+
+    fake_loader = type(
+        "FakeLoader",
+        (),
+        {"get_report": lambda self, pid: {"flood_ha": 0.0}},
+    )
+    monkeypatch.setattr("src.cli.DataLoader", fake_loader)
+
+    res = run_uncertainty(pair_id="zero_pair")
+    assert res["flood_area_ha"] == 0.0
+
+
+def test_main_dispatch_audit_uncertainty_fetch_optical(monkeypatch):
+    called = {}
+
+    monkeypatch.setattr("src.cli.run_audit", lambda **kwargs: called.setdefault("audit", kwargs))
+    monkeypatch.setattr("src.cli.run_uncertainty", lambda **kwargs: called.setdefault("uncertainty", kwargs))
+
+    fake_scripts = type(
+        "FakeScripts",
+        (),
+        {
+            "fetch_real_s2": type(
+                "FakeS2",
+                (),
+                {"fetch_optical_scenes": lambda **kwargs: called.setdefault("fetch_optical", kwargs)},
+            )
+        },
+    )
+    import sys
+
+    monkeypatch.setitem(sys.modules, "scripts", fake_scripts)
+    monkeypatch.setitem(sys.modules, "scripts.fetch_real_s2", fake_scripts.fetch_real_s2)
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["hydrowatch-cli", "audit", "--pair-id", "pair1", "--output-json", "audit.json"],
+    )
+    main()
+    assert called.get("audit") == {"pair_id": "pair1", "output_json": Path("audit.json")}
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "hydrowatch-cli",
+            "uncertainty",
+            "--pair-id",
+            "pair2",
+            "--confidence-level",
+            "0.99",
+            "--spatial-correlation",
+            "0.25",
+            "--output-json",
+            "unc.json",
+        ],
+    )
+    main()
+    assert called.get("uncertainty") == {
+        "pair_id": "pair2",
+        "confidence_level": 0.99,
+        "spatial_correlation": 0.25,
+        "output_json": Path("unc.json"),
+    }
+
+    monkeypatch.setattr(
+        "sys.argv",
+        ["hydrowatch-cli", "fetch-optical", "--pair-id", "pair3"],
+    )
+    main()
+    assert called.get("fetch_optical")["pair_id"] == "pair3"
+
+
+def test_run_benchmark_win32_memory_branch(tmp_path, monkeypatch):
+    """Тестирует ветку измерения памяти на Windows (ctypes WinDLL psapi / fallback)."""
+    import ctypes
+    import sys
+    from unittest.mock import MagicMock
+
+    from src.cli import run_benchmark
+
+    dummy_csv = tmp_path / "pairs.csv"
+    dummy_csv.write_text("pair_id\npair1\n", encoding="utf-8")
+    monkeypatch.setattr("src.cli.process_pair", lambda predictions_dir, **kwargs: None)
+
+    # 1. win32 с успешным ctypes вызовом psapi
+    monkeypatch.setattr("src.cli.resource", None)
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    fake_k32 = MagicMock()
+    fake_psapi = MagicMock()
+
+    def fake_get_process_memory_info(handle, byref_pmc, size):
+        pmc = byref_pmc._obj if hasattr(byref_pmc, "_obj") else byref_pmc
+        pmc.PeakWorkingSetSize = 10485760  # 10 MB
+        return 1
+
+    fake_psapi.GetProcessMemoryInfo = fake_get_process_memory_info
+
+    # ctypes на unix не имеет WinDLL атрибута по умолчанию, используем setattr
+    monkeypatch.setattr(
+        ctypes,
+        "WinDLL",
+        lambda name: fake_k32 if "kernel32" in name else fake_psapi,
+        raising=False,
+    )
+
+    summary = run_benchmark(dummy_csv, tmp_path, tmp_path)
+    assert summary["peak_rss_mb"] == 10.0
+
+    # 2. win32 где GetProcessMemoryInfo возвращает False (ветка else: peak_mb = 1.0)
+    fake_psapi.GetProcessMemoryInfo = lambda handle, byref_pmc, size: 0
+    summary_fallback = run_benchmark(dummy_csv, tmp_path, tmp_path)
+    assert summary_fallback["peak_rss_mb"] == 1.0
+
+    # 3. win32 где возникает исключение (ветка except Exception: peak_mb = 1.0)
+    def fake_error(*args):
+        raise RuntimeError("psapi error")
+
+    fake_psapi.GetProcessMemoryInfo = fake_error
+    summary_exc = run_benchmark(dummy_csv, tmp_path, tmp_path)
+    assert summary_exc["peak_rss_mb"] == 1.0
+
+    # 4. Неизвестная платформа без resource (ветка else: peak_mb = 0.0)
+    monkeypatch.setattr(sys, "platform", "unknown_os")
+    summary_unknown = run_benchmark(dummy_csv, tmp_path, tmp_path)
+    assert summary_unknown["peak_rss_mb"] == 0.0
+
+
+def test_cli_run_manifest_generate(tmp_path, capsys):
+    from src.cli import run_manifest
+
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("hydrowatch amur", encoding="utf-8")
+    out_json = tmp_path / "manifest.json"
+
+    manifest = run_manifest(
+        output_path=out_json,
+        verify=False,
+        base_dir=tmp_path,
+        targets=["test.txt"],
+    )
+    assert manifest is not None
+    assert manifest["total_files"] == 1
+    assert out_json.exists()
+
+    captured = capsys.readouterr()
+    assert "Artifacts manifest generated successfully" in captured.out
+
+
+def test_cli_run_manifest_verify_valid_and_invalid(tmp_path, capsys):
+    from src.cli import run_manifest
+
+    test_file = tmp_path / "data.bin"
+    test_file.write_bytes(b"\x00\x01\x02")
+    out_json = tmp_path / "manifest.json"
+
+    # Сгенерировать
+    run_manifest(output_path=out_json, verify=False, base_dir=tmp_path, targets=["data.bin"])
+
+    # Проверить валидный
+    run_manifest(output_path=out_json, verify=True, base_dir=tmp_path)
+    captured = capsys.readouterr()
+    assert "PASSED" in captured.out
+
+    # Повредить файл и проверить невалидный (должен sys.exit(1))
+    test_file.write_bytes(b"\xff\xff")
+    with pytest.raises(SystemExit) as exc:
+        run_manifest(output_path=out_json, verify=True, base_dir=tmp_path)
+    assert exc.value.code == 1
+    captured_err = capsys.readouterr()
+    assert "FAILED" in captured_err.out
+
+
+def test_main_dispatch_manifest(monkeypatch):
+    called = {}
+    monkeypatch.setattr("src.cli.run_manifest", lambda **kwargs: called.setdefault("manifest", kwargs))
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "hydrowatch-cli",
+            "manifest",
+            "--output",
+            "custom_manifest.json",
+            "--verify",
+            "--base-dir",
+            "some_dir",
+            "--targets",
+            "file1",
+            "file2",
+        ],
+    )
+    main()
+    assert called.get("manifest") == {
+        "output_path": Path("custom_manifest.json"),
+        "verify": True,
+        "base_dir": Path("some_dir"),
+        "targets": ["file1", "file2"],
+    }
