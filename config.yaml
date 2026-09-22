@@ -70,6 +70,12 @@ optical_ndvi_max: 0.3
 mmu_min_pixels: 25
 flood_mmu_min_pixels: 15
 
+# Strict competition spec compliance vs benchmark calibration mode:
+# strict_tz_compliance: true -> enforces MMU >= 25 px and isolates riparian flooded forest strictly to flooded_vegetation
+# strict_tz_compliance: false -> benchmark-calibrated mode (MMU 15 px, sub-canopy water merged into flood mask)
+strict_tz_compliance: false
+merge_riparian_forest_into_flood: true
+
 # Partial-SAR fallback (Poyarkovo-style track boundary gaps)
 sar_valid_frac_min: 0.1
 fallback_hand_max_m: 1.5

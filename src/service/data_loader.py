@@ -26,7 +26,7 @@ from shapely.geometry import box, mapping, shape
 from hydrowatch_amur.tables.hydro_gauges import get_gauge_status
 from src.audit import generate_flood_audit_certificate
 from src.carbon_metrics import compute_flood_carbon_impact
-from src.competition_metrics import calculate_q_score
+from src.competition_metrics import FLOOD_THRESHOLD_HA, calculate_q_score
 from src.config import HydroConfig
 from src.depth import classify_depth_risk, estimate_water_depth
 from src.sar_analytics import analyze_sar_hydrology
@@ -167,6 +167,7 @@ class DataLoader:
                 "date_peak_opt": str(row["date_peak_opt"]) if pd.notna(row["date_peak_opt"]) else "",
                 "aoi_km2": float(row["aoi_km2"]),
                 "aoi_ha": round(float(row["aoi_km2"]) * 100.0, 2),
+                "reference_mask": str(row["reference_mask"]) if pd.notna(row.get("reference_mask")) else "",
                 "bounds_4326": bounds_4326,
                 "center_4326": center_4326,
             }
@@ -389,16 +390,23 @@ class DataLoader:
                     pass
 
             q_flood = 1.0
-            ref_tif = self.data_dir / str(pair_meta.get("rasters_dir", "")) / "TARGET_water_summer_amur2019.tif"
-            if ref_tif.exists():
-                try:
-                    with rasterio.open(ref_tif) as ref:
-                        res = ref.res
-                        px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
-                        ref_ha = float((ref.read(1) == 1).sum() * px_ha)
-                        q_flood = calculate_q_score(sub_flood_ha, ref_ha)
-                except Exception:
-                    pass
+            ref_path = pair_meta.get("reference_mask")
+            if not ref_path and self.pairs_df is not None and "reference_mask" in self.pairs_df.columns:
+                matched_rows = self.pairs_df[self.pairs_df["pair_id"] == pair_id]
+                if not matched_rows.empty and pd.notna(matched_rows.iloc[0]["reference_mask"]):
+                    ref_path = str(matched_rows.iloc[0]["reference_mask"])
+
+            if ref_path:
+                ref_tif = Path(ref_path) if Path(ref_path).is_absolute() else (self.data_dir / ref_path)
+                if ref_tif.exists():
+                    try:
+                        with rasterio.open(ref_tif) as ref:
+                            res = ref.res
+                            px_ha = (abs(res[0]) * abs(res[1])) / 10000.0
+                            ref_ha = float((ref.read(1) == 1).sum() * px_ha)
+                            q_flood = calculate_q_score(sub_flood_ha, ref_ha, threshold=FLOOD_THRESHOLD_HA)
+                    except Exception:
+                        pass
 
             data["competition_score"] = {
                 "pair_id": pair_id,

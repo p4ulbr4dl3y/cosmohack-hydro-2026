@@ -472,6 +472,12 @@ def main() -> None:
     predict_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
     predict_parser.add_argument("--ablation-mode", type=int, default=4, choices=[1, 2, 3, 4])
     predict_parser.add_argument(
+        "--strict-tz",
+        action="store_true",
+        default=False,
+        help="Strict competition spec compliance (MMU 25 px, isolate sub-canopy forest)",
+    )
+    predict_parser.add_argument(
         "--workers",
         "--jobs",
         dest="workers",
@@ -602,6 +608,8 @@ def main() -> None:
             sys.argv.extend(["--ablation_mode", str(args.ablation_mode)])
         if args.workers is not None:
             sys.argv.extend(["--workers", str(args.workers)])
+        if getattr(args, "strict_tz", False):
+            sys.argv.append("--strict-tz")
         predict_main()
     elif args.command == "evaluate":
         sys.argv = [sys.argv[0]]

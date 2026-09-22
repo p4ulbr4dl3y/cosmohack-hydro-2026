@@ -98,6 +98,8 @@ class HydroConfig:
     optical_ndvi_max: float = OPTICAL_NDVI_MAX
     mmu_min_pixels: int = MMU_MIN_PIXELS
     flood_mmu_min_pixels: int = FLOOD_MMU_MIN_PIXELS
+    strict_tz_compliance: bool = False
+    merge_riparian_forest_into_flood: bool = True
     pixel_size_m: float = PIXEL_SIZE_M
     pixel_size_ha: float = PIXEL_SIZE_HA
     extra: dict[str, Any] = field(default_factory=dict)

@@ -55,14 +55,12 @@ def read_sar_bands(
 ) -> tuple[np.ndarray, np.ndarray | None]:
     """Читает VV (канал 1) и VH (канал 2) из сцены Sentinel-1 блоками строк.
 
-    Полные сцены S1 в этом кейсе имеют размер ~3700x4500 float32; чтение их целиком
-    (``src.read(1)`` / ``src.read(2)``) делает пиковый RSS пропорциональным размеру сцены. Здесь
-    канал читается потоком через ``rasterio.windows.Window`` полосами высотой ``block_rows`` и
-    пишется в целевой массив, поэтому дополнительный рабочий набор ограничен одним блоком
-    (``block_rows * width`` пикселей) вместо всей сцены.
-
-    Целевой массив выделяется с собственным dtype растра, и каждый блок копируется
-    дословно, поэтому результат побитово идентичен чтению всего массива.
+    Полные сцены S1 в этом кейсе имеют размер ~3700x4500 float32. Потоковое чтение через
+    ``rasterio.windows.Window`` полосами высотой ``block_rows`` снижает внутренний буфер
+    декомпрессии GDAL/rasterio в процессе чтения с диска, ограничивая дополнительный
+    рабочий набор ввода-вывода одним блоком (``block_rows * width`` пикселей). При этом
+    итоговый массив выделяется полным для последующей векторизованной обработки в numpy/scipy,
+    а каждый блок копируется напрямую, поэтому результат побитово идентичен обычному чтению.
 
     Аргументы:
         path: путь к растру S1 (канал 1 = VV, канал 2 = VH при наличии).
@@ -101,15 +99,17 @@ def resolve_orbit_pass(row: pd.Series) -> str | None:
     return text or None
 
 
-def _process_pair_worker(task_args: tuple[int, int, pd.Series, Path, Path, int]) -> dict[str, float | str]:
+def _process_pair_worker(task_args: tuple[Any, ...]) -> dict[str, float | str]:
     """Вспомогательная функция верхнего уровня для запуска в пуле многопроцессной обработки."""
-    idx, total, row, data_dir, predictions_dir, ablation_mode = task_args
+    idx, total, row, data_dir, predictions_dir, ablation_mode = task_args[:6]
+    strict_tz = task_args[6] if len(task_args) > 6 else None
     logger.info(f"Processing [{idx + 1}/{total}]: {row['pair_id']}")
     return process_pair(
         row=row,
         data_dir=data_dir,
         predictions_dir=predictions_dir,
         ablation_mode=ablation_mode,
+        strict_tz=strict_tz,
     )
 
 
@@ -118,6 +118,7 @@ def process_pair(
     data_dir: Path,
     predictions_dir: Path,
     ablation_mode: int = 4,
+    strict_tz: bool | None = None,
 ) -> dict[str, float | str]:
     """Обрабатывает одну пару AOI через конвейер сегментации.
 
@@ -127,6 +128,10 @@ def process_pair(
       3: объединение SAR и оптики MSI (где доступно) + фильтр по HAND и уклону.
       4: полный конвейер (+ MMU 25 пикс. + постоянная вода GSW).
     """
+    cfg = load_config()
+    is_strict_tz = bool(cfg.get("strict_tz_compliance", False)) if strict_tz is None else bool(strict_tz)
+    should_merge_forest = False if is_strict_tz else bool(cfg.get("merge_riparian_forest_into_flood", True))
+
     pair_id = str(row["pair_id"])
     rasters_dir = data_dir / str(row["rasters_dir"])
 
@@ -279,8 +284,9 @@ def process_pair(
         if ablation_mode >= 2 and tree_arr is not None and hand_arr is not None and occ_arr is not None:
             riparian_corridor = (hand_arr <= 2.0) & (occ_arr >= 5.0)
             riparian_flooded_forest = (flooded_vegetation_mask == 1) & tree_arr & riparian_corridor
-            flood_mask = flood_mask | riparian_flooded_forest.astype(np.uint8)
-            water_peak_mask = water_peak_mask | riparian_flooded_forest.astype(np.uint8)
+            if should_merge_forest:
+                flood_mask = flood_mask | riparian_flooded_forest.astype(np.uint8)
+                water_peak_mask = water_peak_mask | riparian_flooded_forest.astype(np.uint8)
 
     # 6b. Обрезка по границе полигона AOI (устраняет предсказания за пределами границ)
     aoi_geojson_path = data_dir / "vectors" / "aoi.geojson"
@@ -321,7 +327,10 @@ def process_pair(
                     tolerance_m=float(cfg.get("planar_hand_tolerance_m", 1.8)),
                 )
                 flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
-        flood_mmu = int(cfg.get("flood_mmu_min_pixels", FLOOD_MMU_MIN_PIXELS))
+        if is_strict_tz:
+            flood_mmu = int(cfg.get("mmu_min_pixels", MMU_MIN_PIXELS))
+        else:
+            flood_mmu = int(cfg.get("flood_mmu_min_pixels", FLOOD_MMU_MIN_PIXELS))
         flood_mask = apply_mmu(flood_mask, min_size=flood_mmu).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
@@ -412,6 +421,7 @@ def run_prediction(
     predictions_dir: Path = Path("predictions"),
     ablation_mode: int = 4,
     workers: int | None = None,
+    strict_tz: bool | None = None,
 ) -> pd.DataFrame:
     """Запускает инференс по всем парам в pairs.csv и формирует submission.csv."""
     pairs_df = pd.read_csv(pairs_csv_path)
@@ -434,7 +444,10 @@ def run_prediction(
     records: list[dict[str, Any]] = []
     if effective_workers > 1:
         logger.info(f"Running parallel inference across {effective_workers} worker processes")
-        tasks = [(idx, total_pairs, row, data_dir, predictions_dir, ablation_mode) for idx, row in pairs_df.iterrows()]
+        tasks = [
+            (idx, total_pairs, row, data_dir, predictions_dir, ablation_mode, strict_tz)
+            for idx, row in pairs_df.iterrows()
+        ]
         with ProcessPoolExecutor(max_workers=effective_workers) as executor:
             records = list(executor.map(_process_pair_worker, tasks))
     else:
@@ -446,6 +459,7 @@ def run_prediction(
                 data_dir=data_dir,
                 predictions_dir=predictions_dir,
                 ablation_mode=ablation_mode,
+                strict_tz=strict_tz,
             )
             records.append(rec)
 
@@ -463,6 +477,12 @@ def main() -> None:
     parser.add_argument("--predictions_dir", type=Path, default=Path("predictions"))
     parser.add_argument("--ablation_mode", type=int, default=4, choices=[1, 2, 3, 4])
     parser.add_argument(
+        "--strict-tz",
+        action="store_true",
+        default=None,
+        help="Strict competition spec compliance (MMU 25 px, isolate sub-canopy forest)",
+    )
+    parser.add_argument(
         "--workers",
         "--jobs",
         dest="workers",
@@ -479,6 +499,7 @@ def main() -> None:
         predictions_dir=args.predictions_dir,
         ablation_mode=args.ablation_mode,
         workers=args.workers,
+        strict_tz=args.strict_tz,
     )
 
 
