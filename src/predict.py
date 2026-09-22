@@ -171,6 +171,16 @@ def process_pair(
         builtup_arr = None
         occ_arr = None
 
+    tree_arr = None
+    tree_file = rasters_dir / "TREE_worldcover.tif"
+    if tree_file.exists() and ablation_mode >= 2:
+        try:
+            with rasterio.open(tree_file) as t_src:
+                if t_src.shape == target_shape:
+                    tree_arr = t_src.read(1) == 1
+        except Exception as e:
+            logger.warning(f"[{pair_id}] Failed to load TREE_worldcover: {e}")
+
     # 3. Загрузка оптических данных Sentinel-2 там, где они доступны
     opt_pre_w, opt_pre_v = None, None
     opt_peak_w, opt_peak_v = None, None
@@ -266,6 +276,11 @@ def process_pair(
             builtup=builtup_arr,
         )
         flooded_vegetation_mask = fv.astype(np.uint8)
+        if ablation_mode >= 2 and tree_arr is not None and hand_arr is not None and occ_arr is not None:
+            riparian_corridor = (hand_arr <= 1.2) & (occ_arr >= 10.0)
+            riparian_flooded_forest = (flooded_vegetation_mask == 1) & tree_arr & riparian_corridor
+            flood_mask = flood_mask | riparian_flooded_forest.astype(np.uint8)
+            water_peak_mask = water_peak_mask | riparian_flooded_forest.astype(np.uint8)
 
     # 6b. Обрезка по границе полигона AOI (устраняет предсказания за пределами границ)
     aoi_geojson_path = data_dir / "vectors" / "aoi.geojson"
