@@ -273,13 +273,23 @@ def run_ablation_study(
         pred_dir = tmp_pred_base / f"mode_{mode}"
         sub_csv = tmp_pred_base / f"sub_mode_{mode}.csv"
 
-        sub_df = run_prediction(
-            pairs_csv_path=pairs_csv_path,
-            data_dir=data_dir,
-            output_csv_path=sub_csv,
-            predictions_dir=pred_dir,
-            ablation_mode=mode,
-        )
+        try:
+            sub_df = run_prediction(
+                pairs_csv_path=pairs_csv_path,
+                data_dir=data_dir,
+                output_csv_path=sub_csv,
+                predictions_dir=pred_dir,
+                ablation_mode=mode,
+            )
+        except FileNotFoundError as err:
+            if output_json_path.exists():
+                logger.warning(
+                    f"Исходные тяжелые растры S1 отсутствуют ({err}). "
+                    f"Используются сохраненные результаты абляций из {output_json_path}."
+                )
+                with open(output_json_path, encoding="utf-8") as fp:
+                    return json.load(fp)
+            raise
 
         score_res = compute_official_score(sub_df, ref_df)
         raster_res = compute_raster_metrics(pred_dir, pairs_df, data_dir)
@@ -458,11 +468,22 @@ def main() -> None:
     ref_df = load_reference_stats(pairs_df, args.data_dir)
 
     if args.run_ablations:
-        run_ablation_study(
+        abl_res = run_ablation_study(
             pairs_csv_path=args.pairs,
             data_dir=args.data_dir,
             output_json_path=args.output_json,
         )
+        print("\n" + "=" * 60)
+        print("РЕЗУЛЬТАТЫ 4-СТАДИЙНОГО АБЛАЦИОННОГО ИССЛЕДОВАНИЯ")
+        print("=" * 60)
+        for k, v in sorted(abl_res.items()):
+            desc = v.get("description", k)
+            sc = v.get("official_metrics", {}).get("score", 0.0)
+            qf = v.get("official_metrics", {}).get("Q_flood", 0.0)
+            spec = v.get("official_metrics", {}).get("Spec_base", 0.0)
+            iou = v.get("raster_metrics", {}).get("mean_iou", 0.0)
+            print(f"{desc}: Score={sc:.4f} | Q_flood={qf:.4f} | Spec_base={spec:.4f} | IoU={iou:.4f}")
+        print("=" * 60 + "\n")
 
     if args.holdout:
         if not args.submission.exists():
