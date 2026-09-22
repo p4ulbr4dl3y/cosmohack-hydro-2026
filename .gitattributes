@@ -1,0 +1,7 @@
+# Криптографический манифест целостности (data/artifacts_manifest.json) сверяет
+# размер и SHA-256 артефактов побайтово. Без фиксации LF checkout с
+# core.autocrlf=true (Git for Windows, значение по умолчанию) переписывает эти
+# текстовые артефакты в CRLF, и проверка манифеста падает на несовпадении размера
+# и хеша (tests/test_manifest.py::test_verify_actual_repository_manifest).
+data/*.json text eol=lf
+/submission.csv text eol=lf
