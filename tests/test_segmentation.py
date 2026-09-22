@@ -480,7 +480,7 @@ def test_segment_water_radar_shadow_guard_is_orbit_aware():
     vh = vv - 6.0
 
     slope = np.zeros(shape, dtype=np.float32)
-    aspect = np.full(shape, 90.0, dtype=np.float32)  # восточный уклон: в сторону от обзора нисходящего прохода (~270 deg)
+    aspect = np.full(shape, 90.0, dtype=np.float32)  # восточный уклон: от обзора нисходящего прохода (~270 deg)
 
     # 1. Без orbit_pass -> защита без эффекта, тёмный участок сегментируется как вода
     baseline = segment_water(
