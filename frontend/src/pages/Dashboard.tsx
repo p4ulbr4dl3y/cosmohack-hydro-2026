@@ -45,6 +45,7 @@ export const Dashboard: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
 
   // Вкладка адаптивного мобильного вида: 'map' | 'pairs' | 'analytics'
   const [mobileTab, setMobileTab] = useState<'map' | 'pairs' | 'analytics'>('map');
@@ -62,10 +63,25 @@ export const Dashboard: React.FC = () => {
   const loadPairs = async () => {
     try {
       setLoadingPairs(true);
-      const data = await apiClient.fetchPairs();
-      setPairs(data);
-      if (data.length > 0 && !pairId) {
-        setActivePairId(data[0].pair_id);
+      // Площади затопления приходят не из /pairs, а из официальной метрики:
+      // карточки и сортировка «по площади» должны показывать реальные га,
+      // а не пустой прочерк.
+      const [data, official] = await Promise.all([
+        apiClient.fetchPairs(),
+        apiClient.fetchOfficialMetrics().catch(() => null),
+      ]);
+      const floodByPair = new Map<string, number>(
+        (official?.details || [])
+          .filter((d) => typeof d.flood_sub_ha === 'number')
+          .map((d) => [d.pair_id, d.flood_sub_ha])
+      );
+      const enriched = data.map((p) => ({
+        ...p,
+        flood_ha: p.flood_ha ?? floodByPair.get(p.pair_id),
+      }));
+      setPairs(enriched);
+      if (enriched.length > 0 && !pairId) {
+        setActivePairId(enriched[0].pair_id);
       }
     } catch (e) {
       console.error(e);
@@ -76,6 +92,19 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     loadPairs();
+    // Состояние сервиса проверяется реальным запросом, а не зелёной точкой
+    // по умолчанию: индикатор обязан показывать офлайн при недоступном API.
+    let isMounted = true;
+    const checkHealth = async () => {
+      const health = await apiClient.fetchHealth();
+      if (isMounted) setApiOnline(health?.status === 'ok');
+    };
+    checkHealth();
+    const timer = setInterval(checkHealth, 30_000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
   }, []);
 
   // Загрузка отчёта и дополнительной аналитики при изменении activePairId
@@ -491,8 +520,18 @@ export const Dashboard: React.FC = () => {
           Событие: {currentPair?.event_name || '—'}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
-          <span className="text-text-secondary font-medium">API: online</span>
+          <span
+            className={`w-2 h-2 rounded-full inline-block ${
+              apiOnline === null
+                ? 'bg-slate-400 animate-pulse'
+                : apiOnline
+                  ? 'bg-emerald-500 animate-pulse'
+                  : 'bg-rose-500'
+            }`}
+          />
+          <span className="text-text-secondary font-medium">
+            {apiOnline === null ? 'API: проверка…' : apiOnline ? 'API: online' : 'API: offline'}
+          </span>
         </div>
       </footer>
     </div>

@@ -58,6 +58,33 @@ describe('KpiCards component', () => {
     expect(screen.getByText('Убыль воды')).toBeDefined();
   });
 
+  it('shows an upward green gain only for a positive water gain', () => {
+    render(
+      <KpiCards report={{ ...mockReport, water_gain_pct: 12.5, water_gain_ha: 100 }} isLoading={false} />
+    );
+
+    expect(screen.getByText(/\+12\.5% прирост зеркала воды/)).toBeDefined();
+  });
+
+  it('never renders a plus sign for a negative water gain', () => {
+    // API реально отдаёт отрицательный прирост (вода ушла к пику):
+    // подпись обязана показать минус, а не «+-1.0%» зелёным с ростом.
+    const { container } = render(
+      <KpiCards report={{ ...mockReport, water_gain_pct: -0.96, water_gain_ha: -87.19 }} isLoading={false} />
+    );
+
+    expect(screen.getByText(/-1\.0% убыль зеркала воды/)).toBeDefined();
+    expect(screen.queryByText(/\+-1\.0%/)).toBeNull();
+    expect(container.querySelector('.text-rose-600')).not.toBeNull();
+    expect(container.querySelector('.text-emerald-600')).toBeNull();
+  });
+
+  it('renders a neutral flat state when the water mirror did not change', () => {
+    render(<KpiCards report={{ ...mockReport, water_gain_pct: 0 }} isLoading={false} />);
+
+    expect(screen.getByText(/0\.0% зеркало воды без изменений/)).toBeDefined();
+  });
+
   it('displays computed share of AOI percent', () => {
     render(<KpiCards report={mockReport} isLoading={false} />);
     expect(screen.getByText(/1\.73% от AOI/)).toBeDefined();

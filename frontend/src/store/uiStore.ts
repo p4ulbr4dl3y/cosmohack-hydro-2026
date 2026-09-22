@@ -81,10 +81,12 @@ export const useUiStore = create<UiState>((set) => ({
   setGradientOpacity: (gradientOpacity) =>
     set({ gradientOpacity: Math.max(0.1, Math.min(1, gradientOpacity)) }),
 
-  basemap: 'msi_true',
+  basemap: 'sar_vv',
   setBasemap: (basemap) => set({ basemap }),
 
-  compareMode: 'msi',
+  // По умолчанию сравнение открывается на радарных съёмках: Sentinel-1 есть у всех
+  // 11 пар, тогда как оптические сцены доступны не везде и дали бы пустую карту.
+  compareMode: 'sar',
   setCompareMode: (compareMode) => set({ compareMode }),
   compareSplitPosition: 50,
   setCompareSplitPosition: (compareSplitPosition) => set({ compareSplitPosition }),

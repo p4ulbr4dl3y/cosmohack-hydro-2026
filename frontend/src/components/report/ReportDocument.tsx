@@ -302,40 +302,34 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F1F5F9] font-mono">
-              {comparison?.rows?.map((row) => (
-                <tr key={row.metric} className="hover:bg-[#F8FAFC]">
-                  <td className="py-2 px-4 text-text-primary font-sans">{row.metric}</td>
-                  <td className="py-2 px-4 text-text-primary tabular-nums">
-                    {formatNumber(row.pred, 1)}
-                  </td>
-                  <td className="py-2 px-4 text-text-secondary tabular-nums">
-                    {formatNumber(row.reference, 1)}
-                  </td>
-                  <td className="py-2 px-4 text-emerald-600 font-semibold tabular-nums">
-                    {row.diff_pct.toFixed(1)}%
+              {comparison?.rows?.length ? (
+                comparison.rows.map((row) => (
+                  <tr key={row.metric} className="hover:bg-[#F8FAFC]">
+                    <td className="py-2 px-4 text-text-primary font-sans">{row.label || row.metric}</td>
+                    <td className="py-2 px-4 text-text-primary tabular-nums">
+                      {formatNumber(row.pred, 1)}
+                    </td>
+                    <td className="py-2 px-4 text-text-secondary tabular-nums">
+                      {formatNumber(row.reference, 1)}
+                    </td>
+                    <td
+                      className={`py-2 px-4 font-semibold tabular-nums ${
+                        Math.abs(row.diff_pct) <= 5 ? 'text-emerald-600' : 'text-amber-700'
+                      }`}
+                    >
+                      {row.diff_pct > 0 ? '+' : ''}
+                      {row.diff_pct.toFixed(1)}%
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                // Эталон не пришёл от API: пустая таблица вместо выдуманного «отклонения 0,0%»,
+                // которое выдавало бы непроверенный прогноз за сверенный с эталоном результат.
+                <tr>
+                  <td colSpan={4} className="py-3 px-4 text-text-muted font-sans">
+                    Эталонные значения недоступны: сравнение не выполнялось.
                   </td>
                 </tr>
-              )) || (
-                <>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-2 px-4 text-text-primary font-sans">flood_ha (новое затопление)</td>
-                    <td className="py-2 px-4 text-text-primary tabular-nums">{formatNumber(report.flood_ha, 1)}</td>
-                    <td className="py-2 px-4 text-text-secondary tabular-nums">{formatNumber(report.flood_ha, 1)}</td>
-                    <td className="py-2 px-4 text-emerald-600 font-semibold tabular-nums">0,0%</td>
-                  </tr>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-2 px-4 text-text-primary font-sans">water_peak_ha (пиковое зеркало)</td>
-                    <td className="py-2 px-4 text-text-primary tabular-nums">{formatNumber(report.water_peak_ha, 1)}</td>
-                    <td className="py-2 px-4 text-text-secondary tabular-nums">{formatNumber(report.water_peak_ha, 1)}</td>
-                    <td className="py-2 px-4 text-emerald-600 font-semibold tabular-nums">0,0%</td>
-                  </tr>
-                  <tr className="hover:bg-[#F8FAFC]">
-                    <td className="py-2 px-4 text-text-primary font-sans">water_pre_ha (зеркало до паводка)</td>
-                    <td className="py-2 px-4 text-text-primary tabular-nums">{formatNumber(report.water_pre_ha, 1)}</td>
-                    <td className="py-2 px-4 text-text-secondary tabular-nums">{formatNumber(report.water_pre_ha, 1)}</td>
-                    <td className="py-2 px-4 text-emerald-600 font-semibold tabular-nums">0,0%</td>
-                  </tr>
-                </>
               )}
             </tbody>
           </table>

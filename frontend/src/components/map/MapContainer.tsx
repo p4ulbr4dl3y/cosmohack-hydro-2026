@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ChevronUp, ChevronDown, Droplets } from 'lucide-react';
+import { ChevronUp, ChevronDown, Droplets, Satellite } from 'lucide-react';
 import { useUiStore } from '../../store/uiStore';
 import { apiClient } from '../../api/client';
 import { WATER_COLORS } from '../../lib/colors';
 import { LayerControl } from './LayerControl';
 import { Legend } from './Legend';
+import { loadSceneOverlay, type SceneOverlay } from '../../lib/sceneOverlay';
+import { isSceneBasemap } from '../../types/domain';
 import type { Pair } from '../../types/domain';
 
 interface MapContainerProps {
@@ -17,6 +19,11 @@ interface MapContainerProps {
 }
 
 export const geojsonCache = new Map<string, any>();
+
+/** Нейтральная подложка: показывается, пока сцена Sentinel отсутствует или грузится. */
+const NEUTRAL_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+type MaskLayerName = 'flood' | 'water_peak' | 'water_pre' | 'permanent' | 'receded';
 
 const GRADIENT_CONFIGS: Record<
   string,
@@ -73,7 +80,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const waterPreLayerGroup = useRef<L.GeoJSON | null>(null);
   const osmHydroLayerGroup = useRef<L.GeoJSON | null>(null);
   const hydroshedsLayerGroup = useRef<L.GeoJSON | null>(null);
+  const permanentLayerGroup = useRef<L.GeoJSON | null>(null);
+  const recededLayerGroup = useRef<L.GeoJSON | null>(null);
   const gradientOverlayRef = useRef<L.ImageOverlay | null>(null);
+  const sceneOverlayRef = useRef<SceneOverlay | null>(null);
   const lastFittedPairIdRef = useRef<string | null>(null);
 
   const [mouseCoords, setMouseCoords] = useState<{ lat: number; lng: number }>({
@@ -83,6 +93,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(10);
   const [aoiFeatures, setAoiFeatures] = useState<any>(null);
   const [showGradientBar, setShowGradientBar] = useState<boolean>(true);
+  const [sceneLabel, setSceneLabel] = useState<string | null>(null);
 
   const {
     layers,
@@ -164,28 +175,17 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       map.removeLayer(tileLayerRef.current);
     }
 
-    let tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-    let subdomains = 'abcd';
-
-    if (basemap === 'sar_vv') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    } else if (basemap === 'sar_vh') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    } else if (basemap === 'msi_true') {
-      tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      subdomains = 'abc';
-    } else if (basemap === 'msi_false') {
-      tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-    }
-
-    const newTile = L.tileLayer(tileUrl, {
+    // Базовая подложка всегда нейтральная: реальная сцена Sentinel-1/2 накладывается
+    // отдельным оверлеем поверх тайлов и ниже векторных масок, поэтому тайлы не
+    // маскируются под снимок и не вводят в заблуждение подписями «SAR VV/MSI».
+    const newTile = L.tileLayer(NEUTRAL_TILE_URL, {
       maxZoom: 19,
-      subdomains: subdomains,
+      subdomains: 'abcd',
       crossOrigin: true,
     }).addTo(map);
 
     tileLayerRef.current = newTile;
-  }, [basemap]);
+  }, []);
 
   // Однократная загрузка полигонов AOI (с кэшированием)
   useEffect(() => {
@@ -426,22 +426,23 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     if (!map || !effectivePairId) return;
 
     // Очистка предыдущих слоёв масок
-    if (floodLayerGroup.current) {
-      map.removeLayer(floodLayerGroup.current);
-      floodLayerGroup.current = null;
-    }
-    if (waterPeakLayerGroup.current) {
-      map.removeLayer(waterPeakLayerGroup.current);
-      waterPeakLayerGroup.current = null;
-    }
-    if (waterPreLayerGroup.current) {
-      map.removeLayer(waterPreLayerGroup.current);
-      waterPreLayerGroup.current = null;
-    }
+    const registry: Array<[MaskLayerName, React.MutableRefObject<L.GeoJSON | null>]> = [
+      ['flood', floodLayerGroup],
+      ['water_peak', waterPeakLayerGroup],
+      ['water_pre', waterPreLayerGroup],
+      ['permanent', permanentLayerGroup],
+      ['receded', recededLayerGroup],
+    ];
+    registry.forEach(([, ref]) => {
+      if (ref.current) {
+        map.removeLayer(ref.current);
+        ref.current = null;
+      }
+    });
 
     let isMounted = true;
 
-    const loadMask = async (layerName: 'flood' | 'water_peak' | 'water_pre') => {
+    const loadMask = async (layerName: MaskLayerName) => {
       const cacheKey = `${effectivePairId}_${layerName}`;
       let geojson = geojsonCache.get(cacheKey);
 
@@ -468,22 +469,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         style: {
           color: colorCfg.color,
           weight: (colorCfg as any).weight || 1,
+          dashArray: (colorCfg as any).dashArray,
           fillColor: colorCfg.fillColor,
           fillOpacity: 0,
           opacity: 0,
         },
       } as any);
 
-      if (layerName === 'flood') {
-        floodLayerGroup.current = gjLayer;
-        if (layers.flood) gjLayer.addTo(leafletMap.current);
-      } else if (layerName === 'water_peak') {
-        waterPeakLayerGroup.current = gjLayer;
-        if (layers.water_peak) gjLayer.addTo(leafletMap.current);
-      } else if (layerName === 'water_pre') {
-        waterPreLayerGroup.current = gjLayer;
-        if (layers.water_pre) gjLayer.addTo(leafletMap.current);
-      }
+      const target = registry.find(([name]) => name === layerName);
+      if (target && layers[layerName]) gjLayer.addTo(leafletMap.current);
+      if (target) target[1].current = gjLayer;
 
       // Плавное анимированное появление для бесшовного визуального восприятия
       const start = performance.now();
@@ -501,9 +496,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       requestAnimationFrame(animateFade);
     };
 
-    loadMask('flood');
-    loadMask('water_peak');
-    loadMask('water_pre');
+    registry.forEach(([name]) => {
+      loadMask(name);
+    });
 
     return () => {
       isMounted = false;
@@ -514,60 +509,97 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   useEffect(() => {
     const opacity = layers.opacity;
 
-    if (floodLayerGroup.current) {
-      floodLayerGroup.current.setStyle({
-        fillOpacity: (WATER_COLORS.flood.fillOpacity || 0.5) * opacity,
-        opacity: (WATER_COLORS.flood.opacity || 0.8) * opacity,
+    ([
+      ['flood', floodLayerGroup],
+      ['water_peak', waterPeakLayerGroup],
+      ['water_pre', waterPreLayerGroup],
+      ['permanent', permanentLayerGroup],
+      ['receded', recededLayerGroup],
+    ] as Array<[MaskLayerName, React.MutableRefObject<L.GeoJSON | null>]>).forEach(([name, ref]) => {
+      if (!ref.current) return;
+      const colorCfg = WATER_COLORS[name];
+      ref.current.setStyle({
+        fillOpacity: (colorCfg.fillOpacity || 0.5) * opacity,
+        opacity: (colorCfg.opacity || 0.8) * opacity,
       });
-    }
-
-    if (waterPeakLayerGroup.current) {
-      waterPeakLayerGroup.current.setStyle({
-        fillOpacity: (WATER_COLORS.water_peak.fillOpacity || 0.5) * opacity,
-        opacity: (WATER_COLORS.water_peak.opacity || 0.8) * opacity,
-      });
-    }
-
-    if (waterPreLayerGroup.current) {
-      waterPreLayerGroup.current.setStyle({
-        fillOpacity: (WATER_COLORS.water_pre.fillOpacity || 0.5) * opacity,
-        opacity: (WATER_COLORS.water_pre.opacity || 0.8) * opacity,
-      });
-    }
+    });
   }, [layers.opacity]);
 
-  // Быстрое переключение слоя затопления
-  useEffect(() => {
-    const map = leafletMap.current;
-    if (!map || !floodLayerGroup.current) return;
-    if (layers.flood && !map.hasLayer(floodLayerGroup.current)) {
-      map.addLayer(floodLayerGroup.current);
-    } else if (!layers.flood && map.hasLayer(floodLayerGroup.current)) {
-      map.removeLayer(floodLayerGroup.current);
-    }
-  }, [layers.flood]);
 
-  // Быстрое переключение слоя water_peak
+  // Быстрое переключение векторных масок: добавляет/убирает готовый слой в карте
   useEffect(() => {
     const map = leafletMap.current;
-    if (!map || !waterPeakLayerGroup.current) return;
-    if (layers.water_peak && !map.hasLayer(waterPeakLayerGroup.current)) {
-      map.addLayer(waterPeakLayerGroup.current);
-    } else if (!layers.water_peak && map.hasLayer(waterPeakLayerGroup.current)) {
-      map.removeLayer(waterPeakLayerGroup.current);
-    }
-  }, [layers.water_peak]);
+    if (!map) return;
 
-  // Быстрое переключение слоя water_pre
+    ([
+      ['flood', floodLayerGroup],
+      ['water_peak', waterPeakLayerGroup],
+      ['water_pre', waterPreLayerGroup],
+      ['permanent', permanentLayerGroup],
+      ['receded', recededLayerGroup],
+    ] as Array<[MaskLayerName, React.MutableRefObject<L.GeoJSON | null>]>).forEach(([name, ref]) => {
+      const layer = ref.current;
+      if (!layer) return;
+      if (layers[name] && !map.hasLayer(layer)) {
+        map.addLayer(layer);
+      } else if (!layers[name] && map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+    });
+  }, [
+    layers.flood,
+    layers.water_peak,
+    layers.water_pre,
+    layers.permanent,
+    layers.receded,
+  ]);
+
+  // Подложка из реальной сцены Sentinel-1/2 (SAR/MSI) для текущей пары
   useEffect(() => {
     const map = leafletMap.current;
-    if (!map || !waterPreLayerGroup.current) return;
-    if (layers.water_pre && !map.hasLayer(waterPreLayerGroup.current)) {
-      map.addLayer(waterPreLayerGroup.current);
-    } else if (!layers.water_pre && map.hasLayer(waterPreLayerGroup.current)) {
-      map.removeLayer(waterPreLayerGroup.current);
+    if (!map) return;
+
+    let isMounted = true;
+
+    const clearScene = () => {
+      if (sceneOverlayRef.current) {
+        sceneOverlayRef.current.remove();
+        sceneOverlayRef.current = null;
+      }
+    };
+
+    clearScene();
+
+    if (!effectivePairId || !isSceneBasemap(basemap)) {
+      setSceneLabel(null);
+      return;
     }
-  }, [layers.water_pre]);
+
+    loadSceneOverlay(map, effectivePairId, basemap)
+      .then((overlay) => {
+        if (!isMounted) {
+          overlay?.remove();
+          return;
+        }
+        if (!overlay) {
+          // Сцены нет (например, Sentinel-2 для пары без оптики): карта остаётся
+          // на нейтральной подложке, а подпись честно говорит об отсутствии снимка.
+          setSceneLabel(null);
+          return;
+        }
+        sceneOverlayRef.current = overlay;
+        setSceneLabel(`${overlay.meta.label} · ${overlay.meta.source}`);
+      })
+      .catch((err) => {
+        console.error('Не удалось загрузить сцену для подложки', err);
+        if (isMounted) setSceneLabel(null);
+      });
+
+    return () => {
+      isMounted = false;
+      clearScene();
+    };
+  }, [basemap, effectivePairId]);
 
   // Непрерывный растровый градиентный оверлей (L.imageOverlay)
   useEffect(() => {
@@ -678,6 +710,18 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <span className="text-text-secondary font-medium whitespace-nowrap">
             ПИК · {currentPair.date_peak_sar ? currentPair.date_peak_sar.slice(5) : '14.07'}
           </span>
+        </div>
+      )}
+
+      {/* Подпись источника подложки: реальная сцена Sentinel или её отсутствие */}
+      {showControls && isSceneBasemap(basemap) && (
+        <div className="absolute top-4 left-4 z-[990] pointer-events-none">
+          <div className="bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-lg px-2.5 py-1 shadow-floating text-[10px] font-mono text-text-secondary flex items-center gap-1.5 max-w-[260px]">
+            <Satellite className="w-3 h-3 text-[#0EA5E9] shrink-0" />
+            <span className="truncate" title={sceneLabel || 'сцена недоступна'}>
+              {sceneLabel || 'сцена недоступна для этой пары'}
+            </span>
+          </div>
         </div>
       )}
 

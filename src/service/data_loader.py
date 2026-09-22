@@ -32,6 +32,7 @@ from src.config import HydroConfig
 from src.depth import classify_depth_risk, estimate_water_depth
 from src.meteo import analyze_meteo_precursors, find_era5_file, load_era5_timeseries
 from src.sar_analytics import analyze_sar_hydrology
+from src.scene_renderer import SCENE_MODES
 from src.service.mchs_report import build_mchs_dispatch
 from src.temporal import compute_receded_ha
 from src.uncertainty import compute_flood_area_uncertainty
@@ -119,6 +120,52 @@ class DataLoader:
                 continue
             dists.append(abs((req_d - scene_dt).days))
         return float(np.mean(dists)) if dists else 0.0
+
+    def resolve_scene_tif(self, pair_id: str, mode: str, window: str = "peak") -> Path | None:
+        """Возвращает путь к реальной сцене Sentinel-1/2 для режима подложки карты.
+
+        Режимы ``sar_*`` берут сцену Sentinel-1, ``msi_*`` - сцену Sentinel-2;
+        ``window`` выбирает пиковую (``peak``) или предпаводковую (``pre``) дату.
+        Сцена с одними пикселями nodata считается отсутствующей: рисовать её нечем,
+        и API честно отдаёт 404 вместо пустой либо чужой картинки.
+        """
+        cfg = SCENE_MODES.get(mode)
+        if cfg is None:
+            return None
+
+        norm_window = window.strip().lower()
+        if norm_window not in ("peak", "pre"):
+            return None
+
+        pair_meta = self.get_pair_meta(pair_id)
+        if not pair_meta:
+            return None
+        rasters_dir = pair_meta.get("rasters_dir")
+        if not rasters_dir:
+            return None
+        dir_path = self.data_dir / str(rasters_dir)
+        if not dir_path.exists():
+            return None
+
+        prefix = "S1" if cfg["kind"] == "sar" else "SENTINEL2"
+        for candidate in sorted(glob.glob(str(dir_path / f"{prefix}_{norm_window}_*.tif"))):
+            if self._scene_has_data(Path(candidate)):
+                return Path(candidate)
+        return None
+
+    @staticmethod
+    def _scene_has_data(tif_path: Path) -> bool:
+        """Проверяет, что сцена содержит хотя бы один валидный пиксель (не nodata)."""
+        try:
+            with rasterio.open(tif_path) as src:
+                band = src.read(1, out_shape=(min(256, src.height), min(256, src.width)))
+                nodata = src.nodata
+        except Exception:  # noqa: BLE001
+            return False
+        valid = np.isfinite(band)
+        if nodata is not None:
+            valid &= band != nodata
+        return bool(valid.any())
 
     def _metric_area_ha(self, geom_4326: Any, pair_id: str) -> float:
         """Площадь геометрии WGS84 в гектарах, вычисленная в локальной CRS UTM."""
@@ -851,7 +898,7 @@ class DataLoader:
 
     def get_geojson(self, pair_id: str, layer: str = "flood") -> dict[str, Any] | None:
         layer = layer.strip().lower()
-        if layer not in ("flood", "water_pre", "water_peak"):
+        if layer not in ("flood", "water_pre", "water_peak", "permanent", "receded"):
             return None
 
         # Лимиты экспорта контуров берутся из конфигурации (0 контуров = без ограничений)
@@ -869,6 +916,18 @@ class DataLoader:
             return None
 
         pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
+
+        # Производные гидрологические слои: постоянная вода (GSW occurrence >= 80%)
+        # и убыль воды (вода на дату pre, исчезнувшая к пику). Оба строятся из
+        # тех же растров, что и отчёт, поэтому их площади совпадают с permanent_ha/receded_ha.
+        if layer in ("permanent", "receded"):
+            derived = self._build_derived_mask(pair_id, layer)
+            if derived is None:
+                return None
+            mask, transform, crs = derived
+            return self._mask_to_geojson_dict(
+                mask, transform, crs, pair_id, pair_meta, layer, min_area_sqm, max_contours, cache_file
+            )
 
         # Используем только собственные выходы модели команды (никогда не отдаём эталонные маски организатора)
         own_tif = self.predictions_dir / f"{pair_id}_{layer}.tif"
@@ -916,73 +975,152 @@ class DataLoader:
         with rasterio.open(src_tif) as src:
             arr = src.read(band_idx)
             mask = (arr == 1).astype(bool)
+            transform = src.transform
+            crs = src.crs
             del arr
 
-            # Морфологическая фильтрация шума микроостровов перед векторизацией полигонов
-            # (связные компоненты scipy.ndimage / бинарное открытие)
-            min_pixels = max(1, int(min_area_sqm / 100.0))
-            if min_pixels > 1:
-                labeled, num_features = ndimage.label(mask, structure=ndimage.generate_binary_structure(2, 1))
-                if num_features > 0:
-                    counts = np.bincount(labeled.ravel())
-                    keep_components = counts >= min_pixels
-                    keep_components[0] = False
-                    mask = keep_components[labeled]
-                    del labeled, counts, keep_components
-            else:
-                struct = ndimage.generate_binary_structure(2, 1)
-                mask = ndimage.binary_opening(mask, structure=struct)
+        return self._mask_to_geojson_dict(
+            mask, transform, crs, pair_id, pair_meta, layer, min_area_sqm, max_contours, cache_file
+        )
 
-            # Компактный массив uint8 для векторизации полигонов
-            clean_arr = mask.astype(np.uint8, copy=False)
-            poly_shapes = list(shapes(clean_arr, mask=mask, transform=src.transform))
-            del clean_arr, mask
+    def _build_derived_mask(
+        self,
+        pair_id: str,
+        layer: str,
+    ) -> tuple[np.ndarray, Any, Any] | None:
+        """Строит производную бинарную маску ``permanent`` или ``receded`` в сетке растра затопления.
 
-            if poly_shapes:
-                geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
-                del poly_shapes
-                gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=src.crs)
-                del geoms
-                # Оставляем полигоны >= минимальной площади, убирая субпиксельный шум и сохраняя реальные участки
-                gdf = gdf[gdf.geometry.area >= min_area_sqm].copy()
-                if not gdf.empty:
-                    gdf["area_sqm"] = gdf.geometry.area
-                    gdf = gdf.sort_values(by="area_sqm", ascending=False).reset_index(drop=True)
-                    # Необязательное ограничение числа контуров (из конфигурации, 0 = сохранять все контуры)
-                    if max_contours > 0 and len(gdf) > max_contours:
-                        gdf = gdf.iloc[:max_contours].copy()
+        ``permanent`` повторяет правило отчёта (occurrence JRC GSW >= 80%, перенесённый
+        в сетку растра затопления), ``receded`` - собственную формулу ``src/temporal.py``
+        (вода на дату pre без воды на пике). Обе величины считаются по тем же данным,
+        что и ``permanent_ha``/``receded_ha``, поэтому визуализация не расходится со сводкой.
+        """
+        pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
+        if not pred_tif.exists():
+            return None
 
-                    gdf["contour_id"] = [f"{layer}_{i + 1:04d}" for i in range(len(gdf))]
-                    gdf["area_ha"] = (gdf["area_sqm"] / 10000.0).round(2)
-                    gdf = gdf.drop(columns=["area_sqm"])
-                    gdf["pair_id"] = pair_id
-                    gdf["layer"] = layer
-                    gdf["aoi_name"] = pair_meta["aoi_name"]
-                    gdf["event_name"] = pair_meta["event_name"]
-                    gdf["date_peak"] = pair_meta["date_peak_sar"]
+        pair_meta = self.get_pair_meta(pair_id) or {}
+        rasters_dir = pair_meta.get("rasters_dir")
 
-                    gdf_4326 = gdf.to_crs(epsg=4326)
-                    del gdf
-                    gdf_4326["geometry"] = gdf_4326.geometry.simplify(0.00015)
-                    gdf_4326 = gdf_4326[~gdf_4326.geometry.is_empty & gdf_4326.geometry.is_valid]
+        with rasterio.open(pred_tif) as ref:
+            ref_transform = ref.transform
+            ref_crs = ref.crs
+            ref_shape = ref.shape
 
-                    geojson_dict = json.loads(gdf_4326.to_json())
-                    del gdf_4326
-                    gc.collect()
-                    geojson_dict["name"] = f"{pair_id}_{layer}"
-                    with open(cache_file, "w", encoding="utf-8") as f:
-                        json.dump(geojson_dict, f, ensure_ascii=False)
-                    return geojson_dict
-
+        if layer == "receded":
+            pre_tif = self.predictions_dir / f"{pair_id}_water_pre.tif"
+            peak_tif = self.predictions_dir / f"{pair_id}_water_peak.tif"
+            if not (pre_tif.exists() and peak_tif.exists()):
+                return None
+            with rasterio.open(pre_tif) as pre_src:
+                pre_mask = pre_src.read(1)
+            with rasterio.open(peak_tif) as peak_src:
+                peak_mask = peak_src.read(1)
+            receded = (pre_mask == 1) & (peak_mask != 1)
+            del pre_mask, peak_mask
             gc.collect()
-            empty_fc = {
-                "type": "FeatureCollection",
-                "name": f"{pair_id}_{layer}",
-                "features": [],
-            }
-            with open(cache_file, "w", encoding="utf-8") as f:
-                json.dump(empty_fc, f, ensure_ascii=False)
-            return empty_fc
+            return receded, ref_transform, ref_crs
+
+        if not rasters_dir:
+            return None
+        aux_tif = self.data_dir / str(rasters_dir) / "AUX_terrain_gsw.tif"
+        if not aux_tif.exists():
+            return None
+
+        occurrence = np.zeros(ref_shape, dtype=np.float32)
+        with rasterio.open(aux_tif) as aux:
+            reproject(
+                source=rasterio.band(aux, 3),
+                destination=occurrence,
+                src_transform=aux.transform,
+                src_crs=aux.crs,
+                dst_transform=ref_transform,
+                dst_crs=ref_crs,
+                resampling=Resampling.nearest,
+            )
+        permanent = (occurrence >= 80.0) & np.isfinite(occurrence)
+        del occurrence
+        gc.collect()
+        return permanent, ref_transform, ref_crs
+
+    def _mask_to_geojson_dict(
+        self,
+        mask: np.ndarray,
+        transform: Any,
+        crs: Any,
+        pair_id: str,
+        pair_meta: dict[str, Any],
+        layer: str,
+        min_area_sqm: float,
+        max_contours: int,
+        cache_file: Path,
+    ) -> dict[str, Any]:
+        """Векторизует бинарную маску в GeoJSON WGS84 с фильтрацией микроконтуров и кэширует результат."""
+        # Морфологическая фильтрация шума микроостровов перед векторизацией полигонов
+        # (связные компоненты scipy.ndimage / бинарное открытие)
+        min_pixels = max(1, int(min_area_sqm / 100.0))
+        if min_pixels > 1:
+            labeled, num_features = ndimage.label(mask, structure=ndimage.generate_binary_structure(2, 1))
+            if num_features > 0:
+                counts = np.bincount(labeled.ravel())
+                keep_components = counts >= min_pixels
+                keep_components[0] = False
+                mask = keep_components[labeled]
+                del labeled, counts, keep_components
+        else:
+            struct = ndimage.generate_binary_structure(2, 1)
+            mask = ndimage.binary_opening(mask, structure=struct)
+
+        # Компактный массив uint8 для векторизации полигонов
+        clean_arr = mask.astype(np.uint8, copy=False)
+        poly_shapes = list(shapes(clean_arr, mask=mask, transform=transform))
+        del clean_arr, mask
+
+        if poly_shapes:
+            geoms = [shapely.geometry.shape(s) for s, v in poly_shapes]
+            del poly_shapes
+            gdf = gpd.GeoDataFrame({"geometry": geoms}, crs=crs)
+            del geoms
+            # Оставляем полигоны >= минимальной площади, убирая субпиксельный шум и сохраняя реальные участки
+            gdf = gdf[gdf.geometry.area >= min_area_sqm].copy()
+            if not gdf.empty:
+                gdf["area_sqm"] = gdf.geometry.area
+                gdf = gdf.sort_values(by="area_sqm", ascending=False).reset_index(drop=True)
+                # Необязательное ограничение числа контуров (из конфигурации, 0 = сохранять все контуры)
+                if max_contours > 0 and len(gdf) > max_contours:
+                    gdf = gdf.iloc[:max_contours].copy()
+
+                gdf["contour_id"] = [f"{layer}_{i + 1:04d}" for i in range(len(gdf))]
+                gdf["area_ha"] = (gdf["area_sqm"] / 10000.0).round(2)
+                gdf = gdf.drop(columns=["area_sqm"])
+                gdf["pair_id"] = pair_id
+                gdf["layer"] = layer
+                gdf["aoi_name"] = pair_meta["aoi_name"]
+                gdf["event_name"] = pair_meta["event_name"]
+                gdf["date_peak"] = pair_meta["date_peak_sar"]
+
+                gdf_4326 = gdf.to_crs(epsg=4326)
+                del gdf
+                gdf_4326["geometry"] = gdf_4326.geometry.simplify(0.00015)
+                gdf_4326 = gdf_4326[~gdf_4326.geometry.is_empty & gdf_4326.geometry.is_valid]
+
+                geojson_dict = json.loads(gdf_4326.to_json())
+                del gdf_4326
+                gc.collect()
+                geojson_dict["name"] = f"{pair_id}_{layer}"
+                with open(cache_file, "w", encoding="utf-8") as f:
+                    json.dump(geojson_dict, f, ensure_ascii=False)
+                return geojson_dict
+
+        gc.collect()
+        empty_fc = {
+            "type": "FeatureCollection",
+            "name": f"{pair_id}_{layer}",
+            "features": [],
+        }
+        with open(cache_file, "w", encoding="utf-8") as f:
+            json.dump(empty_fc, f, ensure_ascii=False)
+        return empty_fc
 
     def clip_layer_to_geometry(
         self,

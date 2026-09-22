@@ -47,7 +47,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ pairs, isLoading = false, onSe
       })
       .sort((a, b) => {
         if (sortBy === 'area') {
-          return ((b as any).flood_ha || 0) - ((a as any).flood_ha || 0);
+          // Пары без измеренной площади уходят в конец, а не встают в начало списка
+          // наравне с нулевыми значениями.
+          const areaA = a.flood_ha;
+          const areaB = b.flood_ha;
+          if (areaA === undefined && areaB === undefined) return 0;
+          if (areaA === undefined) return 1;
+          if (areaB === undefined) return -1;
+          return areaB - areaA;
         }
         if (sortBy === 'name') {
           return a.aoi_name.localeCompare(b.aoi_name);

@@ -78,6 +78,53 @@ def test_data_loader_fresh_cache_geojson(tmp_path):
     assert loader.get_geojson(pair_id, layer="invalid_layer") is None
 
 
+def test_data_loader_derived_permanent_and_receded_layers_match_report(tmp_path):
+    """Производные слои permanent/receded обязаны совпадать по площади со сводкой отчёта."""
+    loader = DataLoader(cache_dir=tmp_path / "cache")
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    report = loader.get_report(pair_id)
+
+    permanent = loader.get_geojson(pair_id, layer="permanent")
+    assert permanent is not None
+    assert permanent["type"] == "FeatureCollection"
+    assert len(permanent["features"]) > 0
+    assert permanent["features"][0]["properties"]["layer"] == "permanent"
+
+    permanent_ha = sum(f["properties"]["area_ha"] for f in permanent["features"])
+    # Векторизованная маска теряет субпиксельные кластеры, но не десятки процентов площади
+    assert abs(permanent_ha - report["permanent_ha"]) / report["permanent_ha"] < 0.05
+
+    receded = loader.get_geojson(pair_id, layer="receded")
+    assert receded is not None
+    assert receded["type"] == "FeatureCollection"
+    receded_ha = sum(f["properties"]["area_ha"] for f in receded["features"])
+    assert abs(receded_ha - report["receded_ha"]) / max(report["receded_ha"], 1.0) < 0.10
+
+
+def test_data_loader_derived_layers_missing_rasters(tmp_path):
+    """Без растров модели производные слои не выдумываются: отдаётся None."""
+    loader = DataLoader(predictions_dir=tmp_path / "no_preds", cache_dir=tmp_path / "cache")
+    assert loader.get_geojson("flood_2019_07_amur__blagoveshchensk", layer="permanent") is None
+    assert loader.get_geojson("flood_2019_07_amur__blagoveshchensk", layer="receded") is None
+
+
+def test_data_loader_resolves_real_sentinel_scenes(tmp_path):
+    """Резолвер сцен отдаёт реальные снимки для окна peak/pre и молчит про пустые."""
+    loader = DataLoader(cache_dir=tmp_path / "cache")
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    peak = loader.resolve_scene_tif(pair_id, "sar_vv", window="peak")
+    pre = loader.resolve_scene_tif(pair_id, "sar_vv", window="pre")
+    assert peak is not None and peak.name.startswith("S1_peak_")
+    assert pre is not None and pre.name.startswith("S1_pre_")
+
+    # Оптические сцены этой пары пусты (только nodata) - подложка не подменяется
+    assert loader.resolve_scene_tif(pair_id, "msi_true", window="peak") is None
+    # Неизвестный режим и окно не разрешаются
+    assert loader.resolve_scene_tif(pair_id, "invalid_mode", window="peak") is None
+    assert loader.resolve_scene_tif(pair_id, "sar_vv", window="nope") is None
+
+
 def test_data_loader_predict_spatial_temporal(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
     pair_id = "flood_2019_07_amur__blagoveshchensk"

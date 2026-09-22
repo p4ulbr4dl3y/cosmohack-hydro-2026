@@ -30,7 +30,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from src.audit import generate_flood_audit_certificate
 from src.carbon_metrics import compute_flood_carbon_impact
 from src.competition_metrics import compute_live_official_score, validate_submission_file
-from src.scene_renderer import get_scene_wgs84_bounds, render_mask_png
+from src.scene_renderer import SCENE_MODES, get_scene_wgs84_bounds, render_mask_png, render_scene_png
 from src.service.data_loader import data_loader
 from src.service.mchs_report import render_mchs_html
 from src.service.schemas import (
@@ -57,6 +57,15 @@ PREDICTIONS_DIR = BASE_DIR / "predictions"
 #: Кэширование неизменяемых артефактов (растровые маски, GeoJSON слоёв, PNG-оверлеи).
 #: Содержимое фиксировано на диске и меняется только через POST /api/v1/recompute.
 ARTIFACT_CACHE_CONTROL = "public, max-age=86400"
+
+#: Слои, отдаваемые как вектор (GeoJSON/Shapefile).
+#: ``flood``/``water_pre``/``water_peak`` - выходы модели в ``predictions/``;
+#: ``permanent``/``receded`` - производные маски тех же растров (GSW occurrence >= 80%
+#: и убыль воды между датами pre/пик).
+VECTOR_LAYERS = ("flood", "water_pre", "water_peak", "permanent", "receded")
+
+#: Слои, для которых существует готовый GeoTIFF в ``predictions/`` и растровый PNG-оверлей.
+RASTER_LAYERS = ("flood", "water_pre", "water_peak")
 
 app = FastAPI(
     title="HydroWatch Amur API",
@@ -255,14 +264,14 @@ def get_mchs_dispatch_endpoint(
 def get_geojson(
     response: Response,
     pair_id: str,
-    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description=f"Название слоя: {', '.join(VECTOR_LAYERS)}"),
 ) -> dict[str, Any]:
     """Векторные полигоны зоны затопления в формате GeoJSON (EPSG:4326 для веб-карт)."""
     norm_layer = layer.strip().lower()
-    if norm_layer not in ("flood", "water_pre", "water_peak"):
+    if norm_layer not in VECTOR_LAYERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: {', '.join(VECTOR_LAYERS)}",
         )
     geojson = data_loader.get_geojson(pair_id, layer=norm_layer)
     if geojson is None:
@@ -281,14 +290,14 @@ def get_geojson(
 )
 def get_shapefile(
     pair_id: str,
-    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description=f"Название слоя: {', '.join(VECTOR_LAYERS)}"),
 ) -> Response:
     """Векторные полигоны, экспортированные как архив ESRI Shapefile в zip (EPSG:4326)."""
     norm_layer = layer.strip().lower()
-    if norm_layer not in ("flood", "water_pre", "water_peak"):
+    if norm_layer not in VECTOR_LAYERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: {', '.join(VECTOR_LAYERS)}",
         )
     shp_bytes = data_loader.get_shapefile_zip(pair_id, layer=norm_layer)
     if shp_bytes is None:
@@ -307,10 +316,10 @@ async def get_geotiff(
 ) -> FileResponse:
     """Скачивает растровую маску для заданной пары и слоя в формате GeoTIFF (EPSG:32652)."""
     norm_layer = layer.strip().lower()
-    if norm_layer not in ("flood", "water_pre", "water_peak"):
+    if norm_layer not in RASTER_LAYERS:
         raise HTTPException(
             status_code=400,
-            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: {', '.join(RASTER_LAYERS)}",
         )
     tif_path = PREDICTIONS_DIR / f"{pair_id}_{norm_layer}.tif"
     if not tif_path.exists():
@@ -568,7 +577,7 @@ class RecomputeRequest(BaseModel):
 
 
 #: Слои, кэш GeoJSON которых сбрасывается вместе с кэшем отчёта.
-RECOMPUTE_LAYERS = ("flood", "water_pre", "water_peak")
+RECOMPUTE_LAYERS = VECTOR_LAYERS
 
 
 def _peak_rss_gb() -> float:
@@ -862,6 +871,93 @@ def get_raster_overlay_png(
         media_type="image/png",
         headers={"Content-Disposition": f"inline; filename={pair_id}_{norm_layer}.png"},
     )
+
+
+@app.get(
+    "/api/v1/scene/{pair_id}/{mode}",
+    summary="Реальная сцена Sentinel-1 SAR или Sentinel-2 MSI как PNG-подложка карты",
+)
+def get_scene_png(
+    pair_id: str,
+    mode: str,
+    window: str = Query(default="peak", description="Окно съёмки: 'peak' (пик) или 'pre' (до события)"),
+) -> Response:
+    """Отрисовывает реальную сцену Sentinel-1/2 в PNG (EPSG:4326, растяжка контраста 2-98%).
+
+    Режимы: ``sar_vv``, ``sar_vh`` (каналы VV/VH в дБ), ``msi_true``, ``msi_false``
+    (истинный и синтетический ложный цвет Sentinel-2). Прозрачные пиксели - nodata.
+    Возвращает 404, когда сцена для пары отсутствует или целиком состоит из nodata.
+    """
+    norm_mode = mode.strip().lower()
+    if norm_mode not in SCENE_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Некорректный режим '{mode}'. Допустимо: {', '.join(sorted(SCENE_MODES))}",
+        )
+
+    norm_window = window.strip().lower()
+    if norm_window not in ("peak", "pre"):
+        raise HTTPException(status_code=400, detail=f"Некорректное окно '{window}'. Допустимо: 'peak', 'pre'")
+
+    scene_tif = data_loader.resolve_scene_tif(pair_id, norm_mode, window=norm_window)
+    if scene_tif is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Сцена '{norm_mode}' ({norm_window}) для пары '{pair_id}' недоступна",
+        )
+
+    png_bytes, _bounds, _meta = render_scene_png(scene_tif, mode=norm_mode)
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": f"inline; filename={pair_id}_{norm_mode}_{norm_window}.png",
+            "Cache-Control": ARTIFACT_CACHE_CONTROL,
+        },
+    )
+
+
+@app.get(
+    "/api/v1/scene/{pair_id}/{mode}/meta",
+    summary="Географические границы PNG-подложки реальной сцены Sentinel-1/2",
+)
+def get_scene_metadata(
+    pair_id: str,
+    mode: str,
+    window: str = Query(default="peak", description="Окно съёмки: 'peak' (пик) или 'pre' (до события)"),
+) -> dict[str, Any]:
+    """Возвращает границы WGS84 [[south, west], [north, east]] и метаданные сцены для Leaflet."""
+    norm_mode = mode.strip().lower()
+    if norm_mode not in SCENE_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Некорректный режим '{mode}'. Допустимо: {', '.join(sorted(SCENE_MODES))}",
+        )
+
+    norm_window = window.strip().lower()
+    if norm_window not in ("peak", "pre"):
+        raise HTTPException(status_code=400, detail=f"Некорректное окно '{window}'. Допустимо: 'peak', 'pre'")
+
+    scene_tif = data_loader.resolve_scene_tif(pair_id, norm_mode, window=norm_window)
+    if scene_tif is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Сцена '{norm_mode}' ({norm_window}) для пары '{pair_id}' недоступна",
+        )
+
+    _png, bounds, meta = render_scene_png(scene_tif, mode=norm_mode)
+    return {
+        "pair_id": pair_id,
+        "mode": norm_mode,
+        "window": norm_window,
+        "label": SCENE_MODES[norm_mode]["label"],
+        "source": str(scene_tif.name),
+        "bounds": bounds,
+        "width": meta["width"],
+        "height": meta["height"],
+        "crs": meta["crs"],
+        "scene_url": f"/api/v1/scene/{pair_id}/{norm_mode}?window={norm_window}",
+    }
 
 
 @app.get(

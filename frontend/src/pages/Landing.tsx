@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { MapContainer } from '../components/map/MapContainer';
 import { apiClient } from '../api/client';
-import type { Pair } from '../types/domain';
+import type { Pair, ReportData } from '../types/domain';
 
 const PAIR_NAMES: Record<string, { city: string; title: string; event: string }> = {
   'baseline_2018_09_low__blagoveshchensk': { city: 'Благовещенск', title: 'Благовещенск, р. Амур', event: 'Базовый межень' },
@@ -30,26 +30,13 @@ const PAIR_NAMES: Record<string, { city: string; title: string; event: string }>
   'flood_2021_08_zeya__svobodny': { city: 'Свободный', title: 'Свободный, р. Зея', event: 'Паводок 2021 (Зея)' },
 };
 
-const PAIR_FLOOD_STATS: Record<string, { flood_ha: number; water_peak_ha: number }> = {
-  'baseline_2018_09_low__blagoveshchensk': { flood_ha: 328.4, water_peak_ha: 8524.8 },
-  'baseline_2018_09_low__konstantinovka': { flood_ha: 332.2, water_peak_ha: 6425.5 },
-  'baseline_2018_09_low__svobodny': { flood_ha: 175.5, water_peak_ha: 4540.9 },
-  'flood_2019_07_amur__belogorsk': { flood_ha: 69.6, water_peak_ha: 767.0 },
-  'flood_2019_07_amur__blagoveshchensk': { flood_ha: 996.4, water_peak_ha: 9189.0 },
-  'flood_2019_07_amur__konstantinovka': { flood_ha: 722.3, water_peak_ha: 7052.8 },
-  'flood_2019_07_amur__svobodny': { flood_ha: 556.0, water_peak_ha: 4999.7 },
-  'flood_2021_06_amur__blagoveshchensk': { flood_ha: 3745.0, water_peak_ha: 11824.0 },
-  'flood_2021_06_amur__konstantinovka': { flood_ha: 4863.4, water_peak_ha: 10746.2 },
-  'flood_2021_06_amur__poyarkovo': { flood_ha: 2046.2, water_peak_ha: 6883.8 },
-  'flood_2021_08_zeya__svobodny': { flood_ha: 7496.9, water_peak_ha: 12292.9 },
-};
-
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
   const [pairs, setPairs] = useState<Pair[]>([]);
   const [slideIndex, setSlideIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [slideStats, setSlideStats] = useState<Record<string, ReportData>>({});
 
   useEffect(() => {
     apiClient.fetchPairs().then((loadedPairs) => {
@@ -71,6 +58,24 @@ export const Landing: React.FC = () => {
   }, [isPaused, pairs.length]);
 
   const currentPair = pairs[slideIndex] || null;
+
+  // Площади берутся из API отчёта: локальная копия чисел расходилась с сервисом
+  // в разы и показывала на главной недостоверные га.
+  useEffect(() => {
+    const pairId = currentPair?.pair_id;
+    if (!pairId || slideStats[pairId]) return;
+    let isMounted = true;
+    apiClient
+      .fetchReport(pairId)
+      .then((rep) => {
+        if (isMounted && rep) setSlideStats((prev) => ({ ...prev, [pairId]: rep }));
+      })
+      .catch(console.error);
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPair?.pair_id, slideStats]);
+
   const currentInfo = currentPair
     ? PAIR_NAMES[currentPair.pair_id] || {
         city: currentPair.aoi_name || 'Амурская обл.',
@@ -78,12 +83,7 @@ export const Landing: React.FC = () => {
         event: currentPair.event_name || 'Наблюдение',
       }
     : null;
-  const currentStats = currentPair
-    ? PAIR_FLOOD_STATS[currentPair.pair_id] || {
-        flood_ha: (currentPair as any).flood_ha || 996.4,
-        water_peak_ha: 2847.3,
-      }
-    : { flood_ha: 996.4, water_peak_ha: 2847.3 };
+  const currentReport = currentPair ? slideStats[currentPair.pair_id] : undefined;
 
   const prevSlide = () => {
     setSlideIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
@@ -283,12 +283,17 @@ export const Landing: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#F97316]" />
                   <span className="font-mono font-bold text-xs sm:text-sm md:text-base text-text-primary">
-                    {currentStats.flood_ha.toLocaleString('ru-RU')} га
+                    {currentReport ? `${currentReport.flood_ha.toLocaleString('ru-RU')} га` : 'загрузка…'}
                   </span>
                 </div>
                 <div className="text-[10px] sm:text-[11px] text-text-secondary mt-0.5 font-medium">
                   {currentPair?.event_kind === 'baseline' ? 'водное зеркало межени' : 'нового затопления'}
                 </div>
+                {currentReport && (
+                  <div className="text-[9px] sm:text-[10px] text-text-muted mt-0.5 font-mono">
+                    зеркало на пик: {currentReport.water_peak_ha.toLocaleString('ru-RU')} га
+                  </div>
+                )}
                 <div className="text-[9px] sm:text-[10px] text-text-muted mt-0.5 font-mono">
                   {currentPair ? `${currentPair.date_pre_sar || '12.07'} -> ${currentPair.date_peak_sar || '14.07.2019'}` : '14.07.2019'}
                 </div>

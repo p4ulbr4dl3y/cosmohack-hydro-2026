@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReportData } from '../../types/domain';
 import { formatHa, formatKm2 } from '../../lib/format';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 
 interface KpiCardsProps {
   report: ReportData | null;
@@ -20,6 +20,15 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
   }
 
   const aoiPercent = (report.share_of_aoi * 100).toFixed(2);
+
+  // Прирост зеркала воды может быть отрицательным (вода ушла к дате пика):
+  // знак, цвет и стрелка выводятся из фактического значения, а не прибиты к «+».
+  const gainPct = report.water_gain_pct ?? 0;
+  const isGain = gainPct > 0;
+  const isFlat = gainPct === 0;
+  const gainTone = isFlat ? 'text-text-muted' : isGain ? 'text-emerald-600' : 'text-rose-600';
+  const GainIcon = isFlat ? Minus : isGain ? ArrowUpRight : ArrowDownRight;
+  const gainLabel = isGain ? 'прирост зеркала воды' : isFlat ? 'зеркало воды без изменений' : 'убыль зеркала воды';
 
   return (
     <div className="space-y-3">
@@ -40,9 +49,12 @@ export const KpiCards: React.FC<KpiCardsProps> = ({ report, isLoading = false })
           <span>{aoiPercent}% от AOI</span>
         </div>
         {report.water_gain_pct !== undefined && (
-          <div className="mt-2 flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+{report.water_gain_pct.toFixed(1)}% прирост зеркала воды</span>
+          <div className={`mt-2 flex items-center gap-1 text-[11px] font-medium ${gainTone}`}>
+            <GainIcon className="w-3.5 h-3.5" />
+            <span>
+              {gainPct > 0 ? '+' : ''}
+              {gainPct.toFixed(1)}% {gainLabel}
+            </span>
           </div>
         )}
       </div>

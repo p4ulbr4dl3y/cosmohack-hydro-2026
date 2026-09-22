@@ -53,8 +53,21 @@ describe('LayerControl component', () => {
     expect(screen.getByText('Маски затопления')).toBeDefined();
     expect(screen.getByText('Новое затопление')).toBeDefined();
     expect(screen.getByText('Вода на пик')).toBeDefined();
-    expect(screen.getByText('Подложка')).toBeDefined();
+    expect(screen.getByText('Подложка (сцена Sentinel)')).toBeDefined();
     expect(screen.getByText('Векторы')).toBeDefined();
+  });
+
+  it('exposes a working checkbox for every mask drawn on the map', () => {
+    render(<LayerControl />);
+
+    // Каждая запись легенды обязана иметь собственный переключатель: раньше
+    // «Убыль воды» показывалась в легенде, но включить её было нельзя.
+    ['Новое затопление', 'Вода на пик', 'Вода на до', 'Постоянная вода', 'Убыль воды'].forEach(
+      (label) => {
+        expect(screen.getByText(label)).toBeDefined();
+      }
+    );
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThanOrEqual(9);
   });
 
   it('toggles layer state when checkbox is changed', () => {

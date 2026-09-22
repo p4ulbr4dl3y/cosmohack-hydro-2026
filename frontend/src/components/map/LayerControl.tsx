@@ -125,18 +125,40 @@ export const LayerControl: React.FC = () => {
                   className="w-3.5 h-3.5 accent-[#0EA5E9] rounded cursor-pointer"
                 />
               </label>
+
+              {/* Убыль воды */}
+              <label className="flex items-center justify-between cursor-pointer py-0.5 group">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-dashed"
+                    style={{
+                      backgroundColor: 'rgba(167, 139, 250, 0.25)',
+                      borderColor: WATER_COLORS.receded.color,
+                    }}
+                  />
+                  <span className="text-text-primary text-[11px] group-hover:text-text-secondary">
+                    Убыль воды
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={layers.receded}
+                  onChange={() => toggleLayer('receded')}
+                  className="w-3.5 h-3.5 accent-[#0EA5E9] rounded cursor-pointer"
+                />
+              </label>
             </div>
           </div>
 
           {/* Раздел: Подложки */}
           <div className="pt-2 border-t border-[#F1F5F9]">
             <div className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-1.5">
-              Подложка
+              Подложка (сцена Sentinel)
             </div>
             <div className="space-y-1">
               {[
-                { id: 'sar_vv', label: 'SAR VV' },
-                { id: 'sar_vh', label: 'SAR VH' },
+                { id: 'sar_vv', label: 'SAR VV (пик)' },
+                { id: 'sar_vh', label: 'SAR VH (пик)' },
                 { id: 'msi_true', label: 'MSI True Color' },
                 { id: 'msi_false', label: 'MSI False Color' },
               ].map((item) => (
@@ -147,6 +169,7 @@ export const LayerControl: React.FC = () => {
                   <input
                     type="radio"
                     name="basemap"
+                    value={item.id}
                     checked={basemap === item.id}
                     onChange={() => handleBasemapChange(item.id as BasemapType)}
                     className="w-3.5 h-3.5 accent-[#0EA5E9] cursor-pointer"

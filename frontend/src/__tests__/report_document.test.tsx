@@ -55,27 +55,24 @@ const mockComparison: ComparisonData = {
   rows: [
     {
       metric: 'flood_ha',
+      label: 'Новое затопление',
       pred: 2847.3,
       reference: 2847.3,
-      diff_ha: 0,
       diff_pct: 0,
-      description: 'Новое затопление',
     },
     {
       metric: 'water_peak_ha',
+      label: 'Водное зеркало на пик',
       pred: 9106.9,
       reference: 9106.9,
-      diff_ha: 0,
       diff_pct: 0,
-      description: 'Водное зеркало на пик',
     },
     {
       metric: 'water_pre_ha',
+      label: 'Водное зеркало до события',
       pred: 6259.6,
       reference: 6259.6,
-      diff_ha: 0,
       diff_pct: 0,
-      description: 'Водное зеркало до события',
     },
   ],
 };
@@ -166,8 +163,37 @@ describe('ReportDocument component', () => {
     render(<ReportDocument report={mockReport} comparison={mockComparison} forPdf={true} />);
 
     expect(screen.getByText('СРАВНЕНИЕ С ЭТАЛОНОМ')).toBeDefined();
-    expect(screen.getAllByText('flood_ha').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('water_peak_ha').length).toBeGreaterThan(0);
+    // Метка строки берётся из API (label), а не из технического имени метрики
+    expect(screen.getAllByText('Новое затопление').length).toBeGreaterThan(0);
+    expect(screen.getByText('Водное зеркало на пик')).toBeDefined();
+    expect(screen.queryByText('flood_ha')).toBeNull();
+  });
+
+  it('never fabricates a zero deviation when no reference data arrived', () => {
+    render(<ReportDocument report={mockReport} forPdf={true} />);
+
+    // Пустая таблица честнее выдуманного «0,0%»: оно выдавало бы прогноз
+    // за сверенный с эталоном результат.
+    expect(screen.getByText('Эталонные значения недоступны: сравнение не выполнялось.')).toBeDefined();
+    expect(screen.queryByText('0,0%')).toBeNull();
+  });
+
+  it('marks a large deviation as a mismatch instead of green', () => {
+    const { container } = render(
+      <ReportDocument
+        report={mockReport}
+        comparison={{
+          pair_id: mockReport.pair_id,
+          rows: [
+            { metric: 'flood_ha', label: 'Новое затопление', pred: 9114.37, reference: 2866.89, diff_pct: 217.9 },
+          ],
+        }}
+        forPdf={true}
+      />
+    );
+
+    expect(screen.getByText('+217.9%')).toBeDefined();
+    expect(container.querySelector('.text-amber-700')).not.toBeNull();
   });
 
   it('renders landcover classes table from ESA WorldCover', () => {

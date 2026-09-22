@@ -68,6 +68,7 @@ vi.mock('../api/client', () => ({
     fetchCarbonImpact: vi.fn().mockResolvedValue(null),
     getOverlayUrl: vi.fn().mockReturnValue(''),
     fetchOverlayMeta: vi.fn().mockResolvedValue(null),
+    fetchHealth: vi.fn().mockResolvedValue({ status: 'ok' }),
   },
 }));
 
@@ -85,7 +86,8 @@ describe('Dashboard responsive tabs and layout', () => {
 
     expect(screen.getByTestId('mock-map')).toBeDefined();
     expect(screen.getByText(/HydroWatch/)).toBeDefined();
-    expect(screen.getByText(/API: online/)).toBeDefined();
+    // Индикатор состояния приходит из реального health-запроса, а не из вёрстки
+    expect(await screen.findByText(/API: online/)).toBeDefined();
   });
 
   it('provides mobile bottom navigation with Map, Pairs, and Analytics tabs', async () => {

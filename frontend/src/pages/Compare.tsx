@@ -1,13 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, RotateCcw } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useUiStore } from '../store/uiStore';
 import { WATER_COLORS } from '../lib/colors';
 import { Legend } from '../components/map/Legend';
 import { apiClient } from '../api/client';
+import { loadSceneOverlay, type SceneOverlay } from '../lib/sceneOverlay';
 import type { ReportData } from '../types/domain';
+
+/** Нейтральная подложка для режима «Маски» и для пар без доступной сцены. */
+const NEUTRAL_TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
 
 export const Compare: React.FC = () => {
   const { pairId = 'flood_2019_07_amur__blagoveshchensk' } = useParams<{ pairId: string }>();
@@ -17,6 +21,7 @@ export const Compare: React.FC = () => {
   const [sliderPos, setSliderPos] = useState<number>(50); // процент 0 - 100
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [report, setReport] = useState<ReportData | null>(null);
+  const [sceneError, setSceneError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const mapBeforeRef = useRef<HTMLDivElement>(null);
@@ -27,6 +32,9 @@ export const Compare: React.FC = () => {
 
   const tileBeforeRef = useRef<L.TileLayer | null>(null);
   const tilePeakRef = useRef<L.TileLayer | null>(null);
+
+  const sceneBeforeRef = useRef<SceneOverlay | null>(null);
+  const scenePeakRef = useRef<SceneOverlay | null>(null);
 
   const layerWaterPre1Ref = useRef<L.GeoJSON | null>(null);
   const layerWaterPre2Ref = useRef<L.GeoJSON | null>(null);
@@ -48,8 +56,7 @@ export const Compare: React.FC = () => {
 
   useEffect(() => {
     apiClient.fetchReport(pairId).then(setReport).catch(console.error);
-    setCompareMode('msi');
-  }, [pairId, setCompareMode]);
+  }, [pairId]);
 
   // Клавиатурная навигация: Esc -> назад, ArrowLeft / ArrowRight -> сдвиг слайдера
   useEffect(() => {
@@ -142,7 +149,7 @@ export const Compare: React.FC = () => {
     };
   }, []);
 
-  // Обновление подложек на обеих картах
+  // Обновление подложек на обеих картах: нейтральные тайлы + реальные сцены Sentinel
   useEffect(() => {
     const map1 = leafletBefore.current;
     const map2 = leafletPeak.current;
@@ -151,21 +158,64 @@ export const Compare: React.FC = () => {
     if (tileBeforeRef.current) map1.removeLayer(tileBeforeRef.current);
     if (tilePeakRef.current) map2.removeLayer(tilePeakRef.current);
 
-    let tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-    let subdomains = 'abcd';
+    // Нейтральные тайлы всегда лежат внизу: реальная сцена накладывается поверх
+    // них отдельным оверлеем, поэтому подписи режимов не подменяются улицами.
+    tileBeforeRef.current = L.tileLayer(NEUTRAL_TILE_URL, {
+      maxZoom: 19,
+      subdomains: 'abcd',
+      crossOrigin: true,
+    }).addTo(map1);
+    tilePeakRef.current = L.tileLayer(NEUTRAL_TILE_URL, {
+      maxZoom: 19,
+      subdomains: 'abcd',
+      crossOrigin: true,
+    }).addTo(map2);
 
-    if (compareMode === 'sar') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    } else if (compareMode === 'msi') {
-      tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-      subdomains = 'abc';
-    } else if (compareMode === 'masks') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    const clearScenes = () => {
+      sceneBeforeRef.current?.remove();
+      scenePeakRef.current?.remove();
+      sceneBeforeRef.current = null;
+      scenePeakRef.current = null;
+    };
+
+    clearScenes();
+
+    if (!pairId || compareMode === 'masks') {
+      setSceneError(null);
+      return clearScenes;
     }
 
-    tileBeforeRef.current = L.tileLayer(tileUrl, { maxZoom: 19, subdomains, crossOrigin: true }).addTo(map1);
-    tilePeakRef.current = L.tileLayer(tileUrl, { maxZoom: 19, subdomains, crossOrigin: true }).addTo(map2);
-  }, [compareMode]);
+    const mode = compareMode === 'sar' ? 'sar_vv' : 'msi_true';
+    let isMounted = true;
+
+    // «До» и «пик» берутся из разных съёмок одного сенсора, чтобы слайдер
+    // действительно сравнивал две даты, а не дублировал один и тот же снимок.
+    Promise.all([
+      loadSceneOverlay(map1, pairId, mode, 'pre'),
+      loadSceneOverlay(map2, pairId, mode, 'peak'),
+    ])
+      .then(([preScene, peakScene]) => {
+        if (!isMounted) {
+          preScene?.remove();
+          peakScene?.remove();
+          return;
+        }
+        sceneBeforeRef.current = preScene;
+        scenePeakRef.current = peakScene;
+        // Сцена отсутствует целиком (например, оптические съёмки без данных) -
+        // сообщаем об этом, а не выдаём пустую карту за результат сравнения.
+        setSceneError(!preScene && !peakScene ? `Сцена ${mode.toUpperCase()} недоступна для этой пары` : null);
+      })
+      .catch((err) => {
+        console.error('Не удалось загрузить сцены для сравнения', err);
+        if (isMounted) setSceneError('Не удалось загрузить сцены для сравнения');
+      });
+
+    return () => {
+      isMounted = false;
+      clearScenes();
+    };
+  }, [compareMode, pairId]);
 
   // Загрузка реальных слоёв GeoJSON и подгонка границ
   useEffect(() => {
@@ -344,7 +394,7 @@ export const Compare: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden xl:flex items-center gap-1.5 bg-[#F8FAFC] border border-[#EAECF0] px-2 py-1 rounded-lg text-xs">
+        <div className="hidden lg:flex items-center gap-1.5 bg-[#F8FAFC] border border-[#EAECF0] px-2 py-1 rounded-lg text-xs">
           <span className="text-[11px] text-text-muted font-medium mr-0.5">Слои:</span>
           <button
             onClick={() => toggleLayerVis('flood')}
@@ -423,6 +473,14 @@ export const Compare: React.FC = () => {
 
       {/* Контейнер слоёв карты */}
       <div className="absolute inset-0 pt-14 pb-20 overflow-hidden">
+        {/* Сообщение о недоступности сцены: сравнение не должно выглядеть успешным без данных */}
+        {sceneError && (
+          <div className="absolute top-[4.5rem] left-1/2 -translate-x-1/2 z-[1100] bg-amber-50 border border-amber-200 text-amber-900 rounded-lg px-3 py-1.5 shadow-floating text-[11px] font-medium flex items-center gap-1.5 pointer-events-none">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span>{sceneError}</span>
+          </div>
+        )}
+
         {/* Нижний слой (до паводка - карта 1) */}
         <div className="absolute inset-0 z-0">
           <div ref={mapBeforeRef} className="w-full h-full" />

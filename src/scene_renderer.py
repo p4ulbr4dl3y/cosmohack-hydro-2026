@@ -11,8 +11,27 @@ from typing import Any
 
 import numpy as np
 import rasterio
+from rasterio.enums import Resampling
 from rasterio.io import MemoryFile
 from rasterio.warp import calculate_default_transform
+
+#: Режимы отображения реальных сцен Sentinel-1/2. ``bands`` задаёт порядок каналов
+#: исходного растра, попадающих в R, G, B выходного PNG (1-based).
+#: ``s1_peak_2019-07-25.tif`` содержит каналы [VV, VH, VV_VH_ratio], а ``SENTINEL2_*.tif``
+#: - [B3, B4, B8, B11, NDWI, MNDWI, NDVI, AWEIsh].
+SCENE_MODES: dict[str, dict[str, Any]] = {
+    "sar_vv": {"kind": "sar", "bands": (1,), "label": "Sentinel-1 SAR VV (пик)"},
+    "sar_vh": {"kind": "sar", "bands": (2,), "label": "Sentinel-1 SAR VH (пик)"},
+    "msi_true": {"kind": "optical", "bands": (2, 1, 3), "label": "Sentinel-2 True Color (B4/B3/B8)"},
+    "msi_false": {"kind": "optical", "bands": (3, 2, 1), "label": "Sentinel-2 False Color (B8/B4/B3)"},
+}
+
+#: Ограничение стороны выходного PNG: снимок сцены в полном разрешении (4479x3682)
+#: весит ~22 МБ и кодируется секунды, что неприемлемо для веб-подложки.
+SCENE_MAX_DIM = 1600
+
+#: Значение nodata оптических сцен (см. ``scripts/fetch_real_s2.py``).
+OPTICAL_NODATA = -999.0
 
 
 def get_scene_wgs84_bounds(tif_path: str | Path) -> list[list[float]]:
@@ -201,6 +220,89 @@ def render_mask_png(
         rgb = colors.get(layer_type.lower(), (239, 68, 68))
         rgba = mask_to_rgba(mask, color_rgb=rgb, alpha=200)
     return render_rgba_to_png(rgba)
+
+
+def render_scene_png(
+    tif_path: str | Path,
+    mode: str,
+    max_dim: int = SCENE_MAX_DIM,
+) -> tuple[bytes, list[list[float]], dict[str, Any]]:
+    """Рендерит реальную сцену Sentinel-1/2 в PNG для использования как подложка карты.
+
+    Режим ``mode`` берётся из :data:`SCENE_MODES`. Радиолокационные каналы (дБ) растягиваются
+    перцентильно функцией :func:`normalize_band`, оптические (отражательная способность 0..1)
+    масштабируются в 0..255. Пиксели nodata и невалидные остаются прозрачными, поэтому
+    сцена накладывается на карту без чёрных прямоугольников.
+
+    Возвращает ``(png_bytes, bounds_wgs84, meta)``.
+    """
+    cfg = SCENE_MODES.get(mode)
+    if cfg is None:
+        raise ValueError(f"Неизвестный режим сцены '{mode}'. Допустимо: {sorted(SCENE_MODES)}")
+
+    p = Path(tif_path)
+    if not p.is_file():
+        raise FileNotFoundError(f"Файл сцены не найден: {p}")
+
+    with rasterio.open(p) as src:
+        scale = min(1.0, max_dim / float(max(src.width, src.height)))
+        out_h = max(1, int(round(src.height * scale)))
+        out_w = max(1, int(round(src.width * scale)))
+        bands = src.read(
+            indexes=list(cfg["bands"]),
+            out_shape=(len(cfg["bands"]), out_h, out_w),
+            resampling=Resampling.average,
+        )
+        nodata = src.nodata
+        crs = str(src.crs)
+        src_bounds = src.bounds
+
+    is_sar = cfg["kind"] == "sar"
+    channels: list[np.ndarray] = []
+    for band in bands:
+        band = band.astype(np.float32)
+        valid = np.isfinite(band)
+        if nodata is not None:
+            valid &= band != nodata
+        if not is_sar:
+            valid &= band > 0.0
+        if not np.any(valid):
+            channels.append(np.zeros(band.shape, dtype=np.uint8))
+            continue
+        if is_sar:
+            # Радиолокационные каналы в дБ растягиваются перцентильно (2-98%)
+            gray = normalize_band(np.where(valid, band, np.nan))
+            gray[~valid] = 0
+        else:
+            values = band[valid]
+            lo, hi = np.percentile(values, (2.0, 98.0))
+            if hi <= lo:
+                hi = lo + 1e-6
+            scaled = np.clip((band - lo) / (hi - lo), 0.0, 1.0) * 255.0
+            gray = np.round(np.nan_to_num(scaled, nan=0.0)).astype(np.uint8)
+            gray[~valid] = 0
+        channels.append(gray)
+
+    if len(channels) == 1:
+        channels = channels * 3
+
+    alpha = np.zeros(channels[0].shape, dtype=np.uint8)
+    for ch in channels:
+        alpha = np.maximum(alpha, ch)
+    alpha[alpha > 0] = 255
+
+    rgba = np.dstack([channels[0], channels[1], channels[2], alpha])
+    png_bytes = render_rgba_to_png(rgba)
+    bounds = get_scene_wgs84_bounds(p)
+    meta = {
+        "width": out_w,
+        "height": out_h,
+        "crs": crs,
+        "bounds": bounds,
+        "mode": mode,
+        "bounds_native": [src_bounds.left, src_bounds.bottom, src_bounds.right, src_bounds.top],
+    }
+    return png_bytes, bounds, meta
 
 
 def render_geotiff_overlay(

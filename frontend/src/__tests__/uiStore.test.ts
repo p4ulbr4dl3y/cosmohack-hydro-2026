@@ -6,7 +6,7 @@ describe('uiStore state management', () => {
     // Сброс к значениям по умолчанию
     const store = useUiStore.getState();
     store.setActivePairId('flood_2019_07_amur__blagoveshchensk');
-    store.setBasemap('msi_true');
+    store.setBasemap('sar_vv');
     store.setCompareMode('sar');
     store.setCompareSplitPosition(50);
     store.setMapCenter([50.28, 127.54]);
@@ -26,7 +26,7 @@ describe('uiStore state management', () => {
     expect(state.layers.water_peak).toBe(true);
     expect(state.layers.receded).toBe(false);
     expect(state.layers.opacity).toBe(0.6);
-    expect(state.basemap).toBe('msi_true');
+    expect(state.basemap).toBe('sar_vv');
     expect(state.showLegend).toBe(true);
   });
 
@@ -74,10 +74,16 @@ describe('uiStore state management', () => {
 
     setBasemap('msi_false');
     expect(useUiStore.getState().basemap).toBe('msi_false');
+
+    setBasemap('sar_vv');
+    expect(useUiStore.getState().basemap).toBe('sar_vv');
   });
 
   it('switches compare mode and updates slider position', () => {
     const { setCompareMode, setCompareSplitPosition } = useUiStore.getState();
+
+    // По умолчанию сравнение открывается на SAR: эти сцены есть у всех пар
+    expect(useUiStore.getState().compareMode).toBe('sar');
 
     setCompareMode('msi');
     expect(useUiStore.getState().compareMode).toBe('msi');

@@ -8,6 +8,7 @@ import type {
   OfficialMetrics,
   SubmissionValidation,
   FloodCarbonImpact,
+  SceneMeta,
 } from '../types/domain';
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) || '';
@@ -290,6 +291,37 @@ export const apiClient = {
       const res = await fetch(`${API_BASE}/api/v1/overlay/${pairId}/meta?layer=${layer}`);
       if (res.ok) return await res.json();
     } catch {}
+    return null;
+  },
+
+  /**
+   * Метаданные реальной сцены Sentinel-1/2 для подложки карты.
+   * Возвращает null, когда сцена отсутствует или состоит только из nodata, -
+   * карта в этом случае не подменяет сцену посторонними тайлами.
+   */
+  async fetchSceneMeta(
+    pairId: string,
+    mode: string,
+    window: 'peak' | 'pre' = 'peak'
+  ): Promise<SceneMeta | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/scene/${pairId}/${mode}/meta?window=${window}`);
+      if (res.ok) return await res.json();
+    } catch {}
+    return null;
+  },
+
+  getSceneUrl(pairId: string, mode: string, window: 'peak' | 'pre' = 'peak'): string {
+    return `${API_BASE}/api/v1/scene/${pairId}/${mode}?window=${window}`;
+  },
+
+  async fetchHealth(): Promise<{ status: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/health`);
+      if (res.ok) return await res.json();
+    } catch {
+      // Сервис недоступен: индикатор состояния должен показать офлайн, а не соврать
+    }
     return null;
   },
 

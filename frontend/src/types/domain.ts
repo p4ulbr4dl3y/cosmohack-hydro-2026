@@ -111,6 +111,27 @@ export interface LayerState {
 }
 
 export type BasemapType = 'sar_vv' | 'sar_vh' | 'msi_true' | 'msi_false' | 'carto_light';
+
+/** Режимы реальных сцен Sentinel-1/2, отдаваемых API как PNG-подложка. */
+export const SCENE_BASEMAPS = ['sar_vv', 'sar_vh', 'msi_true', 'msi_false'] as const;
+
+export type SceneBasemapType = (typeof SCENE_BASEMAPS)[number];
+
+export const isSceneBasemap = (basemap: BasemapType): basemap is SceneBasemapType =>
+  (SCENE_BASEMAPS as readonly string[]).includes(basemap);
+
+export interface SceneMeta {
+  pair_id: string;
+  mode: string;
+  label: string;
+  source: string;
+  /** Границы оверлея Leaflet [[south, west], [north, east]] в EPSG:4326. */
+  bounds: [[number, number], [number, number]];
+  width: number;
+  height: number;
+  crs: string;
+  scene_url: string;
+}
 export type ViewMode = 'map' | 'report' | 'compare';
 export type GradientOverlayMode = 'none' | 'flood' | 'water_peak' | 'water_pre';
 

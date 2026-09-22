@@ -836,6 +836,57 @@ def test_layers_geojson_endpoints():
     assert resp_layer_bad_pair.status_code == 404
 
 
+def test_derived_layers_available_over_http():
+    """Чекбоксы «Постоянная вода» и «Убыль воды» теперь опираются на реальные слои, а не на 400."""
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    for layer in ("permanent", "receded"):
+        resp = client.get(f"/api/v1/layers/{pair_id}/{layer}")
+        assert resp.status_code == 200, f"Слой {layer} должен отдаваться как GeoJSON"
+        body = resp.json()
+        assert body["type"] == "FeatureCollection"
+        assert body["features"], f"Слой {layer} не должен быть пустым"
+        assert body["features"][0]["properties"]["layer"] == layer
+
+    # Растровых GeoTIFF для производных масок нет: ручка честно отказывает
+    assert client.get(f"/api/v1/geotiff/{pair_id}?layer=permanent").status_code == 400
+
+
+def test_scene_png_and_metadata_endpoints():
+    """Подложка карты отдаётся реальной сценой Sentinel, а не чужими тайлами."""
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+
+    resp = client.get(f"/api/v1/scene/{pair_id}/sar_vv?window=peak")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == "image/png"
+    assert len(resp.content) > 10_000
+
+    meta = client.get(f"/api/v1/scene/{pair_id}/sar_vv/meta?window=peak")
+    assert meta.status_code == 200
+    body = meta.json()
+    assert body["mode"] == "sar_vv"
+    assert body["window"] == "peak"
+    assert body["source"].startswith("S1_peak_")
+    assert len(body["bounds"]) == 2
+    # Границы сцены совпадают с границами растра модели той же пары
+    assert body["crs"] == "EPSG:32652"
+
+    pre_meta = client.get(f"/api/v1/scene/{pair_id}/sar_vv/meta?window=pre").json()
+    assert body["source"] != pre_meta["source"]
+    assert pre_meta["source"].startswith("S1_pre_")
+
+    # Оптические сцены пары пусты (только nodata): 404 вместо пустой картинки
+    assert client.get(f"/api/v1/scene/{pair_id}/msi_true").status_code == 404
+    # Неизвестный режим и окно отвергаются
+    assert client.get(f"/api/v1/scene/{pair_id}/invalid_mode").status_code == 400
+    assert client.get(f"/api/v1/scene/{pair_id}/sar_vv?window=nope").status_code == 400
+
+
+def test_scene_endpoints_missing_pair():
+    assert client.get("/api/v1/scene/invalid_pair_999/sar_vv").status_code == 404
+    assert client.get("/api/v1/scene/invalid_pair_999/sar_vv/meta").status_code == 404
+
+
 def test_export_vectors_and_report_errors():
     # Строка 616
     resp_shp_404 = client.get("/api/v1/export/invalid_pair_999/vectors?format=shp")

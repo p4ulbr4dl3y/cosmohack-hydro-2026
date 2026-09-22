@@ -32,10 +32,8 @@ export const PairCard: React.FC<PairCardProps> = ({ pair, isSelected, onSelect }
   const dateLine = [sarStr, optStr].filter(Boolean).join(' · ');
 
   const areaText =
-    pair.status === 'no_optical' && !pair.aoi_km2
-      ? '—'
-      : (pair as any).flood_ha
-      ? `${formatNumber((pair as any).flood_ha, 0)} га`
+    typeof pair.flood_ha === 'number'
+      ? `${formatNumber(pair.flood_ha, 0)} га`
       : '—';
 
   return (

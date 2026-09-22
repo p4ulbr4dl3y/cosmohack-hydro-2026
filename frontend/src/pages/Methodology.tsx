@@ -331,10 +331,10 @@ export const Methodology: React.FC = () => {
           </div>
         </section>
 
-        {/* 4. ССЫЛКИ */}
+        {/* 5. ССЫЛКИ */}
         <section className="space-y-4">
           <div className="text-[11px] font-bold text-text-muted tracking-wider uppercase">
-            4. ССЫЛКИ И РЕСУРСЫ
+            5. ССЫЛКИ И РЕСУРСЫ
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">

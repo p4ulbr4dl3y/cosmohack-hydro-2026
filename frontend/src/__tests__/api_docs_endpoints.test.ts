@@ -6,8 +6,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { ApiDocs, ENDPOINTS } from '../pages/ApiDocs';
 
 describe('ApiDocs ENDPOINTS catalog verification', () => {
-  it('registers all 18 required API endpoints', () => {
-    expect(ENDPOINTS.length).toBe(18);
+  it('registers the full API catalog including undocumented-before endpoints', () => {
+    // Каталог покрывает все публичные маршруты сервиса, включая ранее не
+    // документированные (сцены, оверлеи, аудит, неопределённость, метео, EDA).
+    expect(ENDPOINTS.length).toBe(34);
   });
 
   it('guarantees unique endpoint IDs', () => {
@@ -22,9 +24,11 @@ describe('ApiDocs ENDPOINTS catalog verification', () => {
     });
   });
 
-  it('ensures all paths begin with /api/v1', () => {
+  it('ensures API endpoints begin with /api/v1 while system pages stay at the root', () => {
     ENDPOINTS.forEach((ep) => {
-      expect(ep.path.startsWith('/api/v1')).toBe(true);
+      // /health и /eda живут вне префикса /api/v1 по устройству сервиса.
+      const isSystemPage = ep.id === 'root_health' || ep.id === 'eda';
+      expect(ep.path.startsWith(isSystemPage ? '/' : '/api/v1')).toBe(true);
     });
   });
 
@@ -34,12 +38,17 @@ describe('ApiDocs ENDPOINTS catalog verification', () => {
       layer: 'flood',
       layer_name: 'hydrography_osm',
       format: 'geojson',
+      mode: 'sar_vv',
+      window: 'peak',
+      task_id: 'task-demo-0001',
+      confidence_level: '0.95',
     };
 
     ENDPOINTS.forEach((ep) => {
       const url = ep.buildUrl(dummyParams);
       expect(url).toBeDefined();
-      expect(url.startsWith('/api/v1')).toBe(true);
+      const isSystemPage = ep.id === 'root_health' || ep.id === 'eda';
+      expect(url.startsWith(isSystemPage ? '/' : '/api/v1')).toBe(true);
     });
   });
 
@@ -49,6 +58,10 @@ describe('ApiDocs ENDPOINTS catalog verification', () => {
       layer: 'flood',
       layer_name: 'hydrography_osm',
       format: 'geojson',
+      mode: 'sar_vv',
+      window: 'peak',
+      task_id: 'task-demo-0001',
+      confidence_level: '0.95',
     };
 
     ENDPOINTS.forEach((ep) => {
@@ -91,6 +104,17 @@ describe('ApiDocs ENDPOINTS catalog verification', () => {
     expect(ids).toContain('export_report');
     expect(ids).toContain('recompute');
     expect(ids).toContain('health');
+  });
+
+  it('documents the endpoints the map, report and dashboard actually call', () => {
+    const ids = ENDPOINTS.map((e) => e.id);
+    // Без этих маршрутов подложка карты, отчёт и индикатор состояния опираются
+    // на недокументированный контракт.
+    ['scene', 'scene_meta', 'geojson', 'shapefile', 'geotiff', 'overlay', 'overlay_meta',
+     'report_csv', 'report_mchs', 'audit', 'uncertainty', 'sar_analytics', 'predict_status',
+     'meteo', 'root_health'].forEach((id) => {
+      expect(ids).toContain(id);
+    });
   });
 
   it('renders cURL example section in light theme mode', () => {
