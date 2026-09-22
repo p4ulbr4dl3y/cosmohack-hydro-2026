@@ -7,7 +7,9 @@ describe('cn utility (tailwind-merge + clsx)', () => {
   });
 
   it('handles conditional expressions and booleans', () => {
-    expect(cn('base', true && 'active', false && 'hidden')).toBe('base active');
+    const isTrue = true as boolean;
+    const isFalse = false as boolean;
+    expect(cn('base', isTrue && 'active', isFalse && 'hidden')).toBe('base active');
   });
 
   it('ignores null, undefined, and empty string', () => {

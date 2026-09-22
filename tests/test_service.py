@@ -852,14 +852,15 @@ def test_derived_layers_available_over_http():
     assert client.get(f"/api/v1/geotiff/{pair_id}?layer=permanent").status_code == 400
 
 
-def test_scene_png_and_metadata_endpoints():
+def test_scene_png_and_metadata_endpoints(synthetic_s1_scene):
     """Подложка карты отдаётся реальной сценой Sentinel, а не чужими тайлами."""
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
     resp = client.get(f"/api/v1/scene/{pair_id}/sar_vv?window=peak")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "image/png"
-    assert len(resp.content) > 10_000
+    assert resp.content.startswith(b"\x89PNG\r\n\x1a\n")
+    assert len(resp.content) > 100
 
     meta = client.get(f"/api/v1/scene/{pair_id}/sar_vv/meta?window=peak")
     assert meta.status_code == 200

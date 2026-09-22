@@ -38,19 +38,21 @@ def synthetic_s1_scene(tmp_path, monkeypatch):
     vh[:30, :] = -28.0
 
     s1_tif = rasters_dir / "S1_peak_synthetic.tif"
-    with rasterio.open(
-        s1_tif,
-        "w",
-        driver="GTiff",
-        height=shape[0],
-        width=shape[1],
-        count=2,
-        dtype=np.float32,
-        crs="EPSG:32652",
-        transform=from_origin(127.0, 50.0, 10.0, 10.0),
-    ) as dst:
-        dst.write(vv, 1)
-        dst.write(vh, 2)
+    s1_pre_tif = rasters_dir / "S1_pre_synthetic.tif"
+    for target in (s1_tif, s1_pre_tif):
+        with rasterio.open(
+            target,
+            "w",
+            driver="GTiff",
+            height=shape[0],
+            width=shape[1],
+            count=2,
+            dtype=np.float32,
+            crs="EPSG:32652",
+            transform=from_origin(127.0, 50.0, 10.0, 10.0),
+        ) as dst:
+            dst.write(vv, 1)
+            dst.write(vh, 2)
 
     monkeypatch.setattr(loader, "data_dir", data_dir)
     monkeypatch.setattr(loader, "cache_dir", tmp_path / "cache")

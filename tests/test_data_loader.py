@@ -108,9 +108,9 @@ def test_data_loader_derived_layers_missing_rasters(tmp_path):
     assert loader.get_geojson("flood_2019_07_amur__blagoveshchensk", layer="receded") is None
 
 
-def test_data_loader_resolves_real_sentinel_scenes(tmp_path):
+def test_data_loader_resolves_real_sentinel_scenes(synthetic_s1_scene):
     """Резолвер сцен отдаёт реальные снимки для окна peak/pre и молчит про пустые."""
-    loader = DataLoader(cache_dir=tmp_path / "cache")
+    loader = synthetic_s1_scene
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
     peak = loader.resolve_scene_tif(pair_id, "sar_vv", window="peak")

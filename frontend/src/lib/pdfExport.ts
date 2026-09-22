@@ -82,7 +82,7 @@ export async function downloadReportPdf(
       let renderWidth = pageWidthMm;
       let renderHeight = imgHeightMm;
       let offsetX = 0;
-      let offsetY = 0;
+      const offsetY = 0;
 
       // Пропорциональное уменьшение, если высота контента превышает A4 (297mm), чтобы ничего не обрезалось
       if (imgHeightMm > pageHeightMm) {
