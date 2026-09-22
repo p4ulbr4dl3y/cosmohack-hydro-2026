@@ -270,7 +270,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [aoiFeatures, currentPair?.pair_id, currentPair?.aoi_id, currentPair?.bounds_4326, layers.aoi_boundary, interactive]);
 
-  // Keep map properly sized and centered when container size changes (PDF export, window resize, print)
+  // Держим карту корректно отмасштабированной и центрированной при изменении размера контейнера (экспорт в PDF, изменение окна, печать)
   useEffect(() => {
     if (!mapRef.current) return;
     const container = mapRef.current;
@@ -452,7 +452,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             geojsonCache.set(cacheKey, geojson);
           }
         } catch (err) {
-          console.error(`Error loading layer ${layerName}`, err);
+          console.error(`Ошибка загрузки слоя ${layerName}`, err);
           return;
         }
       }
@@ -625,7 +625,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         };
         requestAnimationFrame(animateFade);
       } catch (err) {
-        console.error('Failed to load raster gradient overlay', err);
+        console.error('Не удалось загрузить растровый градиентный оверлей', err);
       }
     };
 

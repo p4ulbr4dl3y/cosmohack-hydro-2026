@@ -108,7 +108,7 @@ def test_data_loader_unknown_pair_returns_none(tmp_path):
 
 
 def test_data_loader_missing_pairs_csv(tmp_path):
-    with pytest.raises(FileNotFoundError, match="pairs.csv not found"):
+    with pytest.raises(FileNotFoundError, match="pairs.csv не найден"):
         DataLoader(data_dir=tmp_path / "nonexistent", cache_dir=tmp_path / "cache")
 
 
@@ -288,7 +288,7 @@ def test_geojson_contour_cap_is_config_driven(tmp_path, monkeypatch):
 
 def test_data_loader_predict_non_overlapping_bounds(tmp_path):
     loader = DataLoader(cache_dir=tmp_path / "cache")
-    with pytest.raises(ValueError, match="do not overlap"):
+    with pytest.raises(ValueError, match="не пересекают"):
         loader.predict_spatial_temporal(bounds=[0.0, 0.0, 1.0, 1.0])
 
 
@@ -377,4 +377,4 @@ def test_data_loader_morphological_micro_island_filtering(tmp_path):
     assert gj is not None
     # Только 1 объект (крупное пятно 10x10), микроострова были отфильтрованы!
     assert len(gj["features"]) == 1
-    assert gj["features"][0]["properties"]["area_ha"] == 1.0  # 100 px * 0.01 ha/px
+    assert gj["features"][0]["properties"]["area_ha"] == 1.0  # 100 пикс * 0.01 га/пикс

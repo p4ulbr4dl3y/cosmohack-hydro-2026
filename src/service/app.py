@@ -55,7 +55,7 @@ PREDICTIONS_DIR = BASE_DIR / "predictions"
 
 app = FastAPI(
     title="HydroWatch Amur API",
-    description="Operational Sentinel-1/2 Hydrological Monitoring & Flood Intelligence Service",
+    description="Оперативный сервис гидрологического мониторинга и картирования паводков Sentinel-1/2",
     version="1.0.0",
 )
 
@@ -91,7 +91,7 @@ async def health_check() -> dict[str, str]:
 @app.get(
     "/api/v1/pairs",
     response_model=PairsListResponse,
-    summary="List all monitored pairs with metadata",
+    summary="Список всех наблюдаемых пар с метаданными",
 )
 async def list_pairs() -> Any:
     """Перечисляет все 11 пар с метаданными AOI, датами и площадями."""
@@ -101,13 +101,13 @@ async def list_pairs() -> Any:
 @app.get(
     "/api/v1/report/{pair_id}",
     response_model=ReportResponse,
-    summary="Get automated hydrological report for a pair",
+    summary="Автоматический гидрологический отчет по паре",
 )
 async def get_report(pair_id: str) -> Any:
     """Автоматизированный сводный отчёт с площадями затопления, метриками и типами поверхности."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
     return report
 
 
@@ -116,7 +116,7 @@ async def get_report_csv(pair_id: str) -> Response:
     """Скачивает отчёт по одной паре в формате CSV."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -215,16 +215,16 @@ async def get_report_csv(pair_id: str) -> Response:
 @app.get(
     "/api/v1/report/{pair_id}/mchs-dispatch",
     response_model=MchsDispatchResponse,
-    summary="Get official EMERCOM / MCHS operational field report",
+    summary="Официальное оперативное полевое донесение МЧС",
 )
 async def get_mchs_dispatch_endpoint(
     pair_id: str,
-    format: str = Query(default="json", description="Output format: 'json' or 'html'"),
+    format: str = Query(default="json", description="Формат вывода: 'json' или 'html'"),
 ) -> Any:
     """Official operational field report conforming to Russian EMERCOM (МЧС России) standards."""
     dispatch = data_loader.get_mchs_dispatch(pair_id)
     if not dispatch:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     if format.strip().lower() == "html":
         html_content = render_mchs_html(dispatch)
@@ -236,43 +236,43 @@ async def get_mchs_dispatch_endpoint(
 @app.get("/api/v1/geojson/{pair_id}")
 async def get_geojson(
     pair_id: str,
-    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> dict[str, Any]:
     """Векторные полигоны зоны затопления в формате GeoJSON (EPSG:4326 для веб-карт)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
         )
     geojson = data_loader.get_geojson(pair_id, layer=norm_layer)
     if geojson is None:
-        raise HTTPException(status_code=404, detail=f"GeoJSON for pair '{pair_id}' (layer: {norm_layer}) not found")
+        raise HTTPException(status_code=404, detail=f"GeoJSON для пары '{pair_id}' (слой: {norm_layer}) не найден")
     return geojson
 
 
 @app.get(
     "/api/v1/export/{pair_id}/shapefile",
-    summary="Download vector polygons as an ESRI Shapefile zip archive",
+    summary="Скачать векторные полигоны как zip-архив ESRI Shapefile",
 )
 @app.get(
     "/api/v1/shapefile/{pair_id}",
-    summary="Alias: export vector polygons as an ESRI Shapefile (.zip)",
+    summary="Синоним: экспорт векторных полигонов в ESRI Shapefile (.zip)",
 )
 async def get_shapefile(
     pair_id: str,
-    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> Response:
     """Векторные полигоны, экспортированные как архив ESRI Shapefile в zip (EPSG:4326)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
         )
     shp_bytes = data_loader.get_shapefile_zip(pair_id, layer=norm_layer)
     if shp_bytes is None:
-        raise HTTPException(status_code=404, detail=f"Shapefile for pair '{pair_id}' (layer: {norm_layer}) not found")
+        raise HTTPException(status_code=404, detail=f"Shapefile для пары '{pair_id}' (слой: {norm_layer}) не найден")
     return Response(
         content=shp_bytes,
         media_type="application/zip",
@@ -283,18 +283,18 @@ async def get_shapefile(
 @app.get("/api/v1/geotiff/{pair_id}")
 async def get_geotiff(
     pair_id: str,
-    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> FileResponse:
     """Скачивает растровую маску для заданной пары и слоя в формате GeoTIFF (EPSG:32652)."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
         )
     tif_path = PREDICTIONS_DIR / f"{pair_id}_{norm_layer}.tif"
     if not tif_path.exists():
-        raise HTTPException(status_code=404, detail=f"GeoTIFF for pair '{pair_id}' (layer: {norm_layer}) not found")
+        raise HTTPException(status_code=404, detail=f"GeoTIFF для пары '{pair_id}' (слой: {norm_layer}) не найден")
     return FileResponse(
         path=str(tif_path),
         media_type="image/tiff",
@@ -305,7 +305,7 @@ async def get_geotiff(
 @app.post(
     "/api/v1/predict",
     response_model=PredictResponse,
-    summary="Spatial-temporal flood prediction",
+    summary="Пространственно-временной прогноз затопления",
 )
 async def predict_flood(request: PredictRequest) -> Any:
     """Эндпоинт пространственно-временного вывода по запросу (bbox / polygon / pair_id / dates).
@@ -394,19 +394,19 @@ async def predict_flood(request: PredictRequest) -> Any:
                 "result": None,
                 "error": str(e),
             }
-        raise HTTPException(status_code=500, detail=f"Internal prediction error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка прогноза: {e!s}")
 
 
 @app.get(
     "/api/v1/predict/status/{task_id}",
     response_model=PredictionTaskResponse,
-    summary="Get status of an asynchronous prediction task",
+    summary="Статус асинхронной задачи прогноза",
 )
 async def get_prediction_task_status(task_id: str) -> PredictionTaskResponse:
     """Проверяет статус жизненного цикла и получает результат асинхронной задачи прогнозирования."""
     task = tasks_db.get(task_id)
     if not task:
-        raise HTTPException(status_code=404, detail=f"Prediction task '{task_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Задача прогноза '{task_id}' не найдена")
     return PredictionTaskResponse(**task)
 
 
@@ -423,7 +423,7 @@ async def get_aoi_vectors() -> dict[str, Any]:
     if not aoi_path.exists():
         aoi_path = BASE_DIR.parent / "data" / "vectors" / "aoi.geojson"
     if not aoi_path.exists():
-        raise HTTPException(status_code=404, detail="aoi.geojson not found")
+        raise HTTPException(status_code=404, detail="aoi.geojson не найден")
     with open(aoi_path, encoding="utf-8") as f:
         import json
 
@@ -438,7 +438,7 @@ async def get_vector_layer(layer_name: str) -> dict[str, Any]:
     if not v_path.exists():
         v_path = BASE_DIR.parent / "data" / "vectors" / f"{layer_name}.geojson"
     if not v_path.exists():
-        raise HTTPException(status_code=404, detail=f"Vector layer '{layer_name}' not found")
+        raise HTTPException(status_code=404, detail=f"Векторный слой '{layer_name}' не найден")
     with open(v_path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -449,7 +449,7 @@ async def get_comparison(pair_id: str) -> dict[str, Any]:
 
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     ref_json_path = BASE_DIR / "hydrowatch_amur" / "reference_masks" / f"reference_{pair_id}.json"
     if not ref_json_path.exists():
@@ -535,7 +535,7 @@ async def get_ablation_results() -> dict[str, Any]:
 
     ablation_path = BASE_DIR / "data" / "ablation_results.json"
     if not ablation_path.exists():
-        raise HTTPException(status_code=404, detail="Ablation results not found")
+        raise HTTPException(status_code=404, detail="Результаты аблаций не найдены")
     with open(ablation_path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -579,7 +579,7 @@ async def recompute_observation(request: RecomputeRequest | None = None) -> dict
 
     if target_pair_id is not None:
         if target_pair_id not in all_pair_ids:
-            raise HTTPException(status_code=404, detail=f"Pair '{target_pair_id}' not found")
+            raise HTTPException(status_code=404, detail=f"Пара '{target_pair_id}' не найдена")
         pair_ids = [target_pair_id]
     else:
         pair_ids = all_pair_ids
@@ -590,11 +590,11 @@ async def recompute_observation(request: RecomputeRequest | None = None) -> dict
         _invalidate_pair_caches(pair_ids)
         for pair_id in pair_ids:
             if data_loader.get_report(pair_id) is None:
-                raise RuntimeError(f"Report could not be rebuilt for pair '{pair_id}'")
+                raise RuntimeError(f"Не удалось перестроить отчет для пары '{pair_id}'")
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Recompute failed: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Повторный расчет не удался: {e!s}")
     elapsed = perf_counter() - started
 
     scope = f"пары '{target_pair_id}'" if target_pair_id else f"все {len(pair_ids)} пар"
@@ -613,7 +613,7 @@ async def get_all_layers_geojson(pair_id: str) -> dict[str, Any]:
     """Возвращает FeatureCollection GeoJSON слоя затопления для пары согласно контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer="flood")
     if geojson is None:
-        raise HTTPException(status_code=404, detail=f"Layers for pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Слои для пары '{pair_id}' не найдены")
     return geojson
 
 
@@ -622,7 +622,7 @@ async def get_layer_geojson(pair_id: str, layer: str) -> dict[str, Any]:
     """Эндпоинт слоя на основе пути, соответствующий контракту openapi."""
     geojson = data_loader.get_geojson(pair_id, layer=layer)
     if geojson is None:
-        raise HTTPException(status_code=404, detail=f"Layer '{layer}' for pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Слой '{layer}' для пары '{pair_id}' не найден")
     return geojson
 
 
@@ -635,13 +635,13 @@ async def analyze_flood(request: PredictRequest) -> dict[str, Any]:
 @app.get("/api/v1/export/{pair_id}/vectors")
 async def export_vectors(
     pair_id: str,
-    format: str = Query(default="geojson", description="Format: 'geojson' or 'shp'"),
+    format: str = Query(default="geojson", description="Формат: 'geojson' или 'shp'"),
 ) -> Response:
     """Экспортирует векторные контуры как GeoJSON или настоящий ESRI Shapefile (.zip)."""
     if format.lower() == "shp":
         shp_bytes = data_loader.get_shapefile_zip(pair_id, layer="flood")
         if shp_bytes is None:
-            raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
+            raise HTTPException(status_code=404, detail=f"Векторы для пары '{pair_id}' не найдены")
         return Response(
             content=shp_bytes,
             media_type="application/zip",
@@ -650,7 +650,7 @@ async def export_vectors(
 
     geojson = data_loader.get_geojson(pair_id, layer="flood")
     if geojson is None:
-        raise HTTPException(status_code=404, detail=f"Vectors for pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Векторы для пары '{pair_id}' не найдены")
 
     return Response(
         content=json.dumps(geojson, indent=2),
@@ -662,7 +662,7 @@ async def export_vectors(
 @app.get("/api/v1/export/{pair_id}/report")
 async def export_report(
     pair_id: str,
-    format: str = Query(default="json", description="Format: 'json' or 'csv'"),
+    format: str = Query(default="json", description="Формат: 'json' или 'csv'"),
 ) -> Response:
     """Экспортирует сводный отчёт как JSON или CSV."""
     if format.lower() == "csv":
@@ -670,7 +670,7 @@ async def export_report(
 
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     return Response(
         content=json.dumps(report, indent=2, ensure_ascii=False),
@@ -682,13 +682,13 @@ async def export_report(
 @app.get(
     "/api/v1/audit/{pair_id}",
     response_model=HydroAuditCertificateResponse,
-    summary="Cryptographic Merkle audit certificate for flood verification",
+    summary="Криптографический аудиторский сертификат Merkle для верификации затопления",
 )
 async def get_audit_certificate(pair_id: str) -> Any:
     """Создаёт или получает защищённый от подделки аудиторский сертификат Merkle для наблюдаемой пары."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     pair_meta = data_loader.get_pair_meta(pair_id) or {}
     inputs_info = {
@@ -724,7 +724,7 @@ async def get_audit_certificate(pair_id: str) -> Any:
 @app.get(
     "/api/v1/uncertainty/{pair_id}",
     response_model=FloodUncertaintyResponse,
-    summary="Spatial uncertainty and confidence intervals for flood area",
+    summary="Пространственная неопределенность и доверительные интервалы площади затопления",
 )
 async def get_flood_uncertainty(
     pair_id: str,
@@ -734,7 +734,7 @@ async def get_flood_uncertainty(
     """Вычисляет распространение пространственной ошибки и доверительный интервал [L, U]."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     pair_meta = data_loader.get_pair_meta(pair_id) or {}
     has_optical = bool(
@@ -785,13 +785,13 @@ async def get_flood_uncertainty(
 @app.get(
     "/api/v1/sar-analytics/{pair_id}",
     response_model=SARAnalyticsResponse,
-    summary="Sentinel-1 radar polarimetric analytics and quality metrics",
+    summary="Радиолокационная поляриметрическая аналитика Sentinel-1 и метрики качества",
 )
 async def get_sar_analytics(pair_id: str) -> Any:
     """Анализирует обратное рассеяние SAR с двойной поляризацией и проникновение радара для пары."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     sar = report.get("sar_analytics")
     is_hardcoded = isinstance(sar, dict) and sar.get("mean_vv_db") == -16.2 and sar.get("mean_vh_db") == -22.8
@@ -809,19 +809,19 @@ async def get_sar_analytics(pair_id: str) -> Any:
 
 @app.get(
     "/api/v1/overlay/{pair_id}",
-    summary="Download transparent RGBA PNG overlay for map visualization",
+    summary="Скачать прозрачный RGBA PNG-оверлей для визуализации на карте",
 )
 async def get_raster_overlay_png(
     pair_id: str,
-    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
-    gradient: bool = Query(default=True, description="Enable continuous depth/intensity color gradient"),
+    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
+    gradient: bool = Query(default=True, description="Включить непрерывный цветовой градиент глубины/интенсивности"),
 ) -> Response:
     """Отрисовывает прозрачный оверлей RGBA PNG напрямую для Leaflet L.imageOverlay."""
     norm_layer = layer.strip().lower()
     if norm_layer not in ("flood", "water_pre", "water_peak"):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid layer '{layer}'. Must be one of: 'flood', 'water_pre', 'water_peak'",
+            detail=f"Некорректный слой '{layer}'. Допустимо: 'flood', 'water_pre', 'water_peak'",
         )
 
     tif_path = PREDICTIONS_DIR / f"{pair_id}_{norm_layer}.tif"
@@ -846,16 +846,16 @@ async def get_raster_overlay_png(
 @app.get(
     "/api/v1/overlay/{pair_id}/meta",
     response_model=OverlayMetadataResponse,
-    summary="Get geographic bounds and metadata for raster PNG overlay",
+    summary="Географические границы и метаданные растрового PNG-оверлея",
 )
 async def get_raster_overlay_metadata(
     pair_id: str,
-    layer: str = Query(default="flood", description="Layer name: 'flood', 'water_pre', 'water_peak'"),
+    layer: str = Query(default="flood", description="Название слоя: 'flood', 'water_pre', 'water_peak'"),
 ) -> Any:
     """Получает совместимый с Leaflet прямоугольник WGS84 [[south, west], [north, east]] для оверлея."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     norm_layer = layer.strip().lower()
     tif_path = PREDICTIONS_DIR / f"{pair_id}_{norm_layer}.tif"
@@ -885,7 +885,7 @@ async def get_raster_overlay_metadata(
 @app.get(
     "/api/v1/metrics/official",
     response_model=OfficialMetricsResponse,
-    summary="Official competition score and component convergence (docs/TASK_SPEC.md)",
+    summary="Официальная соревновательная метрика и сходимость компонент (docs/TASK_SPEC.md)",
 )
 async def get_official_metrics() -> Any:
     """Вычисляет актуальную официальную оценку соревнования по всем 11 парам:
@@ -895,7 +895,7 @@ async def get_official_metrics() -> Any:
     pairs_path = BASE_DIR / "hydrowatch_amur" / "pairs.csv"
     data_dir = BASE_DIR / "hydrowatch_amur"
     if not sub_path.exists():
-        raise HTTPException(status_code=404, detail="submission.csv not found")
+        raise HTTPException(status_code=404, detail="submission.csv не найден")
 
     sub_df = pd.read_csv(sub_path)
     score_obj = compute_live_official_score(
@@ -910,7 +910,7 @@ async def get_official_metrics() -> Any:
 @app.get(
     "/api/v1/metrics/validate-submission",
     response_model=SubmissionValidationResponse,
-    summary="Validate submission.csv and raster masks against criteria (docs/CRITERIA.md)",
+    summary="Проверка submission.csv и растровых масок по критериям (docs/CRITERIA.md)",
 )
 async def validate_submission() -> Any:
     """Проверяет ограничения submission.csv и правило 2% расхождения растров."""
@@ -927,13 +927,13 @@ async def validate_submission() -> Any:
 @app.get(
     "/api/v1/carbon-metrics/{pair_id}",
     response_model=FloodCarbonImpactResponse,
-    summary="Biomass and carbon stock loss assessment for flood events",
+    summary="Оценка потерь биомассы и запасов углерода для паводковых событий",
 )
 async def get_carbon_impact(pair_id: str) -> Any:
     """Вычисляет углеродный след, потерю биомассы (значение IPCC по умолчанию CF=0.47) и кредиты на смягчение."""
     report = data_loader.get_report(pair_id)
     if not report:
-        raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
 
     flood_ha = float(report.get("flood_ha", 0.0))
     landcover = report.get("landcover", {})
@@ -954,7 +954,7 @@ async def root(full_path: str = "") -> FileResponse:
     """Отдаёт интерактивный веб-дашборд карты и fallback SPA."""
     # Не перехватывать запросы API
     if full_path.startswith("api/"):
-        raise HTTPException(status_code=404, detail="API endpoint not found")
+        raise HTTPException(status_code=404, detail="Точка входа API не найдена")
 
     file_candidate = STATIC_DIR / full_path
     if full_path and file_candidate.is_file():
@@ -964,9 +964,9 @@ async def root(full_path: str = "") -> FileResponse:
     # хэш) должны отдавать 404. Откат к index.html вернул бы text/html для
     # модуля JavaScript, который браузер отвергает и отрисовывает пустой экран.
     if full_path and Path(full_path).suffix:
-        raise HTTPException(status_code=404, detail=f"Asset '{full_path}' not found")
+        raise HTTPException(status_code=404, detail=f"Ресурс '{full_path}' не найден")
 
     index_file = STATIC_DIR / "index.html"
     if not index_file.exists():
-        raise HTTPException(status_code=404, detail="index.html not found")
+        raise HTTPException(status_code=404, detail="index.html не найден")
     return FileResponse(index_file, headers={"Cache-Control": "no-cache, must-revalidate"})

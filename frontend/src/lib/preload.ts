@@ -59,7 +59,7 @@ export function preloadAppCache() {
       }
     } catch (err) {
       // Сбои фоновой предзагрузки не критичны
-      console.warn('Background preload skipped:', err);
+      console.warn('Фоновая предзагрузка пропущена:', err);
     }
   };
 

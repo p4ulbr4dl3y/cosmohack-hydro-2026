@@ -110,7 +110,7 @@ def test_mchs_dispatch_404_on_invalid_pair() -> None:
     """Некорректная пара возвращает HTTP 404."""
     resp = client.get("/api/v1/report/unknown_pair_xyz/mchs-dispatch")
     assert resp.status_code == 404
-    assert "not found" in resp.json()["detail"].lower()
+    assert "не найдена" in resp.json()["detail"].lower()
 
 
 def test_export_shapefile_endpoint_flood() -> None:
@@ -159,7 +159,7 @@ def test_export_shapefile_invalid_layer() -> None:
     """Некорректный слой возвращает HTTP 400."""
     resp = client.get(f"/api/v1/export/{FLOOD_PAIR}/shapefile?layer=invalid_foo")
     assert resp.status_code == 400
-    assert "Invalid layer" in resp.json()["detail"]
+    assert "Некорректный слой" in resp.json()["detail"]
 
 
 def test_export_shapefile_invalid_pair() -> None:

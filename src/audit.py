@@ -152,9 +152,9 @@ def generate_flood_audit_certificate(
 
     # Формирование канонических листовых записей
     leaves_data = [
-        ("inputs_metadata", inputs_info, "Satellite scene metadata and input hashes"),
-        ("algorithm_parameters", parameters, "Segmentation thresholds, Otsu parameters, MMU"),
-        ("hydrological_results", results_summary, "Calculated flood, peak, and pre water areas"),
+        ("inputs_metadata", inputs_info, "Метаданные спутниковых сцен и хеши входных данных"),
+        ("algorithm_parameters", parameters, "Пороги сегментации, параметры Otsu, MMU"),
+        ("hydrological_results", results_summary, "Расчетные площади затопления, пиковой и предпаводковой воды"),
     ]
 
     merkle_leaves: list[MerkleLeaf] = []

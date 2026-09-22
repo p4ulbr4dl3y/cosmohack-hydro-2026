@@ -195,19 +195,19 @@ def test_green_ai_alias_and_tracker():
 
 def test_green_ai_input_validation():
     """Проверка обработки некорректных входных данных."""
-    with pytest.raises(ValueError, match="duration_seconds must be non-negative"):
+    with pytest.raises(ValueError, match="duration_seconds должен быть неотрицательным"):
         calculate_green_ai_inference(-1.0)
 
-    with pytest.raises(ValueError, match="cpu_utilization must be between"):
+    with pytest.raises(ValueError, match="cpu_utilization должен быть в диапазоне"):
         calculate_green_ai_inference(1.0, cpu_utilization=1.5)
 
-    with pytest.raises(ValueError, match="PUE must be >= 1.0"):
+    with pytest.raises(ValueError, match="PUE должен быть >= 1.0"):
         calculate_green_ai_inference(1.0, pue=0.8)
 
-    with pytest.raises(ValueError, match="Unknown CPU TDP preset"):
+    with pytest.raises(ValueError, match="Неизвестный пресет TDP процессора"):
         calculate_green_ai_inference(1.0, tdp_watts="quantum_core_9000")
 
-    with pytest.raises(ValueError, match="Unknown grid emission factor preset"):
+    with pytest.raises(ValueError, match="Неизвестный пресет фактора выбросов энергосети"):
         calculate_green_ai_inference(1.0, grid_emission_factor_kg_per_kwh="mars_colony_grid")
 
 

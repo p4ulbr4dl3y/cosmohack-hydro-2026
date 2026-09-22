@@ -12,24 +12,24 @@ class LandcoverDistribution(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    builtup_ha: float = Field(default=0.0, description="Flooded built-up / urban area in hectares")
-    builtup_pct: float = Field(default=0.0, description="Percentage of flood area on built-up land")
-    cropland_ha: float = Field(default=0.0, description="Flooded cropland (ESA WorldCover class 40) in hectares")
-    cropland_pct: float = Field(default=0.0, description="Percentage of flood area on cropland")
-    natural_vegetation_ha: float = Field(default=0.0, description="Flooded natural land / vegetation in hectares")
-    natural_vegetation_pct: float = Field(default=0.0, description="Percentage of flood area on natural land")
+    builtup_ha: float = Field(default=0.0, description="Затопленная застроенная / городская территория, га")
+    builtup_pct: float = Field(default=0.0, description="Доля площади затопления на застроенных землях, %")
+    cropland_ha: float = Field(default=0.0, description="Затопленная пашня (класс 40 ESA WorldCover), га")
+    cropland_pct: float = Field(default=0.0, description="Доля площади затопления на пашне, %")
+    natural_vegetation_ha: float = Field(default=0.0, description="Затопленные естественные земли / растительность, га")
+    natural_vegetation_pct: float = Field(default=0.0, description="Доля площади затопления на естественных землях, %")
     historic_water_extent_ha: float = Field(
-        default=0.0, description="Flooded area overlapping JRC GSW maximum water extent"
+        default=0.0, description="Площадь затопления в границах исторического максимума воды JRC GSW, га"
     )
-    historic_water_extent_pct: float = Field(default=0.0, description="Percentage overlapping historic maximum extent")
+    historic_water_extent_pct: float = Field(default=0.0, description="Доля в границах исторического максимума, %")
     new_flood_extent_ha: float = Field(
-        default=0.0, description="Flooded area beyond historic maximum water extent (anomalous flood)"
+        default=0.0, description="Площадь затопления за пределами исторического максимума воды (аномальный паводок), га"
     )
-    new_flood_extent_pct: float = Field(default=0.0, description="Percentage of anomalous flood area")
-    mean_hand_m: float = Field(default=0.0, description="Mean Height Above Nearest Drainage in flooded area (meters)")
+    new_flood_extent_pct: float = Field(default=0.0, description="Доля аномальной площади затопления, %")
+    mean_hand_m: float = Field(default=0.0, description="Средняя высота над ближайшим водотоком (HAND) в зоне затопления, м")
     source: str = Field(
         default="ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4",
-        description="Data sources for landcover and baseline water",
+        description="Источники данных по типам поверхности и базовой воде",
     )
 
 
@@ -39,21 +39,21 @@ class DepthStatistics(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     low_risk_ha: float = Field(
-        default=0.0, description="Flood area with depth < 0.5 m (regular trucks / KamAZ accessible)"
+        default=0.0, description="Площадь затопления с глубиной < 0.5 м (проходимо грузовиками / КамАЗ)"
     )
-    low_risk_pct: float = Field(default=0.0, description="Percentage of flood area in low risk class")
+    low_risk_pct: float = Field(default=0.0, description="Доля площади затопления в классе низкого риска, %")
     medium_risk_ha: float = Field(
-        default=0.0, description="Flood area with depth 0.5 - 1.5 m (PTS-M tracked amphibious transporters only)"
+        default=0.0, description="Площадь затопления с глубиной 0.5 - 1.5 м (только гусеничные плавающие транспортеры ПТС-М)"
     )
-    medium_risk_pct: float = Field(default=0.0, description="Percentage of flood area in medium risk class")
+    medium_risk_pct: float = Field(default=0.0, description="Доля площади затопления в классе среднего риска, %")
     high_risk_ha: float = Field(
-        default=0.0, description="Flood area with depth > 1.5 m (boats, water rescue crafts only)"
+        default=0.0, description="Площадь затопления с глубиной > 1.5 м (только лодки и спасательные плавсредства)"
     )
-    high_risk_pct: float = Field(default=0.0, description="Percentage of flood area in high risk class")
-    mean_depth_m: float = Field(default=0.0, description="Mean water depth across flooded area (meters)")
-    max_depth_m: float = Field(default=0.0, description="Maximum estimated water depth in flooded area (meters)")
+    high_risk_pct: float = Field(default=0.0, description="Доля площади затопления в классе высокого риска, %")
+    mean_depth_m: float = Field(default=0.0, description="Средняя глубина воды по зоне затопления, м")
+    max_depth_m: float = Field(default=0.0, description="Максимальная расчетная глубина воды в зоне затопления, м")
     mchs_traversability: dict[str, str] = Field(
-        default_factory=dict, description="Human-readable MCHS vehicle classification descriptions"
+        default_factory=dict, description="Читаемые описания классификации техники МЧС"
     )
 
 
@@ -62,16 +62,16 @@ class GaugeStatus(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    station_id: str = Field(description="Rosgidromet observation station code")
-    station_name: str = Field(description="Station name / settlement")
-    river: str = Field(description="Monitored river name")
-    observed_level_cm: float = Field(description="Observed / peak water level in cm")
-    npu_cm: float = Field(description="Normal Pool Level / Floodplain benchmark (НПУ) in cm")
-    nya_cm: float = Field(description="Adverse phenomenon level (НЯ) in cm")
-    oya_cm: float = Field(description="Hazardous phenomenon level (ОЯ) in cm")
-    exceeds_npu: bool = Field(description="True if water level reached or exceeded NPU")
-    exceeds_oya: bool = Field(description="True if water level reached or exceeded hazardous OYA level")
-    stage_risk: str = Field(description="Risk stage: normal, floodplain_npu, warning_nya, danger_oya")
+    station_id: str = Field(description="Код наблюдательного поста Росгидромета")
+    station_name: str = Field(description="Название поста / населенного пункта")
+    river: str = Field(description="Название наблюдаемой реки")
+    observed_level_cm: float = Field(description="Наблюдаемый / пиковый уровень воды, см")
+    npu_cm: float = Field(description="Нормальный подпорный уровень / отметка поймы (НПУ), см")
+    nya_cm: float = Field(description="Уровень неблагоприятного явления (НЯ), см")
+    oya_cm: float = Field(description="Уровень опасного явления (ОЯ), см")
+    exceeds_npu: bool = Field(description="Истина, если уровень воды достиг или превысил НПУ")
+    exceeds_oya: bool = Field(description="Истина, если уровень воды достиг или превысил опасный уровень ОЯ")
+    stage_risk: str = Field(description="Стадия риска: normal, floodplain_npu, warning_nya, danger_oya")
 
 
 class PairInfo(BaseModel):
@@ -79,29 +79,29 @@ class PairInfo(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Unique identifier of the flood or baseline pair")
-    aoi_id: str = Field(description="AOI settlement / reach code")
-    aoi_name: str = Field(description="Human-readable AOI settlement name")
-    event_id: str = Field(description="Hydrological event identifier")
-    event_name: str = Field(description="Descriptive event name")
-    event_kind: str = Field(description="'flood' or 'baseline'")
-    year: int = Field(description="Observation year")
-    sensor_sar: str = Field(default="", description="SAR sensor, e.g. Sentinel-1")
-    sensor_optical: str = Field(default="", description="Optical sensor, e.g. Sentinel-2")
-    date_pre_sar: str = Field(default="", description="SAR reference date before event (YYYY-MM-DD)")
-    date_peak_sar: str = Field(default="", description="SAR peak flood date (YYYY-MM-DD)")
-    date_pre_opt: str = Field(default="", description="Optical pre-flood date if available")
-    date_peak_opt: str = Field(default="", description="Optical peak date if available")
-    aoi_km2: float = Field(description="Area of Interest size in square kilometers")
-    aoi_ha: float = Field(description="Area of Interest size in hectares")
-    bounds_4326: list[float] = Field(description="Bounding box [min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
-    center_4326: list[float] = Field(description="Center coordinate [lat, lon] in EPSG:4326")
+    pair_id: str = Field(description="Уникальный идентификатор пары паводка или базового уровня")
+    aoi_id: str = Field(description="Код населенного пункта / участка AOI")
+    aoi_name: str = Field(description="Читаемое название населенного пункта AOI")
+    event_id: str = Field(description="Идентификатор гидрологического события")
+    event_name: str = Field(description="Описательное название события")
+    event_kind: str = Field(description="'flood' или 'baseline'")
+    year: int = Field(description="Год наблюдения")
+    sensor_sar: str = Field(default="", description="Радиолокационный сенсор, напр. Sentinel-1")
+    sensor_optical: str = Field(default="", description="Оптический сенсор, напр. Sentinel-2")
+    date_pre_sar: str = Field(default="", description="Опорная дата радиолокационной съемки до события (ГГГГ-ММ-ДД)")
+    date_peak_sar: str = Field(default="", description="Дата пика паводка по радиолокационной съемке (ГГГГ-ММ-ДД)")
+    date_pre_opt: str = Field(default="", description="Оптическая дата до паводка, если доступна")
+    date_peak_opt: str = Field(default="", description="Оптическая дата пика, если доступна")
+    aoi_km2: float = Field(description="Размер зоны интереса, км2")
+    aoi_ha: float = Field(description="Размер зоны интереса, га")
+    bounds_4326: list[float] = Field(description="Ограничивающий прямоугольник [min_lon, min_lat, max_lon, max_lat] в EPSG:4326")
+    center_4326: list[float] = Field(description="Координата центра [lat, lon] в EPSG:4326")
 
 
 class PairsListResponse(RootModel[list[PairInfo]]):
     """Список всех наблюдаемых пар с метаданными."""
 
-    root: list[PairInfo] = Field(description="Collection of monitored AOI pairs")
+    root: list[PairInfo] = Field(description="Набор наблюдаемых пар AOI")
 
 
 class ReportResponse(BaseModel):
@@ -109,57 +109,57 @@ class ReportResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Pair identifier")
-    aoi_id: str = Field(description="AOI code")
-    aoi_name: str = Field(description="AOI name")
-    event_id: str = Field(description="Event code")
-    event_name: str = Field(description="Event name")
-    event_kind: str = Field(description="Event kind ('flood' or 'baseline')")
-    year: int = Field(description="Observation year")
-    sensor_sar: str = Field(default="", description="SAR sensor identifier, e.g. sentinel1")
-    sensor_optical: str = Field(default="", description="Optical sensor identifier, e.g. sentinel2")
-    date_pre_sar: str = Field(default="", description="Pre-flood SAR date")
-    date_peak_sar: str = Field(default="", description="Peak flood SAR date")
-    date_pre_opt: str = Field(default="", description="Pre-flood optical date")
-    date_peak_opt: str = Field(default="", description="Peak flood optical date")
-    bounds_4326: list[float] = Field(description="AOI bounds [min_lon, min_lat, max_lon, max_lat]")
-    center_4326: list[float] = Field(description="AOI center coordinates [lat, lon]")
-    aoi_ha: float = Field(description="AOI total area in hectares")
-    aoi_km2: float = Field(description="AOI total area in square kilometers")
-    flood_ha: float = Field(description="Net flood inundation area in hectares")
-    flood_km2: float = Field(description="Net flood inundation area in square kilometers")
-    water_pre_ha: float = Field(description="Pre-flood water area in hectares")
-    water_pre_km2: float = Field(description="Pre-flood water area in square kilometers")
-    water_peak_ha: float = Field(description="Peak water area in hectares")
-    water_peak_km2: float = Field(description="Peak water area in square kilometers")
-    permanent_ha: float = Field(description="Permanent baseline water area in hectares")
-    receded_ha: float = Field(default=0.0, description="Area of receded water before peak in hectares")
-    water_gain_ha: float = Field(description="Net water surface expansion in hectares")
-    water_gain_pct: float = Field(description="Percentage expansion relative to pre-flood water")
-    share_of_aoi: float = Field(description="Flood area fraction of entire AOI")
-    flood_share_pct: float = Field(description="Flood area percentage of entire AOI")
-    generated_at: str = Field(default="", description="UTC timestamp when the report was generated")
-    landcover: LandcoverDistribution = Field(description="Vulnerability and landcover breakdown")
+    pair_id: str = Field(description="Идентификатор пары")
+    aoi_id: str = Field(description="Код AOI")
+    aoi_name: str = Field(description="Название AOI")
+    event_id: str = Field(description="Код события")
+    event_name: str = Field(description="Название события")
+    event_kind: str = Field(description="Тип события ('flood' или 'baseline')")
+    year: int = Field(description="Год наблюдения")
+    sensor_sar: str = Field(default="", description="Идентификатор радиолокационного сенсора, напр. sentinel1")
+    sensor_optical: str = Field(default="", description="Идентификатор оптического сенсора, напр. sentinel2")
+    date_pre_sar: str = Field(default="", description="Дата радиолокационной съемки до паводка")
+    date_peak_sar: str = Field(default="", description="Дата радиолокационной съемки пика паводка")
+    date_pre_opt: str = Field(default="", description="Оптическая дата до паводка")
+    date_peak_opt: str = Field(default="", description="Оптическая дата пика паводка")
+    bounds_4326: list[float] = Field(description="Границы AOI [min_lon, min_lat, max_lon, max_lat]")
+    center_4326: list[float] = Field(description="Координаты центра AOI [lat, lon]")
+    aoi_ha: float = Field(description="Общая площадь AOI, га")
+    aoi_km2: float = Field(description="Общая площадь AOI, км2")
+    flood_ha: float = Field(description="Чистая площадь затопления, га")
+    flood_km2: float = Field(description="Чистая площадь затопления, км2")
+    water_pre_ha: float = Field(description="Площадь воды до паводка, га")
+    water_pre_km2: float = Field(description="Площадь воды до паводка, км2")
+    water_peak_ha: float = Field(description="Площадь воды на пике, га")
+    water_peak_km2: float = Field(description="Площадь воды на пике, км2")
+    permanent_ha: float = Field(description="Площадь постоянной базовой воды, га")
+    receded_ha: float = Field(default=0.0, description="Площадь спада воды до пика, га")
+    water_gain_ha: float = Field(description="Чистый прирост зеркала воды, га")
+    water_gain_pct: float = Field(description="Процент прироста относительно воды до паводка")
+    share_of_aoi: float = Field(description="Доля площади затопления от всей AOI")
+    flood_share_pct: float = Field(description="Процент площади затопления от всей AOI")
+    generated_at: str = Field(default="", description="Отметка времени UTC формирования отчета")
+    landcover: LandcoverDistribution = Field(description="Разбивка уязвимости и типов поверхности")
     depth_statistics: DepthStatistics = Field(
-        default_factory=DepthStatistics, description="Water depth and MCHS vehicle traversability risk statistics"
+        default_factory=DepthStatistics, description="Статистика глубины воды и проходимости техники МЧС"
     )
     gauge_status: GaugeStatus | None = Field(
-        default=None, description="Hydrological station water level benchmark and danger stage"
+        default=None, description="Отметки уровня воды гидрологического поста и стадия опасности"
     )
-    uncertainty: FloodUncertaintyResponse | None = Field(default=None, description="Spatial uncertainty assessment")
+    uncertainty: FloodUncertaintyResponse | None = Field(default=None, description="Оценка пространственной неопределенности")
     audit: HydroAuditCertificateResponse | None = Field(
-        default=None, description="Cryptographic Merkle audit certificate"
+        default=None, description="Криптографический аудиторский сертификат Merkle"
     )
     sar_analytics: SARAnalyticsResponse | None = Field(
-        default=None, description="SAR Sentinel-1 polarimetric analytics"
+        default=None, description="Радиолокационная поляриметрическая аналитика Sentinel-1"
     )
     carbon_impact: FloodCarbonImpactResponse | None = Field(
-        default=None, description="IPCC Carbon and biomass loss impact"
+        default=None, description="Углеродные и биомассовые потери по IPCC"
     )
-    competition_score: dict[str, Any] | None = Field(default=None, description="Official competition score convergence")
+    competition_score: dict[str, Any] | None = Field(default=None, description="Сходимость официальной соревновательной метрики")
     anomaly_note: dict[str, Any] | None = Field(
         default=None,
-        description="Detailed analysis of physical ground truth vs reference divergence for known anomalies",
+        description="Детальный анализ расхождения физической наземной истины и эталона для известных аномалий",
     )
 
 
@@ -168,22 +168,22 @@ class PredictSummary(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    flood_ha: float = Field(description="Flood inundation area in hectares")
-    flood_km2: float = Field(description="Flood inundation area in square kilometers")
-    water_pre_ha: float = Field(description="Pre-event water area in hectares")
-    water_peak_ha: float = Field(description="Peak water area in hectares")
-    water_gain_ha: float = Field(description="Water surface gain in hectares")
-    water_gain_pct: float = Field(description="Water gain percentage")
-    receded_ha: float = Field(default=0.0, description="Receded water area in hectares")
-    share_of_aoi: float = Field(default=0.0, description="Inundated fraction of AOI")
+    flood_ha: float = Field(description="Площадь затопления, га")
+    flood_km2: float = Field(description="Площадь затопления, км2")
+    water_pre_ha: float = Field(description="Площадь воды до события, га")
+    water_peak_ha: float = Field(description="Площадь воды на пике, га")
+    water_gain_ha: float = Field(description="Прирост зеркала воды, га")
+    water_gain_pct: float = Field(description="Процент прироста воды")
+    receded_ha: float = Field(default=0.0, description="Площадь спада воды, га")
+    share_of_aoi: float = Field(default=0.0, description="Доля затопления от AOI")
     landcover: LandcoverDistribution | dict[str, Any] = Field(
-        default_factory=dict, description="Landcover breakdown in flood zone"
+        default_factory=dict, description="Разбивка типов поверхности в зоне затопления"
     )
     depth_statistics: DepthStatistics | dict[str, Any] = Field(
-        default_factory=dict, description="Water depth and MCHS vehicle traversability risk statistics"
+        default_factory=dict, description="Статистика глубины воды и проходимости техники МЧС"
     )
     gauge_status: GaugeStatus | dict[str, Any] | None = Field(
-        default=None, description="Hydrological station gauge status"
+        default=None, description="Состояние гидрологического поста"
     )
 
 
@@ -209,16 +209,16 @@ class PredictResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    status: str = Field(default="success", description="Status indicator")
-    pair_id: str = Field(description="Resolved pair identifier")
-    query_bounds: list[float] | None = Field(default=None, description="User queried bounds")
-    query_polygon: dict[str, Any] | None = Field(default=None, description="User queried GeoJSON polygon")
-    query_dates: dict[str, str | None] | None = Field(default=None, description="User requested query dates")
-    scene_dates: dict[str, str | None] | None = Field(default=None, description="Actual SAR scene dates used")
-    requested_dates: dict[str, str | None] | None = Field(default=None, description="Validated requested dates")
-    summary: PredictSummary = Field(description="Hydrological area calculations")
-    metadata: PredictMetadata = Field(description="AOI passport metadata")
-    geojson: dict[str, Any] | None = Field(default=None, description="Vector flood polygons in GeoJSON format")
+    status: str = Field(default="success", description="Индикатор состояния")
+    pair_id: str = Field(description="Определенный идентификатор пары")
+    query_bounds: list[float] | None = Field(default=None, description="Запрошенные пользователем границы")
+    query_polygon: dict[str, Any] | None = Field(default=None, description="Запрошенный пользователем полигон GeoJSON")
+    query_dates: dict[str, str | None] | None = Field(default=None, description="Запрошенные пользователем даты")
+    scene_dates: dict[str, str | None] | None = Field(default=None, description="Фактические использованные даты радиолокационных сцен")
+    requested_dates: dict[str, str | None] | None = Field(default=None, description="Проверенные запрошенные даты")
+    summary: PredictSummary = Field(description="Гидрологические расчеты площадей")
+    metadata: PredictMetadata = Field(description="Паспортные метаданные AOI")
+    geojson: dict[str, Any] | None = Field(default=None, description="Векторные полигоны затопления в формате GeoJSON")
 
 
 class PredictionTaskResponse(BaseModel):
@@ -226,14 +226,14 @@ class PredictionTaskResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    task_id: str = Field(description="Unique prediction task identifier")
+    task_id: str = Field(description="Уникальный идентификатор задачи прогноза")
     status: str = Field(
         default="completed",
-        description="Lifecycle status of prediction task: 'pending', 'processing', 'completed', 'failed'",
+        description="Статус жизненного цикла задачи прогноза: 'pending', 'processing', 'completed', 'failed'",
     )
-    progress: float = Field(default=1.0, ge=0.0, le=1.0, description="Execution progress ratio from 0.0 to 1.0")
-    result: PredictResponse | None = Field(default=None, description="Prediction result payload upon task completion")
-    error: str | None = Field(default=None, description="Error explanation if task failed")
+    progress: float = Field(default=1.0, ge=0.0, le=1.0, description="Доля выполнения от 0.0 до 1.0")
+    result: PredictResponse | None = Field(default=None, description="Полезная нагрузка результата прогноза по завершении задачи")
+    error: str | None = Field(default=None, description="Описание ошибки, если задача завершилась сбоем")
 
 
 class PredictRequest(BaseModel):
@@ -241,14 +241,14 @@ class PredictRequest(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str | None = Field(default=None, description="Pair identifier, e.g. flood_2019_07_amur__blagoveshchensk")
-    bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] in EPSG:4326")
+    pair_id: str | None = Field(default=None, description="Идентификатор пары, напр. flood_2019_07_amur__blagoveshchensk")
+    bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] в EPSG:4326")
     polygon: dict[str, Any] | None = Field(
-        default=None, description="GeoJSON geometry (Polygon) in EPSG:4326; takes precedence over bounds"
+        default=None, description="Геометрия GeoJSON (Polygon) в EPSG:4326; имеет приоритет над границами"
     )
-    date_pre: str | None = Field(default=None, description="Pre-flood reference date (YYYY-MM-DD)")
-    date_peak: str | None = Field(default=None, description="Peak flood date (YYYY-MM-DD)")
-    task_id: str | None = Field(default=None, description="Optional asynchronous tracking task identifier")
+    date_pre: str | None = Field(default=None, description="Опорная дата до паводка (ГГГГ-ММ-ДД)")
+    date_peak: str | None = Field(default=None, description="Дата пика паводка (ГГГГ-ММ-ДД)")
+    task_id: str | None = Field(default=None, description="Необязательный идентификатор задачи асинхронного отслеживания")
 
 
 class DepthRiskZone(BaseModel):
@@ -256,10 +256,10 @@ class DepthRiskZone(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    depth_range: str = Field(description="Depth and terrain HAND criteria")
-    area_ha: float = Field(description="Flooded area in hectares in this depth category")
-    share_pct: float = Field(description="Percentage share of total flood area")
-    description: str = Field(description="Operational impact and vehicle access description")
+    depth_range: str = Field(description="Критерии глубины и рельефа HAND")
+    area_ha: float = Field(description="Площадь затопления в этой категории глубины, га")
+    share_pct: float = Field(description="Доля от общей площади затопления, %")
+    description: str = Field(description="Описание операционных последствий и доступа техники")
 
 
 class DepthRiskBreakdown(BaseModel):
@@ -267,9 +267,9 @@ class DepthRiskBreakdown(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    high_risk: DepthRiskZone = Field(description="High risk zone (> 1.5 m water depth)")
-    moderate_risk: DepthRiskZone = Field(description="Moderate risk zone (0.5 - 1.5 m water depth)")
-    low_risk: DepthRiskZone = Field(description="Low risk zone (< 0.5 m water depth)")
+    high_risk: DepthRiskZone = Field(description="Зона высокого риска (глубина > 1.5 м)")
+    moderate_risk: DepthRiskZone = Field(description="Зона умеренного риска (глубина 0.5 - 1.5 м)")
+    low_risk: DepthRiskZone = Field(description="Зона низкого риска (глубина < 0.5 м)")
 
 
 class TransportInfrastructureRisk(BaseModel):
@@ -277,10 +277,10 @@ class TransportInfrastructureRisk(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    cutoff_segments_count: int = Field(description="Estimated number of cut-off / submerged road segments")
-    estimated_cutoff_km: float = Field(description="Estimated linear length of submerged road segments in km")
-    risk_level: str = Field(description="Risk level classification: критический, высокий, умеренный, штатный")
-    description: str = Field(description="Operational assessment and traffic impact summary")
+    cutoff_segments_count: int = Field(description="Оценка числа отрезанных / подтопленных участков дорог")
+    estimated_cutoff_km: float = Field(description="Оценка линейной длины подтопленных участков дорог, км")
+    risk_level: str = Field(description="Классификация уровня риска: критический, высокий, умеренный, штатный")
+    description: str = Field(description="Операционная оценка и сводка влияния на транспорт")
 
 
 class MchsDispatchResponse(BaseModel):
@@ -288,33 +288,33 @@ class MchsDispatchResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    document_header: str = Field(description="Formal official document header")
-    form_code: str = Field(description="Russian EMERCOM report form code (e.g. 1/ЧС)")
-    department: str = Field(description="Supervising EMERCOM department and crisis management center")
-    dispatch_id: str = Field(description="Unique dispatch identifier")
-    pair_id: str = Field(description="Monitored pair identifier")
-    timestamp_utc: str = Field(description="Report generation timestamp in UTC")
-    status: str = Field(description="Operational emergency status")
-    event_type: str = Field(description="Emergency event type and classification")
-    event_id: str = Field(description="Event identifier code")
-    event_name: str = Field(description="Descriptive event name")
-    aoi_id: str = Field(description="Area of interest code")
-    aoi_name: str = Field(description="Area of interest name")
-    date_peak: str = Field(description="Peak observation date (YYYY-MM-DD)")
-    date_pre: str = Field(description="Pre-event baseline observation date (YYYY-MM-DD)")
-    affected_municipalities: list[str] = Field(description="List of affected municipal districts / urban okrugs")
-    flooded_total_ha: float = Field(description="Total flooded area in hectares")
-    flooded_total_km2: float = Field(description="Total flooded area in square kilometers")
-    flooded_builtup_area_ha: float = Field(description="Flooded built-up / residential area in hectares")
-    flooded_builtup_ha: float = Field(description="Alias for flooded built-up area in hectares")
-    flooded_cropland_area_ha: float = Field(description="Flooded agricultural / cropland area in hectares")
-    flooded_cropland_ha: float = Field(description="Alias for flooded cropland area in hectares")
-    flooded_natural_ha: float = Field(description="Flooded natural / floodplain land in hectares")
-    estimated_cutoff_transport_segments: int = Field(description="Estimated number of cut-off transport segments")
-    transport_infrastructure: TransportInfrastructureRisk = Field(description="Transport infrastructure risk detail")
-    depth_risk_breakdown: DepthRiskBreakdown = Field(description="Water depth risk breakdown")
-    operational_summary: str = Field(description="Executive operational summary")
-    recommended_actions: list[str] = Field(description="List of prioritized emergency response actions")
+    document_header: str = Field(description="Официальный заголовок документа")
+    form_code: str = Field(description="Код формы донесения МЧС России (напр. 1/ЧС)")
+    department: str = Field(description="Курирующее подразделение МЧС и центр управления в кризисных ситуациях")
+    dispatch_id: str = Field(description="Уникальный идентификатор донесения")
+    pair_id: str = Field(description="Идентификатор наблюдаемой пары")
+    timestamp_utc: str = Field(description="Отметка времени формирования отчета в UTC")
+    status: str = Field(description="Операционный статус чрезвычайной ситуации")
+    event_type: str = Field(description="Тип и классификация чрезвычайного события")
+    event_id: str = Field(description="Код идентификатора события")
+    event_name: str = Field(description="Описательное название события")
+    aoi_id: str = Field(description="Код зоны интереса")
+    aoi_name: str = Field(description="Название зоны интереса")
+    date_peak: str = Field(description="Дата пикового наблюдения (ГГГГ-ММ-ДД)")
+    date_pre: str = Field(description="Дата базового наблюдения до события (ГГГГ-ММ-ДД)")
+    affected_municipalities: list[str] = Field(description="Список пострадавших муниципальных районов / городских округов")
+    flooded_total_ha: float = Field(description="Общая площадь затопления, га")
+    flooded_total_km2: float = Field(description="Общая площадь затопления, км2")
+    flooded_builtup_area_ha: float = Field(description="Затопленная застроенная / жилая территория, га")
+    flooded_builtup_ha: float = Field(description="Синоним затопленной застроенной территории, га")
+    flooded_cropland_area_ha: float = Field(description="Затопленная сельскохозяйственная / пахотная территория, га")
+    flooded_cropland_ha: float = Field(description="Синоним затопленной пахотной территории, га")
+    flooded_natural_ha: float = Field(description="Затопленные естественные / пойменные земли, га")
+    estimated_cutoff_transport_segments: int = Field(description="Оценка числа отрезанных транспортных участков")
+    transport_infrastructure: TransportInfrastructureRisk = Field(description="Детализация риска транспортной инфраструктуры")
+    depth_risk_breakdown: DepthRiskBreakdown = Field(description="Разбивка риска по глубине воды")
+    operational_summary: str = Field(description="Операционная сводка для руководства")
+    recommended_actions: list[str] = Field(description="Список приоритетных действий по реагированию")
 
 
 class HydroAuditCertificateResponse(BaseModel):
@@ -322,25 +322,25 @@ class HydroAuditCertificateResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    certificate_id: str = Field(description="Unique certificate identifier")
-    pair_id: str = Field(description="Pair identifier")
-    aoi_id: str = Field(description="AOI code")
-    issued_at: str = Field(description="ISO-8601 UTC timestamp of issue")
-    merkle_root: str = Field(description="Hexadecimal SHA-256 root of the Merkle tree")
-    leaf_count: int = Field(description="Total audited components/leaves in the tree")
-    status: str = Field(description="Verification status: 'VERIFIED'")
-    algorithm: str = Field(description="Auditing protocol version")
-    signature_hash: str = Field(description="Canonical SHA-256 integrity signature digest")
-    summary: dict[str, Any] = Field(description="Summary hydrological metrics")
-    leaves: list[dict[str, Any]] = Field(description="Audited Merkle leaf nodes")
+    certificate_id: str = Field(description="Уникальный идентификатор сертификата")
+    pair_id: str = Field(description="Идентификатор пары")
+    aoi_id: str = Field(description="Код AOI")
+    issued_at: str = Field(description="Отметка времени выпуска в UTC по ISO-8601")
+    merkle_root: str = Field(description="Шестнадцатеричный корень дерева Merkle SHA-256")
+    leaf_count: int = Field(description="Общее число проверенных компонентов/листьев дерева")
+    status: str = Field(description="Статус проверки: 'VERIFIED'")
+    algorithm: str = Field(description="Версия протокола аудита")
+    signature_hash: str = Field(description="Канонический дайджест подписи целостности SHA-256")
+    summary: dict[str, Any] = Field(description="Сводные гидрологические метрики")
+    leaves: list[dict[str, Any]] = Field(description="Проверенные листовые узлы Merkle")
 
     # Псевдонимы для совместимости с фронтендом
-    merkle_root_sha256: str | None = Field(default=None, description="Alias for merkle_root")
-    inputs_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of input scenes")
-    parameters_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of processing parameters")
-    results_hash_sha256: str | None = Field(default=None, description="SHA-256 digest of output flood masks")
-    timestamp: str | None = Field(default=None, description="Alias for issued_at")
-    verified: bool = Field(default=True, description="Verification status boolean")
+    merkle_root_sha256: str | None = Field(default=None, description="Синоним merkle_root")
+    inputs_hash_sha256: str | None = Field(default=None, description="Дайджест SHA-256 входных сцен")
+    parameters_hash_sha256: str | None = Field(default=None, description="Дайджест SHA-256 параметров обработки")
+    results_hash_sha256: str | None = Field(default=None, description="Дайджест SHA-256 выходных масок затопления")
+    timestamp: str | None = Field(default=None, description="Синоним issued_at")
+    verified: bool = Field(default=True, description="Булев статус проверки")
 
 
 class FloodUncertaintyResponse(BaseModel):
@@ -348,16 +348,16 @@ class FloodUncertaintyResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Pair identifier")
-    area_ha: float = Field(description="Central flood area in hectares")
-    confidence_level: float = Field(description="Statistical confidence level (e.g. 0.95)")
-    lower_bound_ha: float = Field(description="Conservative lower bound L (ha)")
-    upper_bound_ha: float = Field(description="Upper bound U (ha)")
-    margin_ha: float = Field(description="Absolute uncertainty margin H (ha)")
-    relative_uncertainty_pct: float = Field(description="Relative uncertainty margin in percent")
-    sigma_effective_ha: float = Field(description="Effective standard error with spatial covariance (ha)")
-    effective_n_pixels: float = Field(description="Effective number of independent observations")
-    spatial_correlation: float = Field(description="Assumed spatial error autocorrelation rho")
+    pair_id: str = Field(description="Идентификатор пары")
+    area_ha: float = Field(description="Центральная площадь затопления, га")
+    confidence_level: float = Field(description="Статистический уровень доверия (напр. 0.95)")
+    lower_bound_ha: float = Field(description="Консервативная нижняя граница L, га")
+    upper_bound_ha: float = Field(description="Верхняя граница U, га")
+    margin_ha: float = Field(description="Абсолютный запас неопределенности H, га")
+    relative_uncertainty_pct: float = Field(description="Относительный запас неопределенности, %")
+    sigma_effective_ha: float = Field(description="Эффективная стандартная ошибка с пространственной ковариацией, га")
+    effective_n_pixels: float = Field(description="Эффективное число независимых наблюдений")
+    spatial_correlation: float = Field(description="Принятая пространственная автокорреляция ошибки rho")
 
 
 class SARAnalyticsResponse(BaseModel):
@@ -365,15 +365,15 @@ class SARAnalyticsResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Pair identifier")
-    water_fraction: float = Field(description="Fraction of area with water specular reflection")
-    water_area_ha: float = Field(description="Water surface area estimated from SAR (ha)")
-    mean_vv_db: float = Field(description="Mean VV backscatter in dB")
-    mean_vh_db: float = Field(description="Mean VH backscatter in dB")
-    mean_vh_vv_ratio: float = Field(description="Mean cross-polarization ratio (VH - VV) in dB")
-    radar_contrast_db: float = Field(description="Radar contrast between water and land (dB)")
-    cloud_penetration_verified: bool = Field(description="Whether all-weather cloud penetration is confirmed")
-    double_bounce_fraction: float = Field(description="Fraction of suspected flooded vegetation signature")
+    pair_id: str = Field(description="Идентификатор пары")
+    water_fraction: float = Field(description="Доля площади с зеркальным отражением воды")
+    water_area_ha: float = Field(description="Площадь зеркала воды по оценке SAR, га")
+    mean_vv_db: float = Field(description="Среднее обратное рассеяние VV, дБ")
+    mean_vh_db: float = Field(description="Среднее обратное рассеяние VH, дБ")
+    mean_vh_vv_ratio: float = Field(description="Среднее отношение кросс-поляризации (VH - VV), дБ")
+    radar_contrast_db: float = Field(description="Радиолокационный контраст между водой и сушей, дБ")
+    cloud_penetration_verified: bool = Field(description="Подтверждено ли всепогодное проникновение сквозь облака")
+    double_bounce_fraction: float = Field(description="Доля предполагаемой сигнатуры затопленной растительности")
 
 
 class OverlayMetadataResponse(BaseModel):
@@ -381,13 +381,13 @@ class OverlayMetadataResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Pair identifier")
-    layer: str = Field(description="Layer name: 'flood', 'water_pre', 'water_peak'")
-    bounds: list[list[float]] = Field(description="Leaflet WGS84 overlay coordinates [[south, west], [north, east]]")
-    width: int = Field(description="Image pixel width")
-    height: int = Field(description="Image pixel height")
-    crs: str = Field(description="Source Coordinate Reference System")
-    overlay_url: str = Field(description="Direct URL to fetch transparent PNG overlay")
+    pair_id: str = Field(description="Идентификатор пары")
+    layer: str = Field(description="Название слоя: 'flood', 'water_pre', 'water_peak'")
+    bounds: list[list[float]] = Field(description="Координаты оверлея Leaflet WGS84 [[south, west], [north, east]]")
+    width: int = Field(description="Ширина изображения в пикселях")
+    height: int = Field(description="Высота изображения в пикселях")
+    crs: str = Field(description="Исходная система координат")
+    overlay_url: str = Field(description="Прямой URL для получения прозрачного PNG-оверлея")
 
 
 class OfficialMetricsResponse(BaseModel):
@@ -396,16 +396,16 @@ class OfficialMetricsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     score: float = Field(
-        description="Official Score = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base"
+        description="Официальная метрика = 0.45*Q_flood + 0.25*Q_water_peak + 0.15*Q_water_pre + 0.15*Spec_base"
     )
-    q_flood: float = Field(description="Mean flood area convergence score Q_flood")
-    q_water_peak: float = Field(description="Mean peak water area convergence score Q_water_peak")
-    q_water_pre: float = Field(description="Mean pre-flood water area convergence score Q_water_pre")
-    spec_base: float = Field(description="Baseline low-water specificity Spec_base")
-    num_events: int = Field(description="Number of evaluated flood events (8)")
-    num_baselines: int = Field(description="Number of evaluated baseline low-water pairs (3)")
-    technical_points: float = Field(description="Normalized points for technical evaluation criteria (0-7)")
-    details: list[dict[str, Any]] = Field(description="Detailed per-pair convergence stats")
+    q_flood: float = Field(description="Средняя сходимость площади затопления Q_flood")
+    q_water_peak: float = Field(description="Средняя сходимость площади воды на пике Q_water_peak")
+    q_water_pre: float = Field(description="Средняя сходимость площади воды до паводка Q_water_pre")
+    spec_base: float = Field(description="Специфичность базового меженного уровня Spec_base")
+    num_events: int = Field(description="Число оцененных паводковых событий (8)")
+    num_baselines: int = Field(description="Число оцененных базовых меженных пар (3)")
+    technical_points: float = Field(description="Нормализованные баллы по техническим критериям оценки (0-7)")
+    details: list[dict[str, Any]] = Field(description="Детальная сходимость по каждой паре")
 
 
 class SubmissionValidationResponse(BaseModel):
@@ -413,12 +413,12 @@ class SubmissionValidationResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    is_valid: bool = Field(description="Whether submission meets all mandatory competition criteria")
-    num_pairs: int = Field(description="Total evaluated pairs in submission")
-    passed_checks: list[str] = Field(description="List of verified rule checks")
-    errors: list[str] = Field(description="Critical errors that disqualify submission")
-    warnings: list[str] = Field(description="Warnings or non-critical issues")
-    discrepancies: list[dict[str, Any]] = Field(description="Per-pair raster vs CSV divergence analysis (2% rule)")
+    is_valid: bool = Field(description="Соответствует ли посылка всем обязательным критериям соревнования")
+    num_pairs: int = Field(description="Общее число оцененных пар в посылке")
+    passed_checks: list[str] = Field(description="Список проверенных правил")
+    errors: list[str] = Field(description="Критические ошибки, дисквалифицирующие посылку")
+    warnings: list[str] = Field(description="Предупреждения или некритические замечания")
+    discrepancies: list[dict[str, Any]] = Field(description="Анализ расхождения растра и CSV по каждой паре (правило 2%)")
 
 
 class FloodCarbonImpactResponse(BaseModel):
@@ -426,15 +426,15 @@ class FloodCarbonImpactResponse(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str = Field(description="Pair identifier")
-    flood_ha: float = Field(description="Total inundated area in hectares")
-    biomass_loss_dry_matter_t: float = Field(description="Estimated dry biomass destroyed/washed out (tonnes)")
-    carbon_loss_tC: float = Field(description="Carbon stock loss (tonnes C, CF=0.47)")
-    emissions_equivalent_tCO2e: float = Field(description="Emissions equivalent (tonnes CO2e, ratio 44/12)")
-    cropland_loss_tC: float = Field(description="Carbon lost on agricultural lands (t C)")
-    forest_loss_tC: float = Field(description="Carbon lost in flooded forests/tree cover (t C)")
-    credit_potential: dict[str, Any] = Field(description="Mitigation carbon credits potential Q and valuations")
-    notes: str = Field(description="Methodological explanatory summary")
+    pair_id: str = Field(description="Идентификатор пары")
+    flood_ha: float = Field(description="Общая площадь затопления, га")
+    biomass_loss_dry_matter_t: float = Field(description="Оценка уничтоженной/смытой сухой биомассы, т")
+    carbon_loss_tC: float = Field(description="Потеря запаса углерода, т C (CF=0.47)")
+    emissions_equivalent_tCO2e: float = Field(description="Эквивалент выбросов, т CO2e (коэффициент 44/12)")
+    cropland_loss_tC: float = Field(description="Углерод, потерянный на сельхозземлях, т C")
+    forest_loss_tC: float = Field(description="Углерод, потерянный в затопленных лесах/древесном покрове, т C")
+    credit_potential: dict[str, Any] = Field(description="Потенциал углеродных кредитов Q и оценки")
+    notes: str = Field(description="Методическое пояснение")
 
 
 ReportResponse.model_rebuild()

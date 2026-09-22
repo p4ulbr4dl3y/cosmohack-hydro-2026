@@ -102,7 +102,7 @@ def test_filters_apply_mmu_zero_features(monkeypatch):
 def test_filters_refined_lee_invalid_data():
     from src.config import SAR_NODATA_MAX_DB
 
-    # All values <= SAR_NODATA_MAX_DB or NaN
+    # Все значения <= SAR_NODATA_MAX_DB или NaN
     nodata_arr = np.full((10, 10), SAR_NODATA_MAX_DB - 5.0, dtype=np.float32)
     nodata_arr[0, 0] = np.nan
     res = refined_lee_filter(nodata_arr)
@@ -117,26 +117,26 @@ def test_filters_apply_hydrological_connectivity():
     flood[7:9, 7:9] = True  # Component B
 
     seed = np.zeros((10, 10), dtype=bool)
-    seed[3, 3] = True  # Touches Component A
+    seed[3, 3] = True  # Касается компонента A
 
-    # Normal case: keeps Component A, discards isolated Component B
+    # Обычный случай: компонент A сохраняется, изолированный компонент B отбрасывается
     res = apply_hydrological_connectivity(flood, seed)
     assert np.all(res[1:4, 1:4])
     assert not np.any(res[7:9, 7:9])
 
-    # Empty flood mask
+    # Пустая маска затопления
     empty_flood = np.zeros((10, 10), dtype=bool)
     res_empty_flood = apply_hydrological_connectivity(empty_flood, seed)
     assert np.array_equal(res_empty_flood, empty_flood)
 
-    # Empty seed mask
+    # Пустая опорная маска
     empty_seed = np.zeros((10, 10), dtype=bool)
     res_empty_seed = apply_hydrological_connectivity(flood, empty_seed)
     assert not np.any(res_empty_seed)
 
-    # Non-touching seed (seed labels empty after filtering background)
+    # Несоприкасающаяся опорная маска (метки пусты после фильтрации фона)
     remote_seed = np.zeros((10, 10), dtype=bool)
-    remote_seed[0, 9] = True  # Dilated 3x3 will reach (1, 8), not touching (7:9, 7:9) or (1:4, 1:4)
+    remote_seed[0, 9] = True  # Дилатация 3x3 дойдет до (1, 8), не касаясь (7:9, 7:9) и (1:4, 1:4)
     res_remote = apply_hydrological_connectivity(flood, remote_seed)
     assert not np.any(res_remote)
 
@@ -154,11 +154,11 @@ def test_filters_apply_hydrological_connectivity_zero_features(monkeypatch):
 def test_filters_apply_morphological_closing():
     from src.filters import apply_morphological_closing
 
-    # Empty mask
+    # Пустая маска
     empty = np.zeros((10, 10), dtype=bool)
     assert np.array_equal(apply_morphological_closing(empty), empty)
 
-    # Mask with small 1-pixel hole
+    # Маска с маленькой дырой в 1 пиксель
     mask = np.ones((7, 7), dtype=bool)
     mask[3, 3] = False
     closed = apply_morphological_closing(mask, kernel_size=3)
@@ -172,25 +172,25 @@ def test_filters_apply_planar_hand_filter():
     seed = np.zeros((10, 10), dtype=bool)
     seed[4:6, 4:6] = True
 
-    # HAND values: 2.0 at boundary, 10.0 elsewhere
+    # Значения HAND: 2.0 на границе, 10.0 в остальных местах
     hand = np.full((10, 10), 10.0, dtype=np.float32)
-    # Seed boundary will have hand = 2.0
+    # На границе опорной маски hand = 2.0
     hand[3:7, 3:7] = 2.0
 
-    # Normal execution: pixels with hand <= 2.0 + 1.5 = 3.5 kept, hand=10 filtered out
+    # Обычный случай: пиксели с hand <= 2.0 + 1.5 = 3.5 сохраняются, hand=10 отсекается
     res = apply_planar_hand_filter(flood, seed, hand, percentile=90.0, tolerance_m=1.5)
     assert np.all(res[3:7, 3:7])
     assert not np.any(res[0:2, 0:2])
 
-    # Hand is None
+    # Hand равен None
     assert np.array_equal(apply_planar_hand_filter(flood, seed, None), flood)
 
-    # Empty flood or seed
+    # Пустое затопление или опорная маска
     empty = np.zeros((10, 10), dtype=bool)
     assert np.array_equal(apply_planar_hand_filter(empty, seed, hand), empty)
     assert np.array_equal(apply_planar_hand_filter(flood, empty, hand), flood)
 
-    # River boundary has no valid/finite/positive hand
+    # На границе русла нет валидных/конечных/положительных значений hand
     nan_hand = np.full((10, 10), np.nan, dtype=np.float32)
     assert np.array_equal(apply_planar_hand_filter(flood, seed, nan_hand), flood)
 

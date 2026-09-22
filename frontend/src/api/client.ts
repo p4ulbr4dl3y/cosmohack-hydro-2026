@@ -146,7 +146,7 @@ export const apiClient = {
         return pairs;
       }
     } catch (e) {
-      console.error('Failed to load static pairs.csv', e);
+      console.error('Не удалось загрузить статический pairs.csv', e);
     }
 
     return [];
@@ -176,9 +176,9 @@ export const apiClient = {
       if (res.ok) {
         return await res.json();
       }
-      console.error(`fetchReport(${pairId}) failed with status ${res.status}`);
+      console.error(`fetchReport(${pairId}) завершился ошибкой со статусом ${res.status}`);
     } catch (e) {
-      console.error(`fetchReport(${pairId}) failed`, e);
+      console.error(`fetchReport(${pairId}) завершился ошибкой`, e);
     }
     // Нет данных - нет отчёта: подстановка выдуманных чисел фабриковала бы измерения.
     return null;
@@ -190,9 +190,9 @@ export const apiClient = {
       if (res.ok) {
         return format === 'html' ? await res.text() : await res.json();
       }
-      console.error(`fetchMchsDispatch(${pairId}) failed with status ${res.status}`);
+      console.error(`fetchMchsDispatch(${pairId}) завершился ошибкой со статусом ${res.status}`);
     } catch (e) {
-      console.error(`fetchMchsDispatch(${pairId}) failed`, e);
+      console.error(`fetchMchsDispatch(${pairId}) завершился ошибкой`, e);
     }
     return null;
   },
@@ -201,9 +201,9 @@ export const apiClient = {
     try {
       const res = await fetch(`${API_BASE}/api/v1/comparison/${pairId}`);
       if (res.ok) return await res.json();
-      console.error(`fetchComparison(${pairId}) failed with status ${res.status}`);
+      console.error(`fetchComparison(${pairId}) завершился ошибкой со статусом ${res.status}`);
     } catch (e) {
-      console.error(`fetchComparison(${pairId}) failed`, e);
+      console.error(`fetchComparison(${pairId}) завершился ошибкой`, e);
     }
     // Эталонные строки должны приходить с сервера; их синтез из
     // прогноза всегда давал бы фальшивое "отклонение 0.0%".
@@ -236,10 +236,10 @@ export const apiClient = {
     try {
       const res = await fetch(`${API_BASE}/api/v1/recompute`, { method: 'POST' });
       if (res.ok) return await res.json();
-      console.error(`recompute failed with status ${res.status}`);
+      console.error(`повторный расчет завершился ошибкой со статусом ${res.status}`);
       return { status: 'error', message: `Пересчёт не выполнен (HTTP ${res.status})` };
     } catch (e) {
-      console.error('recompute failed', e);
+      console.error('повторный расчет завершился ошибкой', e);
       // Никогда не сообщать выдуманный успех или тайминг, когда запрос не выполнялся.
       return { status: 'error', message: 'Пересчёт не выполнен: сервис недоступен' };
     }
@@ -298,7 +298,7 @@ export const apiClient = {
       const res = await fetch(`${API_BASE}/api/v1/metrics/official`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.error('Failed to fetch official metrics', e);
+      console.error('Не удалось получить официальные метрики', e);
     }
     return null;
   },
@@ -308,7 +308,7 @@ export const apiClient = {
       const res = await fetch(`${API_BASE}/api/v1/metrics/validate-submission`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.error('Failed to validate submission', e);
+      console.error('Не удалось проверить посылку', e);
     }
     return null;
   },
@@ -318,7 +318,7 @@ export const apiClient = {
       const res = await fetch(`${API_BASE}/api/v1/carbon-metrics/${pairId}`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.error('Failed to fetch carbon metrics', e);
+      console.error('Не удалось получить углеродные метрики', e);
     }
     return null;
   },

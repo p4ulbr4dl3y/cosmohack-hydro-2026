@@ -142,7 +142,7 @@ class FloodCarbonImpact:
     credit_potential: CarbonCreditResult
     notes: str
     tier: int = 1
-    tier_name: str = "IPCC Tier 1 (Global Defaults)"
+    tier_name: str = "IPCC Tier 1 (общемировые значения по умолчанию)"
     biomass_density_factors: dict[str, float] = field(default_factory=dict)
 
 
@@ -211,7 +211,7 @@ def calculate_stock_difference(
 ) -> dict[str, float]:
     """Вычисляет разницу запасов и выбросы между двумя моментами времени."""
     if area_ha <= 0 or delta_t_years <= 0:
-        raise ValueError("Area and delta_t must be positive")
+        raise ValueError("Площадь и delta_t должны быть положительными")
 
     c_start = b_start_t_ha * cf
     c_end = b_end_t_ha * cf
@@ -281,7 +281,7 @@ def calculate_carbon_credits(
             valuations_rub=dict.fromkeys(prices_rub, 0.0),
             area_ha=area_ha,
             delta_t_years=delta_t_years,
-            error_message="Invalid inputs: area and delta_t must be positive, H non-negative, all values finite",
+            error_message="Недопустимые входные данные: площадь и delta_t должны быть положительными, H неотрицателен, все значения конечны",
         )
 
     R = E_base_tCO2e - E_proj_tCO2e - LK_tCO2e
@@ -373,7 +373,9 @@ def compute_flood_carbon_impact(
     """
     tier_num = 2 if str(tier).strip().lower() in ("2", "tier2", "tier_2", "regional", "far_east", "amur") else 1
     tier_name = (
-        "Tier 2 (Far East Regional Factors: Priamurye/Amur Basin)" if tier_num == 2 else "IPCC Tier 1 (Global Defaults)"
+        "Tier 2 (региональные коэффициенты Дальнего Востока: Приамурье/бассейн Амура)"
+        if tier_num == 2
+        else "IPCC Tier 1 (общемировые значения по умолчанию)"
     )
     density_map = get_biomass_density_map(tier=tier_num)
 
@@ -483,36 +485,38 @@ def calculate_green_ai_inference(
     - pue: Power Usage Effectiveness серверной инфраструктуры (>= 1.0, по умолчанию 1.0).
     """
     if duration_seconds < 0:
-        raise ValueError(f"duration_seconds must be non-negative, got {duration_seconds}")
+        raise ValueError(f"duration_seconds должен быть неотрицательным, получено {duration_seconds}")
     if cpu_utilization < 0.0 or cpu_utilization > 1.0:
-        raise ValueError(f"cpu_utilization must be between 0.0 and 1.0, got {cpu_utilization}")
+        raise ValueError(f"cpu_utilization должен быть в диапазоне от 0.0 до 1.0, получено {cpu_utilization}")
     if pue < 1.0:
-        raise ValueError(f"PUE must be >= 1.0, got {pue}")
+        raise ValueError(f"PUE должен быть >= 1.0, получено {pue}")
 
     hw_preset = None
     if isinstance(tdp_watts, str):
         hw_preset = tdp_watts.strip().lower()
         if hw_preset not in CPU_TDP_PRESETS:
             valid = ", ".join(CPU_TDP_PRESETS.keys())
-            raise ValueError(f"Unknown CPU TDP preset '{tdp_watts}'. Valid presets: {valid}")
+            raise ValueError(f"Неизвестный пресет TDP процессора '{tdp_watts}'. Доступные пресеты: {valid}")
         tdp_val = CPU_TDP_PRESETS[hw_preset]
     else:
         tdp_val = float(tdp_watts)
         if tdp_val < 0:
-            raise ValueError(f"tdp_watts must be non-negative, got {tdp_watts}")
+            raise ValueError(f"tdp_watts должен быть неотрицательным, получено {tdp_watts}")
 
     region_preset = None
     if isinstance(grid_emission_factor_kg_per_kwh, str):
         region_preset = grid_emission_factor_kg_per_kwh.strip().lower()
         if region_preset not in REGIONAL_GRID_EMISSION_FACTORS:
             valid = ", ".join(REGIONAL_GRID_EMISSION_FACTORS.keys())
-            raise ValueError(f"Unknown grid emission factor preset '{grid_emission_factor_kg_per_kwh}'. Valid: {valid}")
+            raise ValueError(
+                f"Неизвестный пресет фактора выбросов энергосети '{grid_emission_factor_kg_per_kwh}'. Доступные: {valid}"
+            )
         grid_factor = REGIONAL_GRID_EMISSION_FACTORS[region_preset]
     else:
         grid_factor = float(grid_emission_factor_kg_per_kwh)
         if grid_factor < 0:
             raise ValueError(
-                f"grid_emission_factor_kg_per_kwh must be non-negative, got {grid_emission_factor_kg_per_kwh}"
+                f"grid_emission_factor_kg_per_kwh должен быть неотрицательным, получено {grid_emission_factor_kg_per_kwh}"
             )
 
     # Вычисление энергопотребления в кВт·ч: E = P * t = (W * s) / 3_600_000
@@ -521,9 +525,9 @@ def calculate_green_ai_inference(
     carbon_g = carbon_kg * 1000.0
 
     notes = (
-        f"Green AI CPU inference: {duration_seconds:.3f}s, TDP {tdp_val:.1f}W "
-        f"({cpu_utilization * 100:.0f}% load, PUE={pue:.2f}) -> {energy_kwh:.6f} kWh, "
-        f"{carbon_g:.4f} g CO2e (grid factor {grid_factor:.3f} kg CO2e/kWh)"
+        f"Инференс Green AI на CPU: {duration_seconds:.3f} с, TDP {tdp_val:.1f} Вт "
+        f"({cpu_utilization * 100:.0f}% загрузки, PUE={pue:.2f}) -> {energy_kwh:.6f} кВт·ч, "
+        f"{carbon_g:.4f} г CO2e (фактор энергосети {grid_factor:.3f} кг CO2e/кВт·ч)"
     )
 
     return GreenAIMetrics(

@@ -97,12 +97,12 @@ def test_validate_aoi_geometry():
     # Пустая геометрия
     is_valid, area_ha, err = validate_aoi_geometry(Polygon())
     assert is_valid is False
-    assert "empty" in err.lower()
+    assert "пуста" in err.lower()
 
     # Превышение лимита площади
     is_valid, area_ha, err = validate_aoi_geometry(small_poly, max_area_km2=0.001)
     assert is_valid is False
-    assert "exceeds limit" in err.lower()
+    assert "превышает лимит" in err.lower()
 
 
 def test_compute_pixel_box_area_ha():

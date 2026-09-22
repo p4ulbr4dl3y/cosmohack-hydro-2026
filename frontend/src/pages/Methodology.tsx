@@ -79,7 +79,7 @@ export const Methodology: React.FC = () => {
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 rounded-lg border border-border text-text-secondary hover:text-text-primary hover:bg-slate-50 md:hidden transition-colors"
             title="Меню навигации"
-            aria-label="Toggle menu"
+            aria-label="Переключить меню"
           >
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

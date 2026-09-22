@@ -556,7 +556,7 @@ def test_run_holdout_study_folds_match_aois_and_schema(tmp_path):
     with open(out_json, encoding="utf-8") as fp:
         stored = json.load(fp)
     assert stored == res
-    assert stored["method"] == "spatial leave-one-AOI-out (LOAO)"
+    assert stored["method"] == "пространственная отложенная выборка leave-one-AOI-out (LOAO)"
     assert "official_pooled_metrics" in stored
     assert set(stored["fold_summary"]) == {"mean_score", "std_score", "min_score", "max_score"}
 
@@ -627,9 +627,9 @@ def test_holdout_main_cli_prints_table_and_writes_json(tmp_path, monkeypatch, ca
     )
     eval_main()
     out = capsys.readouterr().out
-    assert "SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT)" in out
-    assert "ADDITIONAL DIAGNOSTIC" in out
-    assert "Official pooled Score" in out
+    assert "ПРОСТРАНСТВЕННАЯ ОТЛОЖЕННАЯ ВЫБОРКА (LEAVE-ONE-AOI-OUT)" in out
+    assert "ДОПОЛНИТЕЛЬНАЯ ДИАГНОСТИКА" in out
+    assert "Официальная объединенная метрика" in out
     assert out_json.exists()
     with open(out_json, encoding="utf-8") as fp:
         stored = json.load(fp)
@@ -665,8 +665,8 @@ def test_default_evaluate_path_unchanged_no_holdout(tmp_path, monkeypatch, capsy
     )
     eval_main()
     out = capsys.readouterr().out
-    assert "Composite Score: 1.0000" in out
-    assert "SPATIAL HOLD-OUT" not in out
+    assert "Итоговая метрика: 1.0000" in out
+    assert "ПРОСТРАНСТВЕННАЯ ОТЛОЖЕННАЯ ВЫБОРКА" not in out
 
 
 def test_evaluate_main_cli(tmp_path, monkeypatch, capsys):
@@ -708,8 +708,8 @@ def test_evaluate_main_cli(tmp_path, monkeypatch, capsys):
     )
     eval_main()
     out = capsys.readouterr().out
-    assert "HYDRO-MONITORING EVALUATION RESULTS" in out
-    assert "Composite Score: 1.0000" in out
+    assert "РЕЗУЛЬТАТЫ ОЦЕНКИ ГИДРОЛОГИЧЕСКОГО МОНИТОРИНГА" in out
+    assert "Итоговая метрика: 1.0000" in out
 
 
 def test_evaluate_main_run_ablations(tmp_path, monkeypatch):

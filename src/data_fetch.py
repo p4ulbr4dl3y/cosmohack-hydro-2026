@@ -28,7 +28,7 @@ def safe_extract(archive_path: Path, dest: Path) -> int:
         for info in archive.infolist():
             target = (dest / info.filename).resolve()
             if not target.is_relative_to(dest):
-                raise RuntimeError(f"Unsafe path in archive: {info.filename}")
+                raise RuntimeError(f"Небезопасный путь в архиве: {info.filename}")
         archive.extractall(dest)
         return len(archive.infolist())
 

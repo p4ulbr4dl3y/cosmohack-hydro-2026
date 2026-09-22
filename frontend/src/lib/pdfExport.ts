@@ -97,7 +97,7 @@ export async function downloadReportPdf(
 
     pdf.save(`report_${report.pair_id || 'amur'}.pdf`);
   } catch (error) {
-    console.error('Failed to generate PDF via canvas, fallback to basic PDF:', error);
+    console.error('Не удалось сформировать PDF через canvas, переход к базовому PDF:', error);
     // Запасной вариант, если захват canvas не удался
     const pdf = new jsPDF('p', 'mm', 'a4');
     pdf.setFontSize(16);

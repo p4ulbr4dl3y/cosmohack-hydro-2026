@@ -55,7 +55,7 @@ def estimate_water_depth(
         Двумерный массив float32 с оценкой глубины воды в метрах (0.0 на суше).
     """
     if flood_mask.shape != elevation.shape:
-        raise ValueError(f"Shape mismatch: flood_mask {flood_mask.shape} vs elevation {elevation.shape}")
+        raise ValueError(f"Несовпадение размеров: flood_mask {flood_mask.shape} и elevation {elevation.shape}")
 
     f_bool = (flood_mask == 1) if flood_mask.dtype != bool else flood_mask
     depth = np.zeros(elevation.shape, dtype=np.float32)
@@ -143,9 +143,9 @@ def classify_depth_risk(
             "mean_depth_m": 0.0,
             "max_depth_m": 0.0,
             "mchs_traversability": {
-                "low_risk_kamaz": "Accessible by regular all-wheel trucks / KamAZ (< 0.5 m)",
-                "medium_risk_pts_m": "PTS-M tracked amphibious transporters only (0.5 - 1.5 m)",
-                "high_risk_boats": "Watercraft / rescue boats only (> 1.5 m)",
+                "low_risk_kamaz": "Проходимо для полноприводных грузовиков / КамАЗ (< 0.5 м)",
+                "medium_risk_pts_m": "Только гусеничные плавающие транспортеры ПТС-М (0.5 - 1.5 м)",
+                "high_risk_boats": "Только лодки и спасательные катера (> 1.5 м)",
             },
         }
 
@@ -180,8 +180,8 @@ def classify_depth_risk(
         "mean_depth_m": mean_d,
         "max_depth_m": max_d,
         "mchs_traversability": {
-            "low_risk_kamaz": "Accessible by regular all-wheel trucks / KamAZ (< 0.5 m)",
-            "medium_risk_pts_m": "PTS-M tracked amphibious transporters only (0.5 - 1.5 m)",
-            "high_risk_boats": "Watercraft / rescue boats only (> 1.5 m)",
+            "low_risk_kamaz": "Проходимо для полноприводных грузовиков / КамАЗ (< 0.5 м)",
+            "medium_risk_pts_m": "Только гусеничные плавающие транспортеры ПТС-М (0.5 - 1.5 м)",
+            "high_risk_boats": "Только лодки и спасательные катера (> 1.5 м)",
         },
     }

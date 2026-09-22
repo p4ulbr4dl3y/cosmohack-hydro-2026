@@ -177,21 +177,21 @@ def apply_planar_hand_filter(
     percentile: float = 90.0,
     tolerance_m: float = 1.5,
 ) -> np.ndarray:
-    """Filter flood water elevation exceeding river boundary HAND + tolerance.
+    """Отсекает затопление выше уровня воды у русла реки (HAND) плюс допуск.
 
-    A hydraulic river flood has a contiguous planar water surface.
-    Flood water elevation cannot exceed the 90th percentile HAND of the
-    immediate river boundary (+ 1.5m tolerance).
+    Гидравлический речной паводок имеет связную плоскостную водную
+    поверхность. Отметка воды не может превышать 90-й процентиль HAND
+    непосредственно у границы русла реки плюс допуск 1.5 м.
 
     Args:
-        flood_mask: 2D boolean or integer binary array of flood candidate pixels.
-        seed_mask: 2D boolean array of permanent/seasonal river seed network.
-        hand: 2D float array of Height Above Nearest Drainage in meters.
-        percentile: Boundary percentile to reconstruct water surface level (default 90.0).
-        tolerance_m: Height tolerance above river boundary in meters (default 1.5m).
+        flood_mask: 2D булев или целочисленный бинарный массив пикселей-кандидатов затопления.
+        seed_mask: 2D булев массив постоянной или сезонной опорной сети русел рек.
+        hand: 2D массив float высот над ближайшим водотоком (HAND) в метрах.
+        percentile: Процентиль границы русла для восстановления уровня воды (по умолчанию 90.0).
+        tolerance_m: Допуск по высоте выше границы русла в метрах (по умолчанию 1.5 м).
 
     Returns:
-        Filtered binary flood mask.
+        Отфильтрованная бинарная маска затопления.
     """
     if hand is None or not np.any(flood_mask) or not np.any(seed_mask):
         return flood_mask.copy()

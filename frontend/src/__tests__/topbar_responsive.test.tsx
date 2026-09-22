@@ -25,7 +25,7 @@ describe('Topbar responsive component', () => {
       </MemoryRouter>
     );
 
-    const toggleBtn = screen.getByLabelText('Toggle menu');
+    const toggleBtn = screen.getByLabelText('Переключить меню');
     expect(screen.queryByText('Навигация по разделам')).toBeNull();
 
     fireEvent.click(toggleBtn);

@@ -137,7 +137,7 @@ def test_verify_manifest_detects_corruption(tmp_path: Path) -> None:
     assert res.is_valid is False
     assert "submission.csv" in res.corrupted_files
     assert res.merkle_valid is False
-    assert any("SHA-256 mismatch" in e for e in res.errors)
+    assert any("Несовпадение SHA-256" in e for e in res.errors)
 
 
 def test_verify_manifest_detects_missing_file(tmp_path: Path) -> None:
@@ -153,7 +153,7 @@ def test_verify_manifest_detects_missing_file(tmp_path: Path) -> None:
     res = verify_manifest(manifest_path, base_dir=tmp_path)
     assert res.is_valid is False
     assert "file1.txt" in res.missing_files
-    assert any("Missing file" in e for e in res.errors)
+    assert any("Отсутствует файл" in e for e in res.errors)
 
 
 def test_verify_manifest_detects_size_mismatch(tmp_path: Path) -> None:
@@ -174,7 +174,7 @@ def test_verify_manifest_detects_size_mismatch(tmp_path: Path) -> None:
     res = verify_manifest(manifest_dict, base_dir=tmp_path)
     assert res.is_valid is False
     assert "file1.txt" in res.size_mismatches
-    assert any("Size mismatch" in e for e in res.errors)
+    assert any("Несовпадение размера" in e for e in res.errors)
 
 
 def test_verify_actual_repository_manifest() -> None:
@@ -207,7 +207,7 @@ def test_cli_manifest_generate_and_verify(tmp_path: Path, capsys: pytest.Capture
     # Верификация через run_manifest
     run_manifest(output_path=out_manifest, verify=True, base_dir=tmp_path)
     captured = capsys.readouterr()
-    assert "Integrity check status: PASSED" in captured.out
+    assert "Статус проверки целостности: ПРОЙДЕНО" in captured.out
 
 
 def test_cli_subcommand_dispatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

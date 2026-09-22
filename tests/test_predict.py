@@ -186,7 +186,7 @@ def test_run_prediction_and_main(synthetic_pair_env, tmp_path, monkeypatch):
     assert len(sub_df) == 1
     assert sub_csv.exists()
 
-    # CLI main
+    # Точка входа CLI
     sub_cli_csv = tmp_path / "sub_cli.csv"
     monkeypatch.setattr(
         "sys.argv",
@@ -219,7 +219,7 @@ def test_process_pair_missing_s1_rasters_raises(synthetic_pair_env):
             "reference_mask": "reference_masks/ref_pair1.tif",
         }
     )
-    with pytest.raises(FileNotFoundError, match="Missing S1 pre/peak rasters"):
+    with pytest.raises(FileNotFoundError, match="Отсутствуют растры S1 pre/peak"):
         process_pair(bad_row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"])
 
 
@@ -320,7 +320,7 @@ def test_process_pair_area_mismatch_warning_and_assert(synthetic_pair_env, monke
     row = synthetic_pair_env["row"].copy()
     row["pair_id"] = "mismatch_pair"
 
-    with pytest.raises(AssertionError, match="Area verification failed"):
+    with pytest.raises(AssertionError, match="Проверка площадей не пройдена"):
         process_pair(row, synthetic_pair_env["data_dir"], synthetic_pair_env["predictions_dir"], ablation_mode=1)
 
 

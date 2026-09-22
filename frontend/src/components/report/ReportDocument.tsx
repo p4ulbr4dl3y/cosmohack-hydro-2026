@@ -562,7 +562,7 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
             </div>
             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span>●</span>
-              <span>IPCC TIER 1 & MERKLE SHA-256 COMPLIANT</span>
+              <span>СООТВЕТСТВИЕ IPCC TIER 1 И MERKLE SHA-256</span>
             </div>
           </div>
 
@@ -629,8 +629,8 @@ export const ReportDocument: React.FC<ReportDocumentProps> = ({
                 </div>
                 <div className="space-y-1 pt-1 border-t border-slate-100">
                   <div className="flex justify-between items-center text-text-secondary">
-                    <span>Merkle Root:</span>
-                    <span className="text-[10px] font-bold text-emerald-700">SHA-256 IMMUTABLE</span>
+                    <span>Корень Merkle:</span>
+                    <span className="text-[10px] font-bold text-emerald-700">SHA-256 НЕИЗМЕНЯЕМ</span>
                   </div>
                   <div className="font-mono text-[11px] text-text-primary bg-slate-50 px-2 py-1.5 rounded border border-slate-200/80 break-all select-all leading-tight font-medium" title={effectiveAudit?.merkle_root || effectiveAudit?.merkle_root_sha256}>
                     {effectiveAudit?.merkle_root || effectiveAudit?.merkle_root_sha256 || '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'}

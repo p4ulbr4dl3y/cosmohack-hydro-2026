@@ -14,13 +14,13 @@ def test_cli_report_single_pair(capsys):
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     run_report(pair_id=pair_id)
     captured = capsys.readouterr()
-    assert f"REPORT: {pair_id}" in captured.out
+    assert f"ОТЧЕТ: {pair_id}" in captured.out
     # Площадь паводка должна совпадать с поставляемым submission.csv (единый источник истины)
     sub = pd.read_csv(Path("submission.csv"))
     expected = float(sub.loc[sub["pair_id"] == pair_id, "flood_ha"].iloc[0])
-    assert f"Flood: {expected:.2f} ha" in captured.out
-    assert "Water Gain:" in captured.out
-    assert "Cropland flood:" in captured.out
+    assert f"Затопление: {expected:.2f} га" in captured.out
+    assert "Прирост воды:" in captured.out
+    assert "Затопление пашни:" in captured.out
 
 
 def test_cli_report_output_json(tmp_path):
@@ -72,13 +72,13 @@ def test_predict_without_s1_prints_hint(tmp_path, capsys):
         main()
     assert exc.value.code == 1
     out = capsys.readouterr().err
-    assert "Sentinel-1 scenes are required" in out
+    assert "нужны сцены Sentinel-1" in out
     assert "src.cli fetch" in out
     assert "docs/Ссылка на данные.txt" in out
     # Разовая внешняя загрузка должна быть указана явно (D1: честный офлайн-сценарий).
     assert "2.9 GB" in out
     assert "drive.google.com" in out
-    assert "NOT reproducible offline" in out
+    assert "НЕ воспроизводится офлайн" in out
 
 
 def test_cli_report_unknown_pair_exits(capsys):
@@ -86,7 +86,7 @@ def test_cli_report_unknown_pair_exits(capsys):
         run_report(pair_id="unknown_xyz")
     assert exc.value.code == 1
     err = capsys.readouterr().err
-    assert "Error: Pair 'unknown_xyz' not found" in err
+    assert "Ошибка: пара 'unknown_xyz' не найдена" in err
 
 
 def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
@@ -106,8 +106,8 @@ def test_run_benchmark_mocked(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("src.cli.process_pair", mock_process_pair)
     run_benchmark(dummy_csv, tmp_path, tmp_path, iterations=1)
     out = capsys.readouterr().out
-    assert "BENCHMARK RESULTS" in out
-    assert "Throughput:" in out
+    assert "РЕЗУЛЬТАТЫ БЕНЧМАРКА" in out
+    assert "Пропускная способность:" in out
 
 
 def test_run_benchmark_writes_json_summary(tmp_path, monkeypatch):
@@ -157,8 +157,8 @@ def test_run_fetch_download_and_missing_scenes(tmp_path, monkeypatch, capsys):
 
     run_fetch(dummy_csv, tmp_path / "extracted", archive_output=archive, keep_archive=True)
     captured = capsys.readouterr()
-    assert "Downloading dataset" in captured.err
-    assert "Warning: S1 scenes still missing" in captured.err
+    assert "Загрузка датасета" in captured.err
+    assert "Предупреждение: сцены S1 все еще отсутствуют" in captured.err
 
 
 def test_run_fetch_mocked(tmp_path, monkeypatch, capsys):
@@ -175,7 +175,7 @@ def test_run_fetch_mocked(tmp_path, monkeypatch, capsys):
     run_fetch(dummy_csv, tmp_path / "extracted", archive_output=archive, keep_archive=False)
     assert not archive.exists()  # удалён, так как keep_archive=False
     captured = capsys.readouterr()
-    assert "Extracted 5 entries" in captured.err
+    assert "Извлечено 5 записей" in captured.err
 
 
 def test_main_subcommand_dispatching(monkeypatch):
@@ -267,8 +267,8 @@ def test_cli_run_audit_success(tmp_path, capsys):
     assert data["pair_id"] == pair_id
 
     captured = capsys.readouterr()
-    assert f"HYDRO AUDIT CERTIFICATE: {cert['certificate_id']}" in captured.out
-    assert "Audit certificate saved to" in captured.out
+    assert f"ГИДРОЛОГИЧЕСКИЙ АУДИТОРСКИЙ СЕРТИФИКАТ: {cert['certificate_id']}" in captured.out
+    assert "Аудиторский сертификат сохранен в" in captured.out
 
 
 def test_cli_run_audit_unknown_pair_exits(capsys):
@@ -278,7 +278,7 @@ def test_cli_run_audit_unknown_pair_exits(capsys):
         run_audit(pair_id="unknown_pair_xyz")
     assert exc.value.code == 1
     err = capsys.readouterr().err
-    assert "Error: Pair 'unknown_pair_xyz' not found." in err
+    assert "Ошибка: пара 'unknown_pair_xyz' не найдена." in err
 
 
 def test_cli_run_uncertainty_success(tmp_path, capsys):
@@ -304,8 +304,8 @@ def test_cli_run_uncertainty_success(tmp_path, capsys):
     assert data["confidence_level"] == 0.90
 
     captured = capsys.readouterr()
-    assert f"SPATIAL UNCERTAINTY ANALYSIS: {pair_id}" in captured.out
-    assert "Uncertainty summary saved to" in captured.out
+    assert f"АНАЛИЗ ПРОСТРАНСТВЕННОЙ НЕОПРЕДЕЛЕННОСТИ: {pair_id}" in captured.out
+    assert "Сводка неопределенности сохранена в" in captured.out
 
 
 def test_cli_run_uncertainty_unknown_pair_exits(capsys):
@@ -315,7 +315,7 @@ def test_cli_run_uncertainty_unknown_pair_exits(capsys):
         run_uncertainty(pair_id="unknown_pair_xyz")
     assert exc.value.code == 1
     err = capsys.readouterr().err
-    assert "Error: Pair 'unknown_pair_xyz' not found." in err
+    assert "Ошибка: пара 'unknown_pair_xyz' не найдена." in err
 
 
 def test_cli_run_uncertainty_zero_flood(monkeypatch):
@@ -466,7 +466,7 @@ def test_cli_run_manifest_generate(tmp_path, capsys):
     assert out_json.exists()
 
     captured = capsys.readouterr()
-    assert "Artifacts manifest generated successfully" in captured.out
+    assert "Манифест артефактов успешно сформирован" in captured.out
 
 
 def test_cli_run_manifest_verify_valid_and_invalid(tmp_path, capsys):
@@ -482,7 +482,7 @@ def test_cli_run_manifest_verify_valid_and_invalid(tmp_path, capsys):
     # Проверить валидный
     run_manifest(output_path=out_json, verify=True, base_dir=tmp_path)
     captured = capsys.readouterr()
-    assert "PASSED" in captured.out
+    assert "ПРОЙДЕНО" in captured.out
 
     # Повредить файл и проверить невалидный (должен sys.exit(1))
     test_file.write_bytes(b"\xff\xff")
@@ -490,7 +490,7 @@ def test_cli_run_manifest_verify_valid_and_invalid(tmp_path, capsys):
         run_manifest(output_path=out_json, verify=True, base_dir=tmp_path)
     assert exc.value.code == 1
     captured_err = capsys.readouterr()
-    assert "FAILED" in captured_err.out
+    assert "НЕ ПРОЙДЕНО" in captured_err.out
 
 
 def test_main_dispatch_manifest(monkeypatch):

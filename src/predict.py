@@ -103,7 +103,7 @@ def _process_pair_worker(task_args: tuple[Any, ...]) -> dict[str, float | str]:
     """Вспомогательная функция верхнего уровня для запуска в пуле многопроцессной обработки."""
     idx, total, row, data_dir, predictions_dir, ablation_mode = task_args[:6]
     strict_tz = task_args[6] if len(task_args) > 6 else None
-    logger.info(f"Processing [{idx + 1}/{total}]: {row['pair_id']}")
+    logger.info(f"Обработка [{idx + 1}/{total}]: {row['pair_id']}")
     return process_pair(
         row=row,
         data_dir=data_dir,
@@ -140,7 +140,7 @@ def process_pair(
     s1_peak_files = sorted(glob.glob(str(rasters_dir / "S1_peak_*.tif")))
 
     if not s1_pre_files or not s1_peak_files:
-        raise FileNotFoundError(f"Missing S1 pre/peak rasters in {rasters_dir}")
+        raise FileNotFoundError(f"Отсутствуют растры S1 pre/peak в {rasters_dir}")
 
     # Целевая геометрия: берётся из сетки сцены Sentinel-1 (нативная сетка сенсора).
     # Эталонный растр используется только как запасной вариант, когда метаданные S1 недоступны.
@@ -184,7 +184,7 @@ def process_pair(
                 if t_src.shape == target_shape:
                     tree_arr = t_src.read(1) == 1
         except Exception as e:
-            logger.warning(f"[{pair_id}] Failed to load TREE_worldcover: {e}")
+            logger.warning(f"[{pair_id}] Не удалось загрузить TREE_worldcover: {e}")
 
     # 3. Загрузка оптических данных Sentinel-2 там, где они доступны
     opt_pre_w, opt_pre_v = None, None
@@ -302,7 +302,7 @@ def process_pair(
                 water_peak_mask = clip_by_aoi(water_peak_mask, geom, target_transform, target_crs)
                 flooded_vegetation_mask = clip_by_aoi(flooded_vegetation_mask, geom, target_transform, target_crs)
         except Exception as e:
-            logger.warning(f"[{pair_id}] Failed to clip to AOI boundary: {e}")
+            logger.warning(f"[{pair_id}] Не удалось обрезать по границе AOI: {e}")
 
     # 6c. Фильтр гидрологической связности с несколькими опорами и MMU в режиме полного конвейера (режим 4)
     if ablation_mode == 4:
@@ -387,11 +387,13 @@ def process_pair(
     denom = max(raster_flood_ha, 1.0)
     diff_pct = (diff / denom) * 100.0
     if diff_pct >= 2.0:
-        logger.warning(f"[{pair_id}] Area mismatch: CSV={flood_ha} ha, Raster={raster_flood_ha} ha ({diff_pct:.2f}%)")
-    assert diff_pct < 2.0, f"Area verification failed for {pair_id}: {diff_pct:.2f}% >= 2.0%"
+        logger.warning(
+            f"[{pair_id}] Расхождение площадей: CSV={flood_ha} га, растр={raster_flood_ha} га ({diff_pct:.2f}%)"
+        )
+    assert diff_pct < 2.0, f"Проверка площадей не пройдена для {pair_id}: {diff_pct:.2f}% >= 2.0%"
 
     logger.info(
-        f"[{pair_id}] Done -> flood: {flood_ha} ha, pre: {water_pre_ha} ha, peak: {water_peak_ha} ha (diff={diff_pct:.4f}%)"
+        f"[{pair_id}] Готово -> затопление: {flood_ha} га, вода до: {water_pre_ha} га, вода на пике: {water_peak_ha} га (расхождение={diff_pct:.4f}%)"
     )
 
     res = {
@@ -426,7 +428,7 @@ def run_prediction(
     """Запускает инференс по всем парам в pairs.csv и формирует submission.csv."""
     pairs_df = pd.read_csv(pairs_csv_path)
     total_pairs = len(pairs_df)
-    logger.info(f"Loaded {total_pairs} pairs from {pairs_csv_path}")
+    logger.info(f"Загружено {total_pairs} пар из {pairs_csv_path}")
 
     if total_pairs == 0:
         sub_df = pd.DataFrame(columns=["pair_id", "flood_ha", "water_pre_ha", "water_peak_ha"])
@@ -443,7 +445,7 @@ def run_prediction(
 
     records: list[dict[str, Any]] = []
     if effective_workers > 1:
-        logger.info(f"Running parallel inference across {effective_workers} worker processes")
+        logger.info(f"Параллельный инференс на {effective_workers} рабочих процессах")
         tasks = [
             (idx, total_pairs, row, data_dir, predictions_dir, ablation_mode, strict_tz)
             for idx, row in pairs_df.iterrows()
@@ -451,9 +453,9 @@ def run_prediction(
         with ProcessPoolExecutor(max_workers=effective_workers) as executor:
             records = list(executor.map(_process_pair_worker, tasks))
     else:
-        logger.info("Running sequential inference (1 worker)")
+        logger.info("Последовательный инференс (1 рабочий процесс)")
         for idx, row in pairs_df.iterrows():
-            logger.info(f"Processing [{idx + 1}/{total_pairs}]: {row['pair_id']}")
+            logger.info(f"Обработка [{idx + 1}/{total_pairs}]: {row['pair_id']}")
             rec = process_pair(
                 row=row,
                 data_dir=data_dir,
@@ -465,12 +467,12 @@ def run_prediction(
 
     sub_df = pd.DataFrame(records)
     sub_df.to_csv(output_csv_path, index=False)
-    logger.info(f"Successfully wrote {len(sub_df)} rows to {output_csv_path}")
+    logger.info(f"Успешно записано {len(sub_df)} строк в {output_csv_path}")
     return sub_df
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate flood predictions and submission.csv")
+    parser = argparse.ArgumentParser(description="Сформировать прогноз затопления и submission.csv")
     parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     parser.add_argument("--data_dir", type=Path, default=Path("hydrowatch_amur"))
     parser.add_argument("--output_csv", type=Path, default=Path("submission.csv"))
@@ -480,7 +482,7 @@ def main() -> None:
         "--strict-tz",
         action="store_true",
         default=None,
-        help="Strict competition spec compliance (MMU 25 px, isolate sub-canopy forest)",
+        help="Строгое соответствие регламенту соревнования (MMU 25 px, изоляция подкронового леса)",
     )
     parser.add_argument(
         "--workers",
@@ -488,7 +490,7 @@ def main() -> None:
         dest="workers",
         type=int,
         default=None,
-        help="Number of worker processes for parallel batch inference (default: auto)",
+        help="Число рабочих процессов для параллельного пакетного инференса (по умолчанию: авто)",
     )
     args = parser.parse_args()
 

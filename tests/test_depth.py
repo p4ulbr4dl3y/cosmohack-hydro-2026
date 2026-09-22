@@ -32,7 +32,7 @@ class TestDepthEstimation:
     def test_estimate_water_depth_shape_mismatch(self):
         mask = np.zeros((10, 10), dtype=bool)
         dem = np.zeros((20, 20), dtype=np.float32)
-        with pytest.raises(ValueError, match="Shape mismatch"):
+        with pytest.raises(ValueError, match="Несовпадение размеров"):
             estimate_water_depth(mask, dem)
 
     def test_estimate_water_depth_global_edge(self):

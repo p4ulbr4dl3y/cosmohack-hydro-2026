@@ -210,7 +210,7 @@ def render_geotiff_overlay(
     """Загружает GeoTIFF, рендерит RGBA PNG и вычисляет ограничивающий прямоугольник WGS84 для Leaflet."""
     p = Path(tif_path)
     if not p.is_file():
-        raise FileNotFoundError(f"GeoTIFF file not found: {p}")
+        raise FileNotFoundError(f"Файл GeoTIFF не найден: {p}")
 
     with rasterio.open(p) as src:
         mask = src.read(1)

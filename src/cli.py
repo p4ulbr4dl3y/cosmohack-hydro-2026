@@ -31,20 +31,20 @@ logger = logging.getLogger(__name__)
 #: Читаемая подсказка, выводимая при отсутствии сцен Sentinel-1 (они
 #: распространяются вне git-репозитория, см. docs/Ссылка на данные.txt).
 DATA_DOWNLOAD_HINT = f"""\
-Sentinel-1 scenes are required to run prediction, but they are NOT in this
-git repository (see .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
+Для запуска прогноза нужны сцены Sentinel-1, но они НЕ лежат в этом
+git-репозитории (см. .gitignore: hydrowatch_amur/rasters/**/S1_*.tif).
 
-Fetch the full case dataset first:
+Сначала скачайте полный датасет кейса:
 
     uv run python -m src.cli fetch
 
-(Downloads the archive from Google Drive and unpacks it; requires no external
-``unzip`` binary. The link is also documented in docs/Ссылка на данные.txt.)
-Google Drive link (one-time ~2.9 GB download, internet required):
+(Скачивает архив с Google Drive и распаковывает его; внешний бинарник
+``unzip`` не требуется. Ссылка также задокументирована в docs/Ссылка на данные.txt.)
+Ссылка Google Drive (разовая загрузка ~2.9 GB, нужен интернет):
     {DATA_URL}
-After unpacking, hydrowatch_amur/rasters/ must contain the S1_pre_*.tif /
-S1_peak_*.tif scenes referenced by hydrowatch_amur/pairs.csv.
-Prediction is therefore NOT reproducible offline until this download is done.
+После распаковки в hydrowatch_amur/rasters/ должны лежать сцены S1_pre_*.tif /
+S1_peak_*.tif, на которые ссылается hydrowatch_amur/pairs.csv.
+Поэтому прогноз НЕ воспроизводится офлайн до завершения этой загрузки.
 """
 
 
@@ -55,7 +55,7 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
     if pair_id:
         pairs = [p for p in pairs if p["pair_id"] == pair_id]
         if not pairs:
-            print(f"Error: Pair '{pair_id}' not found.", file=sys.stderr)
+            print(f"Ошибка: пара '{pair_id}' не найдена.", file=sys.stderr)
             sys.exit(1)
 
     reports = []
@@ -108,26 +108,26 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                     }
                 )
             pd.DataFrame(rows).to_csv(output, index=False)
-            print(f"Report CSV saved to {output}")
+            print(f"Отчет в CSV сохранен в {output}")
         else:
             with open(output, "w", encoding="utf-8") as f:
                 json.dump(reports if len(reports) > 1 else reports[0], f, indent=2, ensure_ascii=False)
-            print(f"Report JSON saved to {output}")
+            print(f"Отчет в JSON сохранен в {output}")
     else:
         for r in reports:
             print("=" * 60)
-            print(f"REPORT: {r['pair_id']} ({r['aoi_name']})")
-            print(f"  Event: {r['event_name']} ({r['year']})")
-            print(f"  Flood: {r['flood_ha']:.2f} ha ({r['flood_km2']:.2f} km²)")
-            print(f"  Water Pre: {r['water_pre_ha']:.2f} ha | Peak: {r['water_peak_ha']:.2f} ha")
-            print(f"  Water Gain: {r['water_gain_ha']:.2f} ha ({r['water_gain_pct']:.2f}%)")
+            print(f"ОТЧЕТ: {r['pair_id']} ({r['aoi_name']})")
+            print(f"  Событие: {r['event_name']} ({r['year']})")
+            print(f"  Затопление: {r['flood_ha']:.2f} га ({r['flood_km2']:.2f} км²)")
+            print(f"  Вода до: {r['water_pre_ha']:.2f} га | Вода на пике: {r['water_peak_ha']:.2f} га")
+            print(f"  Прирост воды: {r['water_gain_ha']:.2f} га ({r['water_gain_pct']:.2f}%)")
             lc = r.get("landcover", {})
-            print(f"  Builtup flood: {lc.get('builtup_ha', 0.0):.2f} ha ({lc.get('builtup_pct', 0.0):.1f}%)")
-            print(f"  Cropland flood: {lc.get('cropland_ha', 0.0):.2f} ha ({lc.get('cropland_pct', 0.0):.1f}%)")
+            print(f"  Затопление застройки: {lc.get('builtup_ha', 0.0):.2f} га ({lc.get('builtup_pct', 0.0):.1f}%)")
+            print(f"  Затопление пашни: {lc.get('cropland_ha', 0.0):.2f} га ({lc.get('cropland_pct', 0.0):.1f}%)")
             print(
-                f"  Natural flood: {lc.get('natural_vegetation_ha', 0.0):.2f} ha ({lc.get('natural_vegetation_pct', 0.0):.1f}%)"
+                f"  Затопление естественных земель: {lc.get('natural_vegetation_ha', 0.0):.2f} га ({lc.get('natural_vegetation_pct', 0.0):.1f}%)"
             )
-            print(f"  Mean HAND: {lc.get('mean_hand_m', 0.0):.2f} m")
+            print(f"  Средний HAND: {lc.get('mean_hand_m', 0.0):.2f} м")
             depth = r.get("depth_statistics", {})
             if (
                 depth
@@ -135,30 +135,30 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                 > 0
             ):
                 print(
-                    f"  MCHS Traversability Risk: Low (<0.5m): {depth.get('low_risk_ha', 0.0):.1f} ha ({depth.get('low_risk_pct', 0.0):.1f}%) | "
-                    f"Med (0.5-1.5m): {depth.get('medium_risk_ha', 0.0):.1f} ha ({depth.get('medium_risk_pct', 0.0):.1f}%) | "
-                    f"High (>1.5m): {depth.get('high_risk_ha', 0.0):.1f} ha ({depth.get('high_risk_pct', 0.0):.1f}%)"
+                    f"  Проходимость для МЧС: низкий риск (<0.5 м): {depth.get('low_risk_ha', 0.0):.1f} га ({depth.get('low_risk_pct', 0.0):.1f}%) | "
+                    f"средний риск (0.5-1.5 м): {depth.get('medium_risk_ha', 0.0):.1f} га ({depth.get('medium_risk_pct', 0.0):.1f}%) | "
+                    f"высокий риск (>1.5 м): {depth.get('high_risk_ha', 0.0):.1f} га ({depth.get('high_risk_pct', 0.0):.1f}%)"
                 )
             gauge = r.get("gauge_status")
             if gauge:
                 print(
-                    f"  Gauge ({gauge.get('station_name', '')} / {gauge.get('river', '')}): "
-                    f"{gauge.get('observed_level_cm')} cm (NPU: {gauge.get('npu_cm')} cm, OYA: {gauge.get('oya_cm')} cm) -> Stage: {gauge.get('stage_risk')}"
+                    f"  Пост ({gauge.get('station_name', '')} / {gauge.get('river', '')}): "
+                    f"{gauge.get('observed_level_cm')} см (НПУ: {gauge.get('npu_cm')} см, ОЯ: {gauge.get('oya_cm')} см) -> стадия: {gauge.get('stage_risk')}"
                 )
             unc = r.get("uncertainty")
             if unc:
                 print(
-                    f"  Uncertainty (95% CI): [{unc['lower_bound_ha']:.2f}, {unc['upper_bound_ha']:.2f}] ha (±{unc['relative_uncertainty_pct']:.2f}%)"
+                    f"  Неопределенность (95% ДИ): [{unc['lower_bound_ha']:.2f}, {unc['upper_bound_ha']:.2f}] га (±{unc['relative_uncertainty_pct']:.2f}%)"
                 )
             aud = r.get("audit")
             if aud:
                 print(
-                    f"  Merkle Audit: {aud.get('status', 'unknown').upper()} (root: {str(aud.get('merkle_root', ''))[:16]}...)"
+                    f"  Аудит Merkle: {aud.get('status', 'unknown').upper()} (корень: {str(aud.get('merkle_root', ''))[:16]}...)"
                 )
             carb = r.get("carbon_impact")
             if carb:
                 print(
-                    f"  Carbon Loss: {carb.get('carbon_loss_tC', 0.0):.1f} t C (≈ {carb.get('emissions_equivalent_tCO2e', 0.0):.1f} t CO2e)"
+                    f"  Потеря углерода: {carb.get('carbon_loss_tC', 0.0):.1f} т C (≈ {carb.get('emissions_equivalent_tCO2e', 0.0):.1f} т CO2e)"
                 )
         print("=" * 60)
 
@@ -168,7 +168,7 @@ def run_audit(pair_id: str, output_json: Path | None = None) -> dict[str, Any]:
     loader = DataLoader()
     rep = loader.get_report(pair_id)
     if not rep:
-        print(f"Error: Pair '{pair_id}' not found.", file=sys.stderr)
+        print(f"Ошибка: пара '{pair_id}' не найдена.", file=sys.stderr)
         sys.exit(1)
 
     meta = loader.get_pair_meta(pair_id) or {}
@@ -199,21 +199,21 @@ def run_audit(pair_id: str, output_json: Path | None = None) -> dict[str, Any]:
     cert_dict = cert.to_dict()
 
     print("\n" + "=" * 60)
-    print(f"HYDRO AUDIT CERTIFICATE: {cert.certificate_id}")
+    print(f"ГИДРОЛОГИЧЕСКИЙ АУДИТОРСКИЙ СЕРТИФИКАТ: {cert.certificate_id}")
     print("=" * 60)
-    print(f"Pair ID:       {cert.pair_id}")
-    print(f"Issued At:     {cert.issued_at}")
-    print(f"Merkle Root:   {cert.merkle_root}")
-    print(f"Signature:     {cert.signature_hash}")
-    print(f"Status:        {cert.status}")
-    print(f"Flood Area:    {summary['flood_ha']:.2f} ha")
+    print(f"ID пары:        {cert.pair_id}")
+    print(f"Выпущен:        {cert.issued_at}")
+    print(f"Корень Merkle:  {cert.merkle_root}")
+    print(f"Подпись:        {cert.signature_hash}")
+    print(f"Статус:         {cert.status}")
+    print(f"Площадь затопления: {summary['flood_ha']:.2f} га")
     print("=" * 60 + "\n")
 
     if output_json:
         output_json.parent.mkdir(parents=True, exist_ok=True)
         with open(output_json, "w", encoding="utf-8") as f:
             json.dump(cert_dict, f, indent=2, ensure_ascii=False)
-        print(f"Audit certificate saved to {output_json}\n")
+        print(f"Аудиторский сертификат сохранен в {output_json}\n")
 
     return cert_dict
 
@@ -230,7 +230,7 @@ def run_uncertainty(
     loader = DataLoader()
     rep = loader.get_report(pair_id)
     if not rep:
-        print(f"Error: Pair '{pair_id}' not found.", file=sys.stderr)
+        print(f"Ошибка: пара '{pair_id}' не найдена.", file=sys.stderr)
         sys.exit(1)
 
     flood_ha = float(rep.get("flood_ha", 0.0))
@@ -257,21 +257,21 @@ def run_uncertainty(
     }
 
     print("\n" + "=" * 60)
-    print(f"SPATIAL UNCERTAINTY ANALYSIS: {pair_id}")
+    print(f"АНАЛИЗ ПРОСТРАНСТВЕННОЙ НЕОПРЕДЕЛЕННОСТИ: {pair_id}")
     print("=" * 60)
-    print(f"Flood Area:             {res.area_ha:.2f} ha")
-    print(f"Confidence Level:       {res.confidence_level * 100:.1f}% (z = {res.z_score})")
-    print(f"Confidence Interval:    [{res.lower_bound_ha:.2f}, {res.upper_bound_ha:.2f}] ha")
-    print(f"Absolute Margin (H):    ±{res.margin_ha:.2f} ha")
-    print(f"Relative Uncertainty:   ±{res.relative_uncertainty_pct:.2f}%")
-    print(f"Spatial Error Rho:      {res.spatial_correlation:.2f}")
+    print(f"Площадь затопления:     {res.area_ha:.2f} га")
+    print(f"Уровень доверия:        {res.confidence_level * 100:.1f}% (z = {res.z_score})")
+    print(f"Доверительный интервал: [{res.lower_bound_ha:.2f}, {res.upper_bound_ha:.2f}] га")
+    print(f"Абсолютный запас (H):   ±{res.margin_ha:.2f} га")
+    print(f"Относительная неопр.:   ±{res.relative_uncertainty_pct:.2f}%")
+    print(f"Пространственная ро:    {res.spatial_correlation:.2f}")
     print("=" * 60 + "\n")
 
     if output_json:
         output_json.parent.mkdir(parents=True, exist_ok=True)
         with open(output_json, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=2, ensure_ascii=False)
-        print(f"Uncertainty summary saved to {output_json}\n")
+        print(f"Сводка неопределенности сохранена в {output_json}\n")
 
     return out
 
@@ -296,10 +296,10 @@ def run_manifest(
         return None
     else:
         manifest = generate_manifest(targets=targets, base_dir=base, output_path=out)
-        print(f"Artifacts manifest generated successfully: {out}")
-        print(f"  Total artifacts : {manifest['total_files']}")
-        print(f"  Total size      : {manifest['total_size_bytes'] / (1024 * 1024):.2f} MB")
-        print(f"  Merkle root     : {manifest['merkle_root']}")
+        print(f"Манифест артефактов успешно сформирован: {out}")
+        print(f"  Всего артефактов: {manifest['total_files']}")
+        print(f"  Общий размер:    {manifest['total_size_bytes'] / (1024 * 1024):.2f} МБ")
+        print(f"  Корень Merkle:   {manifest['merkle_root']}")
         return manifest
 
 
@@ -312,14 +312,14 @@ def run_benchmark(
 ) -> dict[str, float]:
     """Измеряет задержку инференса и пропускную способность памяти."""
     if not pairs_csv_path.exists():
-        print(f"Error: pairs CSV not found at {pairs_csv_path}", file=sys.stderr)
+        print(f"Ошибка: CSV пар не найден в {pairs_csv_path}", file=sys.stderr)
         sys.exit(1)
 
     pairs_df = pd.read_csv(pairs_csv_path)
     total_pairs = len(pairs_df)
     times = []
 
-    print(f"Benchmarking HydroWatch inference across {total_pairs} pairs ({iterations} iteration(s))...")
+    print(f"Замер инференса HydroWatch по {total_pairs} парам ({iterations} итераций)...")
 
     # Временные растры пишутся во временный каталог, чтобы бенчмарк работал и на read-only копиях
     with tempfile.TemporaryDirectory(prefix="hydrowatch_benchmark_") as tmp_dir:
@@ -335,7 +335,7 @@ def run_benchmark(
                 )
                 elapsed = time.perf_counter() - t0
                 times.append(elapsed)
-                print(f"  [{idx + 1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f}s")
+                print(f"  [{idx + 1}/{total_pairs}] {row['pair_id']}: {elapsed:.3f} с")
 
     avg_time = sum(times) / len(times)
     total_time = sum(times)
@@ -385,13 +385,13 @@ def run_benchmark(
         peak_mb = 0.0
 
     print("\n" + "=" * 50)
-    print("BENCHMARK RESULTS")
+    print("РЕЗУЛЬТАТЫ БЕНЧМАРКА")
     print("=" * 50)
-    print(f"Total processed scenes: {len(times)}")
-    print(f"Total pipeline time:    {total_time:.2f} s")
-    print(f"Average latency:        {avg_time:.3f} s / pair")
-    print(f"Throughput:             {fps:.2f} pairs / sec")
-    print(f"Peak RAM (ru_maxrss):   {peak_mb:.1f} MB")
+    print(f"Всего обработано сцен:   {len(times)}")
+    print(f"Общее время конвейера:   {total_time:.2f} с")
+    print(f"Средняя задержка:        {avg_time:.3f} с / пара")
+    print(f"Пропускная способность:  {fps:.2f} пар / с")
+    print(f"Пиковая RAM (ru_maxrss): {peak_mb:.1f} МБ")
     print("=" * 50 + "\n")
 
     summary = {
@@ -407,7 +407,7 @@ def run_benchmark(
         output_json.parent.mkdir(parents=True, exist_ok=True)
         with open(output_json, "w", encoding="utf-8") as fp:
             json.dump(summary, fp, indent=2, ensure_ascii=False)
-        print(f"Benchmark summary saved to {output_json}\n")
+        print(f"Сводка бенчмарка сохранена в {output_json}\n")
 
     return summary
 
@@ -417,7 +417,7 @@ def check_s1_data_available(pairs_csv_path: Path, data_dir: Path) -> bool:
     missing = missing_s1_pairs(pairs_csv_path, data_dir)
     if missing:
         logger.warning(
-            f"S1 scenes missing for {len(missing)} pairs: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else "")
+            f"Сцены S1 отсутствуют для {len(missing)} пар: {', '.join(missing[:5])}" + ("…" if len(missing) > 5 else "")
         )
         return False
     return True
@@ -434,37 +434,37 @@ def run_fetch(
 
     archive_path = archive_output or data_dir.parent / "hydrowatch_amur_dataset.zip"
     if archive_path.exists():
-        print(f"Archive already present: {archive_path} (skip download)", file=sys.stderr)
+        print(f"Архив уже на месте: {archive_path} (загрузка пропущена)", file=sys.stderr)
     else:
-        print(f"Downloading dataset ({DATA_URL}) ...", file=sys.stderr)
+        print(f"Загрузка датасета ({DATA_URL}) ...", file=sys.stderr)
         gdown.download(DATA_URL, str(archive_path), quiet=False)
 
-    print(f"Unpacking to {data_dir} ...", file=sys.stderr)
+    print(f"Распаковка в {data_dir} ...", file=sys.stderr)
     count = safe_extract(archive_path, data_dir)
-    print(f"Extracted {count} entries into {data_dir}", file=sys.stderr)
+    print(f"Извлечено {count} записей в {data_dir}", file=sys.stderr)
 
     missing = missing_s1_pairs(pairs_csv_path, data_dir)
     if missing:
         print(
-            f"Warning: S1 scenes still missing for {len(missing)} pairs: {', '.join(missing)}",
+            f"Предупреждение: сцены S1 все еще отсутствуют для {len(missing)} пар: {', '.join(missing)}",
             file=sys.stderr,
         )
 
     if not keep_archive:
         archive_path.unlink(missing_ok=True)
-        print(f"Removed archive {archive_path}", file=sys.stderr)
+        print(f"Архив удален: {archive_path}", file=sys.stderr)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="hydrowatch-cli",
-        description="HydroWatch Amur CLI: Predict, Evaluate, Report, and Benchmark Tools",
+        description="HydroWatch Amur CLI: прогноз, оценка, отчеты и бенчмарк",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # подкоманда predict
     predict_parser = subparsers.add_parser(
-        "predict", help="Run batch prediction on all pairs and generate submission.csv"
+        "predict", help="Пакетный прогноз по всем парам и формирование submission.csv"
     )
     predict_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     predict_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
@@ -475,7 +475,7 @@ def main() -> None:
         "--strict-tz",
         action="store_true",
         default=False,
-        help="Strict competition spec compliance (MMU 25 px, isolate sub-canopy forest)",
+        help="Строгое соответствие регламенту соревнования (MMU 25 px, изоляция подкронового леса)",
     )
     predict_parser.add_argument(
         "--workers",
@@ -483,110 +483,119 @@ def main() -> None:
         dest="workers",
         type=int,
         default=None,
-        help="Number of worker processes for parallel batch inference (default: auto)",
+        help="Число рабочих процессов для параллельного пакетного инференса (по умолчанию: авто)",
     )
 
     # подкоманда evaluate
     eval_parser = subparsers.add_parser(
-        "evaluate", help="Compute official score and raster metrics against reference masks"
+        "evaluate", help="Расчет официальной метрики и растровых метрик по эталонным маскам"
     )
     eval_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     eval_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     eval_parser.add_argument("--submission-csv", type=Path, default=Path("submission.csv"))
     eval_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
-    eval_parser.add_argument("--run-ablations", action="store_true", help="Run all 4 ablations")
+    eval_parser.add_argument("--run-ablations", action="store_true", help="Запустить все 4 аблации")
     eval_parser.add_argument(
         "--holdout",
         action="store_true",
-        help="Run the additional spatial leave-one-AOI-out (LOAO) hold-out diagnostic",
+        help="Запустить дополнительную диагностику пространственной отложенной выборки (LOAO)",
     )
 
     # подкоманда report
-    report_parser = subparsers.add_parser("report", help="Generate hydrological report for a pair or all pairs")
-    report_parser.add_argument("--pair-id", type=str, default=None, help="Target pair identifier")
-    report_parser.add_argument("--output", type=Path, default=None, help="Output file path (.json or .csv)")
+    report_parser = subparsers.add_parser("report", help="Сформировать гидрологический отчет по паре или всем парам")
+    report_parser.add_argument("--pair-id", type=str, default=None, help="Идентификатор целевой пары")
+    report_parser.add_argument("--output", type=Path, default=None, help="Путь к выходному файлу (.json или .csv)")
 
     # подкоманда fetch
-    fetch_parser = subparsers.add_parser("fetch", help="Download the case dataset from Google Drive and unpack it")
+    fetch_parser = subparsers.add_parser("fetch", help="Скачать датасет кейса с Google Drive и распаковать его")
     fetch_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     fetch_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     fetch_parser.add_argument(
         "--archive-output",
         type=Path,
         default=None,
-        help="Local path for the downloaded zip (default: ./hydrowatch_amur_dataset.zip)",
+        help="Локальный путь для скачанного zip-архива (по умолчанию: ./hydrowatch_amur_dataset.zip)",
     )
     fetch_parser.add_argument(
         "--no-keep-archive",
         action="store_true",
-        help="Delete the downloaded archive after extraction",
+        help="Удалить скачанный архив после распаковки",
     )
 
     # подкоманда benchmark
-    bench_parser = subparsers.add_parser("benchmark", help="Benchmark pipeline latency and throughput")
+    bench_parser = subparsers.add_parser("benchmark", help="Замер задержки и пропускной способности конвейера")
     bench_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     bench_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
     bench_parser.add_argument("--predictions-dir", type=Path, default=Path("predictions"))
-    bench_parser.add_argument("--iterations", type=int, default=1, help="Number of benchmark iterations")
+    bench_parser.add_argument("--iterations", type=int, default=1, help="Число итераций бенчмарка")
     bench_parser.add_argument(
         "--output-json",
         type=Path,
         default=Path("data/benchmark_results.json"),
-        help="Where to store the machine-readable benchmark summary",
+        help="Куда сохранить машиночитаемую сводку бенчмарка",
     )
 
     # подкоманда fetch-optical
     fetch_opt_parser = subparsers.add_parser(
         "fetch-optical",
-        help="Download and reproject real Sentinel-2 MSI L2A bands via Planetary Computer STAC",
+        help="Скачать и перепроецировать реальные каналы Sentinel-2 MSI L2A через STAC Planetary Computer",
     )
     fetch_opt_parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
-    fetch_opt_parser.add_argument("--pair-id", type=str, default=None, help="Process single pair_id")
+    fetch_opt_parser.add_argument("--pair-id", type=str, default=None, help="Обработать одну пару pair_id")
     fetch_opt_parser.add_argument("--data-dir", type=Path, default=Path("hydrowatch_amur"))
 
     # подкоманда audit
-    audit_parser = subparsers.add_parser("audit", help="Generate cryptographic Merkle audit certificate")
-    audit_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID to audit")
-    audit_parser.add_argument("--output-json", type=Path, default=None, help="Path to save audit certificate JSON")
+    audit_parser = subparsers.add_parser("audit", help="Сформировать криптографический аудиторский сертификат Merkle")
+    audit_parser.add_argument("--pair-id", type=str, required=True, help="ID пары для аудита")
+    audit_parser.add_argument(
+        "--output-json", type=Path, default=None, help="Путь для сохранения JSON аудиторского сертификата"
+    )
 
     # подкоманда uncertainty
-    unc_parser = subparsers.add_parser("uncertainty", help="Compute spatial error bounds and confidence interval")
-    unc_parser.add_argument("--pair-id", type=str, required=True, help="Pair ID for uncertainty estimation")
+    unc_parser = subparsers.add_parser(
+        "uncertainty", help="Расчет пространственных границ ошибки и доверительного интервала"
+    )
+    unc_parser.add_argument("--pair-id", type=str, required=True, help="ID пары для оценки неопределенности")
     unc_parser.add_argument(
-        "--confidence-level", type=float, default=0.95, help="Statistical confidence level (default 0.95)"
+        "--confidence-level", type=float, default=0.95, help="Статистический уровень доверия (по умолчанию 0.95)"
     )
     unc_parser.add_argument(
-        "--spatial-correlation", type=float, default=0.20, help="Spatial autocorrelation coefficient rho (default 0.20)"
+        "--spatial-correlation",
+        type=float,
+        default=0.20,
+        help="Коэффициент пространственной автокорреляции rho (по умолчанию 0.20)",
     )
-    unc_parser.add_argument("--output-json", type=Path, default=None, help="Path to save uncertainty results JSON")
+    unc_parser.add_argument(
+        "--output-json", type=Path, default=None, help="Путь для сохранения JSON результатов неопределенности"
+    )
 
     # подкоманда manifest
     manifest_parser = subparsers.add_parser(
-        "manifest", help="Generate or verify SHA-256 integrity manifest for artifacts and MRV verification"
+        "manifest", help="Сформировать или проверить манифест целостности SHA-256 артефактов для верификации MRV"
     )
     manifest_parser.add_argument(
         "--output",
         "-o",
         type=Path,
         default=Path("data/artifacts_manifest.json"),
-        help="Path to manifest JSON file (default: data/artifacts_manifest.json)",
+        help="Путь к JSON-файлу манифеста (по умолчанию: data/artifacts_manifest.json)",
     )
     manifest_parser.add_argument(
         "--verify",
         action="store_true",
-        help="Verify existing manifest against disk artifacts",
+        help="Проверить существующий манифест по артефактам на диске",
     )
     manifest_parser.add_argument(
         "--base-dir",
         type=Path,
         default=Path("."),
-        help="Base directory for artifact paths (default: .)",
+        help="Базовая директория для путей артефактов (по умолчанию: .)",
     )
     manifest_parser.add_argument(
         "--targets",
         nargs="*",
         default=None,
-        help="Specific files or directories to include",
+        help="Конкретные файлы или директории для включения",
     )
 
     args, unknown = parser.parse_known_args()

@@ -104,7 +104,7 @@ def test_predict_polygon_area_uses_metric_projection():
 def test_predict_invalid_polygon_returns_400():
     resp = client.post("/api/v1/predict", json={"polygon": {"type": "Nonsense", "coordinates": []}})
     assert resp.status_code == 400
-    assert "polygon" in resp.json()["detail"].lower()
+    assert "полигон" in resp.json()["detail"].lower()
 
 
 def test_predict_arbitrary_bbox_clipping_and_recalculation():

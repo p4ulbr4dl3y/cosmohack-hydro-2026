@@ -134,7 +134,7 @@ def compute_live_official_score(
 ) -> OfficialCompetitionScore:
     """Вычисляет официальную метрику HydroWatch Amur по сабмиту и эталонным данным."""
     if not pairs_csv_path.exists():
-        raise FileNotFoundError(f"pairs.csv not found: {pairs_csv_path}")
+        raise FileNotFoundError(f"pairs.csv не найден: {pairs_csv_path}")
 
     pairs_df = pd.read_csv(pairs_csv_path)
 
@@ -211,7 +211,7 @@ def compute_live_official_score(
                     else:
                         disc_pct = 0.0 if raster_ha == 0 else 100.0
                 except Exception as ex:
-                    logger.warning(f"Could not read raster {tif_path}: {ex}")
+                    logger.warning(f"Не удалось прочитать растр {tif_path}: {ex}")
 
         abs_diff = abs(sub_flood - ref_flood)
         rel_diff = (abs_diff / ref_flood * 100.0) if ref_flood > 0 else (100.0 if abs_diff > 0 else 0.0)
@@ -286,7 +286,7 @@ def validate_submission_file(
             is_valid=False,
             num_pairs=0,
             passed_checks=[],
-            errors=[f"Submission file does not exist: {submission_path}"],
+            errors=[f"Файл посылки не существует: {submission_path}"],
             warnings=[],
             discrepancies=[],
         )
@@ -298,7 +298,7 @@ def validate_submission_file(
             is_valid=False,
             num_pairs=0,
             passed_checks=[],
-            errors=[f"Failed to parse CSV: {ex}"],
+            errors=[f"Не удалось разобрать CSV: {ex}"],
             warnings=[],
             discrepancies=[],
         )
@@ -306,9 +306,9 @@ def validate_submission_file(
     # 1. Проверка заголовка
     expected_cols = ["pair_id", "flood_ha", "water_pre_ha", "water_peak_ha"]
     if list(sub_df.columns) == expected_cols:
-        passed_checks.append("Columns match required schema [pair_id, flood_ha, water_pre_ha, water_peak_ha]")
+        passed_checks.append("Столбцы соответствуют требуемой схеме [pair_id, flood_ha, water_pre_ha, water_peak_ha]")
     else:
-        errors.append(f"Invalid columns: expected {expected_cols}, got {list(sub_df.columns)}")
+        errors.append(f"Некорректные столбцы: ожидались {expected_cols}, получены {list(sub_df.columns)}")
         return SubmissionValidationResult(
             is_valid=False,
             num_pairs=len(sub_df),
@@ -325,21 +325,21 @@ def validate_submission_file(
         actual_pair_ids = sorted(sub_df["pair_id"].astype(str).tolist())
 
         if expected_pair_ids == actual_pair_ids:
-            passed_checks.append(f"All {len(expected_pair_ids)} pairs match official pairs registry")
+            passed_checks.append(f"Все {len(expected_pair_ids)} пар соответствуют официальному реестру пар")
         else:
             missing = set(expected_pair_ids) - set(actual_pair_ids)
             unexpected = set(actual_pair_ids) - set(expected_pair_ids)
             if missing:
-                errors.append(f"Missing required pairs: {list(missing)}")
+                errors.append(f"Отсутствуют обязательные пары: {list(missing)}")
             if unexpected:
-                errors.append(f"Unexpected extra pairs: {list(unexpected)}")
+                errors.append(f"Неожиданные лишние пары: {list(unexpected)}")
 
     # 3. Ограничения на значения
     has_nans = sub_df.isna().any().any()
     if not has_nans:
-        passed_checks.append("No missing values or NaNs in table")
+        passed_checks.append("Пропусков и NaN в таблице нет")
     else:
-        errors.append("Submission contains NaN / null values")
+        errors.append("Посылка содержит значения NaN / null")
 
     for _, row in sub_df.iterrows():
         pid = str(row["pair_id"])
@@ -348,17 +348,17 @@ def validate_submission_file(
             pr = float(row["water_pre_ha"])
             pk = float(row["water_peak_ha"])
         except (ValueError, TypeError):
-            errors.append(f"Pair '{pid}' has non-numeric values")
+            errors.append(f"Пара '{pid}' содержит нечисловые значения")
             continue
 
         if fl < 0 or pr < 0 or pk < 0:
-            errors.append(f"Pair '{pid}' has negative area values")
+            errors.append(f"Пара '{pid}' содержит отрицательные значения площади")
 
         if fl > pk:
-            errors.append(f"Pair '{pid}': flood_ha ({fl}) exceeds water_peak_ha ({pk})")
+            errors.append(f"Пара '{pid}': flood_ha ({fl}) превышает water_peak_ha ({pk})")
 
-    if not any("exceeds water_peak_ha" in e or "negative area" in e for e in errors):
-        passed_checks.append("Physical constraints satisfied (non-negative and flood_ha <= water_peak_ha)")
+    if not any("превышает water_peak_ha" in e or "отрицательные значения площади" in e for e in errors):
+        passed_checks.append("Физические ограничения выполнены (неотрицательные значения и flood_ha <= water_peak_ha)")
 
     # 4. Проверка согласованности растровых масок
     if predictions_dir and predictions_dir.exists():
@@ -369,7 +369,7 @@ def validate_submission_file(
             tif_file = predictions_dir / f"{pid}_flood.tif"
 
             if not tif_file.exists():
-                warnings.append(f"Missing prediction raster: {tif_file.name}")
+                warnings.append(f"Отсутствует растровый прогноз: {tif_file.name}")
                 all_rasters_ok = False
                 continue
 
@@ -377,7 +377,7 @@ def validate_submission_file(
                 with rasterio.open(tif_file) as src:
                     crs_str = str(src.crs).upper()
                     if "32652" not in crs_str:
-                        warnings.append(f"Raster {tif_file.name} CRS is {src.crs}, expected EPSG:32652")
+                        warnings.append(f"CRS растра {tif_file.name}: {src.crs}, ожидался EPSG:32652")
 
                     mask = src.read(1)
                     raster_flood_ha = float(np.count_nonzero(mask == 1) * PIXEL_AREA_HA_10M)
@@ -398,16 +398,16 @@ def validate_submission_file(
                     discrepancies.append(item)
 
                     if disc_pct > MAX_RASTER_CSV_DISCREPANCY_PCT:
-                        warnings.append(
-                            f"Pair '{pid}': raster vs CSV discrepancy is {disc_pct:.2f}% (exceeds 2% limit)"
-                        )
+                        warnings.append(f"Пара '{pid}': расхождение растра и CSV {disc_pct:.2f}% (превышает лимит 2%)")
                         all_rasters_ok = False
             except Exception as ex:
-                warnings.append(f"Error checking raster {tif_file.name}: {ex}")
+                warnings.append(f"Ошибка проверки растра {tif_file.name}: {ex}")
                 all_rasters_ok = False
 
         if all_rasters_ok and len(discrepancies) == len(sub_df):
-            passed_checks.append("All 11 GeoTIFF rasters match CSV areas within <= 2.0% divergence rule")
+            passed_checks.append(
+                "Все 11 растров GeoTIFF совпадают с площадями CSV в пределах правила расхождения <= 2.0%"
+            )
 
     is_valid = len(errors) == 0
 

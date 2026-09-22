@@ -189,7 +189,7 @@ def test_predict_endpoint_arbitrary_bounds():
     bounds_outside = [10.0, 10.0, 11.0, 11.0]
     resp_outside = client.post("/api/v1/predict", json={"bounds": bounds_outside})
     assert resp_outside.status_code == 400
-    assert "do not overlap" in resp_outside.json()["detail"]
+    assert "не пересекают" in resp_outside.json()["detail"]
 
     # Корректные перекрывающиеся границы внутри AOI Благовещенска
     bounds_inside = [127.3, 50.2, 127.6, 50.4]
@@ -239,13 +239,13 @@ def test_shapefile_endpoint():
 def test_geojson_invalid_layer():
     resp = client.get("/api/v1/geojson/flood_2019_07_amur__blagoveshchensk?layer=invalid_layer")
     assert resp.status_code == 400
-    assert "Invalid layer" in resp.json()["detail"]
+    assert "Некорректный слой" in resp.json()["detail"]
 
 
 def test_shapefile_invalid_layer():
     resp = client.get("/api/v1/shapefile/flood_2019_07_amur__blagoveshchensk?layer=invalid_layer")
     assert resp.status_code == 400
-    assert "Invalid layer" in resp.json()["detail"]
+    assert "Некорректный слой" in resp.json()["detail"]
 
 
 def test_geotiff_endpoint():
@@ -259,12 +259,12 @@ def test_geotiff_endpoint():
     # Некорректный слой
     resp_inv = client.get(f"/api/v1/geotiff/{pair_id}?layer=invalid_layer")
     assert resp_inv.status_code == 400
-    assert "Invalid layer" in resp_inv.json()["detail"]
+    assert "Некорректный слой" in resp_inv.json()["detail"]
 
     # 404 не найдено
     resp_404 = client.get("/api/v1/geotiff/non_existent_pair?layer=flood")
     assert resp_404.status_code == 404
-    assert "not found" in resp_404.json()["detail"]
+    assert "не найден" in resp_404.json()["detail"]
 
 
 def test_predict_endpoint_unparseable_scene_date(monkeypatch):
@@ -314,7 +314,7 @@ def test_static_index_html_not_found(monkeypatch, tmp_path):
     monkeypatch.setattr("src.service.app.STATIC_DIR", tmp_path / "nonexistent_static")
     resp = client.get("/")
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "index.html not found"
+    assert resp.json()["detail"] == "index.html не найден"
 
 
 def test_prediction_task_status_lifecycle(monkeypatch):
@@ -323,7 +323,7 @@ def test_prediction_task_status_lifecycle(monkeypatch):
     # 404 для несуществующей задачи
     resp = client.get("/api/v1/predict/status/nonexistent_task_123")
     assert resp.status_code == 404
-    assert "not found" in resp.json()["detail"]
+    assert "не найдена" in resp.json()["detail"]
 
     # Отправка задачи с task_id
     task_id = "test_task_success_456"
@@ -606,20 +606,20 @@ def test_dynamic_sar_analytics_not_hardcoded():
     assert resp.status_code == 200
     sar = resp.json()
 
-    # Verify that constants are no longer hardcoded
+    # Проверяем, что константы больше не зашиты в код
     assert sar["mean_vv_db"] != -16.2
     assert sar["mean_vh_db"] != -22.8
     assert sar["radar_contrast_db"] != 9.4
     assert sar["double_bounce_fraction"] != 0.038
 
-    # Verify physical validity
+    # Проверяем физическую корректность
     assert -30.0 < sar["mean_vv_db"] < 0.0
     assert -40.0 < sar["mean_vh_db"] < 0.0
     assert sar["water_fraction"] > 0.0
     assert sar["water_area_ha"] > 0.0
     assert sar["cloud_penetration_verified"] is True
 
-    # Verify report endpoint also contains dynamic SAR analytics
+    # Проверяем, что отчет также содержит динамическую аналитику SAR
     rep_resp = client.get(f"/api/v1/report/{pair_id}")
     assert rep_resp.status_code == 200
     rep_sar = rep_resp.json().get("sar_analytics")
@@ -646,7 +646,7 @@ def test_sar_analytics_missing_raster_fallback(caplog):
     assert res["water_fraction"] == 0.05
     assert res["water_area_ha"] == 25.0
     assert res["cloud_penetration_verified"] is True
-    assert any("S1 raster missing" in record.message for record in caplog.records)
+    assert any("Растр S1 отсутствует" in record.message for record in caplog.records)
 
 
 def test_root_health():
@@ -696,16 +696,16 @@ def test_aoi_endpoint_fallback_and_404(monkeypatch, tmp_path):
 
     monkeypatch.setattr(app_mod, "BASE_DIR", fake_base)
 
-    # Line 424 fallback
+    # Строка 424: запасной вариант
     resp = client.get("/api/v1/aoi")
     assert resp.status_code == 200
     assert resp.json()["type"] == "FeatureCollection"
 
-    # Line 426 404
+    # Строка 426: 404
     fake_aoi.unlink()
     resp = client.get("/api/v1/aoi")
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "aoi.geojson not found"
+    assert resp.json()["detail"] == "aoi.geojson не найден"
 
 
 def test_vector_layer_endpoint():
@@ -715,7 +715,7 @@ def test_vector_layer_endpoint():
 
     resp_404 = client.get("/api/v1/vectors/nonexistent_layer")
     assert resp_404.status_code == 404
-    assert "Vector layer 'nonexistent_layer' not found" in resp_404.json()["detail"]
+    assert "Векторный слой 'nonexistent_layer' не найден" in resp_404.json()["detail"]
 
 
 def test_vector_layer_fallback(monkeypatch, tmp_path):
@@ -787,7 +787,7 @@ def test_ablation_not_found(monkeypatch, tmp_path):
 
     resp = client.get("/api/v1/ablation")
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "Ablation results not found"
+    assert resp.json()["detail"] == "Результаты аблаций не найдены"
 
 
 def test_peak_rss_gb_linux(monkeypatch):
@@ -805,7 +805,7 @@ def test_recompute_report_rebuild_failure_and_http_exception(monkeypatch):
     monkeypatch.setattr(data_loader, "get_report", lambda *args, **kwargs: None)
     resp = client.post("/api/v1/recompute", json={"pair_id": "flood_2019_07_amur__blagoveshchensk"})
     assert resp.status_code == 500
-    assert "Report could not be rebuilt" in resp.json()["detail"]
+    assert "Не удалось перестроить отчет" in resp.json()["detail"]
 
     def mock_invalidate(*args, **kwargs):
         raise HTTPException(status_code=418, detail="Teapot failure")
@@ -819,12 +819,12 @@ def test_recompute_report_rebuild_failure_and_http_exception(monkeypatch):
 def test_layers_geojson_endpoints():
     pair_id = "flood_2019_07_amur__blagoveshchensk"
 
-    # Line 588
+    # Строка 588
     resp_404_all = client.get("/api/v1/layers/nonexistent_pair_999/geojson")
     assert resp_404_all.status_code == 404
-    assert "Layers for pair 'nonexistent_pair_999' not found" in resp_404_all.json()["detail"]
+    assert "Слои для пары 'nonexistent_pair_999' не найдены" in resp_404_all.json()["detail"]
 
-    # Lines 595-598
+    # Строки 595-598
     resp_layer = client.get(f"/api/v1/layers/{pair_id}/water_peak")
     assert resp_layer.status_code == 200
     assert resp_layer.json().get("type") == "FeatureCollection"
@@ -837,15 +837,15 @@ def test_layers_geojson_endpoints():
 
 
 def test_export_vectors_and_report_errors():
-    # Line 616
+    # Строка 616
     resp_shp_404 = client.get("/api/v1/export/invalid_pair_999/vectors?format=shp")
     assert resp_shp_404.status_code == 404
 
-    # Line 625
+    # Строка 625
     resp_geo_404 = client.get("/api/v1/export/invalid_pair_999/vectors?format=geojson")
     assert resp_geo_404.status_code == 404
 
-    # Line 645
+    # Строка 645
     resp_rep_404 = client.get("/api/v1/export/invalid_pair_999/report?format=json")
     assert resp_rep_404.status_code == 404
 
@@ -896,18 +896,18 @@ def test_sar_analytics_hardcoded_or_missing_triggers_recompute(monkeypatch):
 def test_raster_overlay_fallback_and_errors(monkeypatch, tmp_path):
     import src.service.app as app_mod
 
-    # Line 830
+    # Строка 830
     resp_meta_404 = client.get("/api/v1/overlay/invalid_pair_999/meta")
     assert resp_meta_404.status_code == 404
 
-    # Lines 808-809: empty mask fallback
+    # Строки 808-809: запасной вариант при пустой маске
     monkeypatch.setattr(app_mod, "PREDICTIONS_DIR", tmp_path / "no_preds")
     pair_id = "flood_2019_07_amur__blagoveshchensk"
     resp_png = client.get(f"/api/v1/overlay/{pair_id}?layer=flood")
     assert resp_png.status_code == 200
     assert resp_png.headers["content-type"] == "image/png"
 
-    # Lines 842-844: fallback bounds and dimensions
+    # Строки 842-844: запасные границы и размеры
     resp_meta = client.get(f"/api/v1/overlay/{pair_id}/meta")
     assert resp_meta.status_code == 200
     meta = resp_meta.json()
@@ -925,28 +925,28 @@ def test_official_metrics_missing_submission(monkeypatch, tmp_path):
 
     resp = client.get("/api/v1/metrics/official")
     assert resp.status_code == 404
-    assert resp.json()["detail"] == "submission.csv not found"
+    assert resp.json()["detail"] == "submission.csv не найден"
 
 
 def test_root_fallback_and_static_serving(monkeypatch, tmp_path):
     import src.service.app as app_mod
 
-    # Line 929: api/ prefix returns 404
+    # Строка 929: префикс api/ возвращает 404
     resp_api = client.get("/api/nonexistent_subroute")
     assert resp_api.status_code == 404
-    assert resp_api.json()["detail"] == "API endpoint not found"
+    assert resp_api.json()["detail"] == "Точка входа API не найдена"
 
-    # Line 933: static file
+    # Строка 933: статический файл
     resp_static = client.get("/icons/logo.png")
     assert resp_static.status_code == 200
 
-    # Line 939: missing asset with extension
+    # Строка 939: отсутствующий ресурс с расширением
     resp_asset = client.get("/assets/nonexistent_script.js")
     assert resp_asset.status_code == 404
-    assert "Asset 'assets/nonexistent_script.js' not found" in resp_asset.json()["detail"]
+    assert "Ресурс 'assets/nonexistent_script.js' не найден" in resp_asset.json()["detail"]
 
-    # Line 943: missing index.html
+    # Строка 943: отсутствует index.html
     monkeypatch.setattr(app_mod, "STATIC_DIR", tmp_path / "empty_static")
     resp_no_index = client.get("/")
     assert resp_no_index.status_code == 404
-    assert resp_no_index.json()["detail"] == "index.html not found"
+    assert resp_no_index.json()["detail"] == "index.html не найден"

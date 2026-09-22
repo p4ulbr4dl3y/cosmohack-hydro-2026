@@ -294,7 +294,7 @@ describe('ReportDocument component', () => {
     );
 
     expect(screen.getByText('НАУЧНАЯ ВЕРИФИКАЦИЯ, КРИПТО-АУДИТ И ESG-МЕТРИКИ')).toBeDefined();
-    expect(screen.getByText(/IPCC TIER 1 & MERKLE SHA-256 COMPLIANT/)).toBeDefined();
+    expect(screen.getByText(/СООТВЕТСТВИЕ IPCC TIER 1 И MERKLE SHA-256/)).toBeDefined();
     expect(screen.getByText(/Крипто-аудит/)).toBeDefined();
     expect(screen.getByText(/SAR Поляриметрия/)).toBeDefined();
     expect(screen.getByText(/Углерод & ESG/)).toBeDefined();

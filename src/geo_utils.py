@@ -162,25 +162,25 @@ def load_geometry(source: str | Path | dict[str, Any] | BaseGeometry) -> BaseGeo
             try:
                 data = json.loads(str(source))
             except json.JSONDecodeError as exc:
-                raise ValueError(f"Failed to parse geometry from string or path: {source}") from exc
+                raise ValueError(f"Не удалось разобрать геометрию из строки или пути: {source}") from exc
     elif isinstance(source, dict):
         data = source
     else:
-        raise TypeError(f"Unsupported geometry source type: {type(source)}")
+        raise TypeError(f"Неподдерживаемый тип источника геометрии: {type(source)}")
 
     obj_type = data.get("type")
     if obj_type == "FeatureCollection":
         features = data.get("features", [])
         if not features:
-            raise ValueError("GeoJSON FeatureCollection is empty")
+            raise ValueError("Коллекция GeoJSON FeatureCollection пуста")
         geoms = [shape(f["geometry"]) for f in features if "geometry" in f and f["geometry"] is not None]
         if not geoms:
-            raise ValueError("No valid geometries found in GeoJSON FeatureCollection")
+            raise ValueError("В коллекции GeoJSON FeatureCollection нет валидных геометрий")
         geom = unary_union(geoms)
     elif obj_type == "Feature":
         geom_dict = data.get("geometry")
         if not geom_dict:
-            raise ValueError("Feature object has no geometry")
+            raise ValueError("У объекта Feature отсутствует геометрия")
         geom = shape(geom_dict)
     elif obj_type in ("Polygon", "MultiPolygon", "GeometryCollection"):
         geom = shape(data)
@@ -188,7 +188,7 @@ def load_geometry(source: str | Path | dict[str, Any] | BaseGeometry) -> BaseGeo
         if "geometry" in data:
             geom = shape(data["geometry"])
         else:
-            raise ValueError(f"Unknown GeoJSON structure: {obj_type}")
+            raise ValueError(f"Неизвестная структура GeoJSON: {obj_type}")
 
     if not geom.is_valid:
         geom = shapely.make_valid(geom)
@@ -211,7 +211,7 @@ def validate_aoi_geometry(
         (is_valid, area_ha, error_message).
     """
     if geometry.is_empty:
-        return False, 0.0, "Geometry is empty"
+        return False, 0.0, "Геометрия пуста"
 
     if not geometry.is_valid:
         geometry = shapely.make_valid(geometry)
@@ -220,13 +220,13 @@ def validate_aoi_geometry(
     max_area_ha = max_area_km2 * 100.0
 
     if area_ha <= 0.0:
-        return False, 0.0, "Geometry area is zero or negative"
+        return False, 0.0, "Площадь геометрии нулевая или отрицательная"
 
     if area_ha > max_area_ha + 1e-6:
         return (
             False,
             area_ha,
-            f"Polygon area ({area_ha:.2f} ha) exceeds limit {max_area_km2:.1f} km² ({max_area_ha:.1f} ha)",
+            f"Площадь полигона ({area_ha:.2f} га) превышает лимит {max_area_km2:.1f} км² ({max_area_ha:.1f} га)",
         )
 
     return True, area_ha, None

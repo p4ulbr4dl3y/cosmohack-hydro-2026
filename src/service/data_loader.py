@@ -126,7 +126,7 @@ class DataLoader:
     def init_data(self) -> None:
         pairs_csv = self.data_dir / "pairs.csv"
         if not pairs_csv.exists():
-            raise FileNotFoundError(f"pairs.csv not found at {pairs_csv}")
+            raise FileNotFoundError(f"pairs.csv не найден в {pairs_csv}")
 
         self.pairs_df = pd.read_csv(pairs_csv)
         pairs_list = []
@@ -253,14 +253,14 @@ class DataLoader:
                 return dict(sar_dict)
             except Exception as exc:
                 logger.warning(
-                    "Error reading S1 raster %s for pair %s: %s; falling back to default SAR analytics",
+                    "Ошибка чтения растра S1 %s для пары %s: %s; используется аналитика SAR по умолчанию",
                     s1_tif,
                     pair_id,
                     exc,
                 )
 
         logger.warning(
-            "S1 raster missing or unreadable for pair %s (rasters_dir=%s); falling back to default SAR analytics",
+            "Растр S1 отсутствует или нечитаем для пары %s (rasters_dir=%s); используется аналитика SAR по умолчанию",
             pair_id,
             rasters_dir,
         )
@@ -281,7 +281,7 @@ class DataLoader:
         return dict(fallback_dict)
 
     def _enrich_report_analytics(self, data: dict[str, Any], pair_id: str) -> None:
-        """Enrich report data with dynamic uncertainty, Merkle audit, SAR polarimetry, carbon metrics, and competition score."""
+        """Дополняет отчет динамической неопределенностью, Merkle-аудитом, SAR-поляриметрией, углеродными метриками и соревновательной метрикой."""
         pair_meta = self.get_pair_meta(pair_id) or {}
         flood_ha = float(data.get("flood_ha", 0.0))
         aoi_ha = float(data.get("aoi_ha", pair_meta.get("aoi_ha", 1000.0)))
@@ -498,8 +498,8 @@ class DataLoader:
             diff_pct = abs(measured - csv_val) / max(abs(csv_val), 1.0) * 100.0
             if diff_pct >= 2.0:
                 logger.warning(
-                    f"[{pair_id}] {layer}_ha divergence: raster={measured} ha, "
-                    f"submission.csv={csv_val} ha ({diff_pct:.2f}%)"
+                    f"[{pair_id}] расхождение {layer}_ha: растр={measured} га, "
+                    f"submission.csv={csv_val} га ({diff_pct:.2f}%)"
                 )
 
     def get_report(self, pair_id: str, query_geom: Any | None = None) -> dict[str, Any] | None:
@@ -639,7 +639,7 @@ class DataLoader:
                             resampling=Resampling.nearest,
                         )
                 except Exception:  # noqa: BLE001
-                    logger.warning(f"[{pair_id}] Failed to read cropland mask; treating as absent")
+                    logger.warning(f"[{pair_id}] Не удалось прочитать маску пашни; считается отсутствующей")
 
             if tot_pix > 0:
                 b_built = int((builtup[flood_pts] == 1).sum())
@@ -710,7 +710,7 @@ class DataLoader:
                     del pre_mask, peak_mask
                     gc.collect()
             except Exception:
-                logger.warning(f"[{pair_id}] Failed to compute receded_ha from own water masks; falling back to 0.0")
+                logger.warning(f"[{pair_id}] Не удалось вычислить receded_ha по собственным водным маскам; принято 0.0")
 
         water_gain_ha = round(water_peak_ha - water_pre_ha, 2)
         water_gain_pct = round((water_gain_ha / water_pre_ha * 100.0), 2) if water_pre_ha > 0 else 0.0
@@ -1051,7 +1051,7 @@ class DataLoader:
             try:
                 query_geom = shape(polygon)
             except Exception as exc:  # noqa: BLE001
-                raise ValueError(f"Invalid polygon geometry: {exc}") from exc
+                raise ValueError(f"Некорректная геометрия полигона: {exc}") from exc
         elif bounds and len(bounds) == 4:
             query_geom = box(bounds[0], bounds[1], bounds[2], bounds[3])
 
@@ -1069,7 +1069,7 @@ class DataLoader:
                 candidates.append((date_dist, -overlap, p["pair_id"]))
 
             if not candidates:
-                raise ValueError("Requested bounds do not overlap any monitored Amur basin AOI")
+                raise ValueError("Запрошенные границы не пересекают ни одну наблюдаемую AOI бассейна Амура")
             # Сначала наименьшее расстояние по дате; большее перекрытие (более отрицательное) разрешает ничью
             candidates.sort()
             target_pair_id = candidates[0][2]
@@ -1080,7 +1080,7 @@ class DataLoader:
         # все площади пересчитываются по растрам модели внутри запросного полигона.
         report = self.get_report(target_pair_id, query_geom=query_geom)
         if not report:
-            raise ValueError(f"Pair {target_pair_id} not found")
+            raise ValueError(f"Пара {target_pair_id} не найдена")
 
         geojson = self.get_geojson(target_pair_id, layer="flood")
 

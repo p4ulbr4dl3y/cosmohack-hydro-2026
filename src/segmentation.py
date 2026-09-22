@@ -333,7 +333,7 @@ def apply_planar_hand_filter(
     percentile: float = 90.0,
     tolerance_m: float = 1.5,
 ) -> np.ndarray:
-    """Filter flood water elevation exceeding river boundary HAND + tolerance."""
+    """Отсекает затопление выше уровня воды у русла реки (HAND) плюс допуск."""
     return _filters_apply_planar_hand_filter(
         flood_mask=flood_mask,
         seed_mask=seed_mask,

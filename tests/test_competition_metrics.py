@@ -90,7 +90,7 @@ def test_official_score_missing_pairs_csv(tmp_path):
 
     fake_pairs = tmp_path / "non_existent_pairs.csv"
     sub_df = pd.DataFrame({"pair_id": ["p1"]})
-    with pytest.raises(FileNotFoundError, match="pairs.csv not found"):
+    with pytest.raises(FileNotFoundError, match="pairs.csv не найден"):
         compute_live_official_score(sub_df, fake_pairs, tmp_path)
 
 
@@ -104,7 +104,7 @@ def test_official_score_missing_ref_json_and_no_baselines(tmp_path):
     )
     pairs_df.to_csv(pairs_csv, index=False)
 
-    # Only create exist.json, leave missing.json absent
+    # Создаем только exist.json, missing.json оставляем отсутствующим
     import json
 
     exist_json = tmp_path / "exist.json"
@@ -128,7 +128,7 @@ def test_official_score_missing_ref_json_and_no_baselines(tmp_path):
         ]
     )
 
-    # predictions_dir with raster where sub_flood == 0 and raster_ha > 0 or reading error
+    # predictions_dir с растром, где sub_flood == 0 и raster_ha > 0, либо ошибка чтения
     preds_dir = tmp_path / "preds"
     preds_dir.mkdir()
     corrupt_tif = preds_dir / "pair_exist_flood.tif"
@@ -142,7 +142,7 @@ def test_official_score_missing_ref_json_and_no_baselines(tmp_path):
     )
 
     assert res.num_baselines == 0
-    assert res.spec_base == 1.0  # Line 251 branch: no baselines -> spec_base_mean = 1.0
+    assert res.spec_base == 1.0  # Ветка строки 251: базовых пар нет -> spec_base_mean = 1.0
     assert len(res.details) == 1
 
 
@@ -196,7 +196,7 @@ def test_official_score_raster_zero_sub_flood(tmp_path):
         data_dir=tmp_path,
         predictions_dir=preds_dir,
     )
-    # Lines 212: raster_ha > 0 while sub_flood == 0 -> disc_pct = 100.0
+    # Строки 212: raster_ha > 0 при sub_flood == 0 -> disc_pct = 100.0
     assert res.details[0]["raster_csv_discrepancy_pct"] == 100.0
 
 
@@ -211,7 +211,7 @@ def test_submission_validation(tmp_path):
     val = validate_submission_file(real_sub, pairs_path, preds_dir)
     assert val.is_valid is True
     assert val.num_pairs == 11
-    assert any("match official pairs" in c for c in val.passed_checks)
+    assert any("соответствуют официальному реестру пар" in c for c in val.passed_checks)
 
     # Проверка повреждённого submission (отсутствующая пара, flood > peak)
     bad_csv = tmp_path / "bad_submission.csv"
@@ -222,26 +222,26 @@ def test_submission_validation(tmp_path):
 
     bad_val = validate_submission_file(bad_csv, pairs_path, None)
     assert bad_val.is_valid is False
-    assert any("Missing required pairs" in e for e in bad_val.errors)
-    assert any("exceeds water_peak_ha" in e for e in bad_val.errors)
+    assert any("Отсутствуют обязательные пары" in e for e in bad_val.errors)
+    assert any("превышает water_peak_ha" in e for e in bad_val.errors)
 
 
 def test_submission_validation_edge_cases(tmp_path):
-    # 1. Non-existent submission file (line 285)
+    # 1. Несуществующий файл посылки (строка 285)
     non_existent = tmp_path / "does_not_exist.csv"
     res_none = validate_submission_file(non_existent, tmp_path / "pairs.csv")
     assert res_none.is_valid is False
-    assert any("does not exist" in e for e in res_none.errors)
+    assert any("не существует" in e for e in res_none.errors)
 
-    # 2. Unparseable CSV (lines 296-297)
+    # 2. Неразбираемый CSV (строки 296-297)
     corrupt_csv = tmp_path / "corrupt.csv"
-    # Write invalid byte stream that pandas fails on, or invalid syntax
+    # Пишем некорректный поток байтов, на котором падает pandas, либо некорректный синтаксис
     corrupt_csv.write_bytes(b"\x00\x00\x00\xff\xfe\xff\xfe")
     res_corrupt = validate_submission_file(corrupt_csv, tmp_path / "pairs.csv")
     assert res_corrupt.is_valid is False
-    assert any("Failed to parse CSV" in e for e in res_corrupt.errors)
+    assert any("Не удалось разобрать CSV" in e for e in res_corrupt.errors)
 
-    # 3. Invalid columns (line 311)
+    # 3. Некорректные столбцы (строка 311)
     bad_cols_csv = tmp_path / "bad_cols.csv"
     pd.DataFrame(
         {
@@ -253,9 +253,9 @@ def test_submission_validation_edge_cases(tmp_path):
     ).to_csv(bad_cols_csv, index=False)
     res_cols = validate_submission_file(bad_cols_csv, tmp_path / "non_existent_pairs.csv")
     assert res_cols.is_valid is False
-    assert any("Invalid columns" in e for e in res_cols.errors)
+    assert any("Некорректные столбцы" in e for e in res_cols.errors)
 
-    # 4. Extra unexpected pairs (line 327)
+    # 4. Лишние неожиданные пары (строка 327)
     pairs_csv = tmp_path / "pairs.csv"
     pd.DataFrame({"pair_id": ["pair1"]}).to_csv(pairs_csv, index=False)
     extra_pairs_csv = tmp_path / "extra_pairs.csv"
@@ -269,9 +269,9 @@ def test_submission_validation_edge_cases(tmp_path):
     ).to_csv(extra_pairs_csv, index=False)
     res_extra = validate_submission_file(extra_pairs_csv, pairs_csv)
     assert res_extra.is_valid is False
-    assert any("Unexpected extra pairs" in e for e in res_extra.errors)
+    assert any("Неожиданные лишние пары" in e for e in res_extra.errors)
 
-    # 5. NaN values (line 334)
+    # 5. Значения NaN (строка 334)
     nan_csv = tmp_path / "nan.csv"
     pd.DataFrame(
         {
@@ -283,9 +283,9 @@ def test_submission_validation_edge_cases(tmp_path):
     ).to_csv(nan_csv, index=False)
     res_nan = validate_submission_file(nan_csv, pairs_csv)
     assert res_nan.is_valid is False
-    assert any("contains NaN" in e for e in res_nan.errors)
+    assert any("содержит значения NaN" in e for e in res_nan.errors)
 
-    # 6. Non-numeric values (lines 342-344) & negative area (line 347)
+    # 6. Нечисловые значения (строки 342-344) и отрицательная площадь (строка 347)
     non_num_csv = tmp_path / "non_num.csv"
     pd.DataFrame(
         {
@@ -297,8 +297,8 @@ def test_submission_validation_edge_cases(tmp_path):
     ).to_csv(non_num_csv, index=False)
     res_non_num = validate_submission_file(non_num_csv, pairs_csv)
     assert res_non_num.is_valid is False
-    assert any("non-numeric values" in e for e in res_non_num.errors)
-    assert any("negative area values" in e for e in res_non_num.errors)
+    assert any("нечисловые значения" in e for e in res_non_num.errors)
+    assert any("отрицательные значения площади" in e for e in res_non_num.errors)
 
 
 def test_submission_validation_raster_checks(tmp_path):
@@ -324,7 +324,7 @@ def test_submission_validation_raster_checks(tmp_path):
 
     transform = from_origin(100.0, 50.0, 10.0, 10.0)
 
-    # p1: fl == 0, raster has 10 pixels (0.1 ha) -> triggers line 380-381 (disc_pct = 100.0, exceeds 2% limit)
+    # p1: fl == 0, в растре 10 пикселей (0.1 га) -> срабатывают строки 380-381 (disc_pct = 100.0, превышает лимит 2%)
     with rasterio.open(
         preds_dir / "p1_flood.tif",
         "w",
@@ -333,16 +333,16 @@ def test_submission_validation_raster_checks(tmp_path):
         width=10,
         count=1,
         dtype=np.uint8,
-        crs="EPSG:4326",  # Line 372: non-32652 CRS warning
+        crs="EPSG:4326",  # Строка 372: предупреждение о CRS, отличном от 32652
         transform=transform,
     ) as dst:
         d = np.zeros((1, 10, 10), dtype=np.uint8)
         d[0, 0, :5] = 1
         dst.write(d)
 
-    # p2: missing raster -> triggers lines 364-366
+    # p2: отсутствующий растр -> срабатывают строки 364-366
 
-    # p3: raster vs CSV discrepancy exceeds 2% -> triggers lines 393-396
+    # p3: расхождение растра и CSV превышает 2% -> срабатывают строки 393-396
     with rasterio.open(
         preds_dir / "p3_flood.tif",
         "w",
@@ -354,15 +354,15 @@ def test_submission_validation_raster_checks(tmp_path):
         crs="EPSG:32652",
         transform=transform,
     ) as dst:
-        # 1000 pixels = 10.0 ha != 100.0 ha -> disc_pct = 90%
+        # 1000 пикселей = 10.0 га != 100.0 га -> disc_pct = 90%
         d = np.zeros((1, 10, 10), dtype=np.uint8)
         dst.write(d)
 
-    # p4: raster unreadable exception -> triggers lines 397-399
+    # p4: исключение при чтении растра -> срабатывают строки 397-399
     (preds_dir / "p4_flood.tif").write_text("corrupted content")
 
     val = validate_submission_file(sub_csv, pairs_csv, preds_dir)
-    assert any("expected EPSG:32652" in w for w in val.warnings)
-    assert any("Missing prediction raster: p2_flood.tif" in w for w in val.warnings)
-    assert any("exceeds 2% limit" in w for w in val.warnings)
-    assert any("Error checking raster p4_flood.tif" in w for w in val.warnings)
+    assert any("ожидался EPSG:32652" in w for w in val.warnings)
+    assert any("Отсутствует растровый прогноз: p2_flood.tif" in w for w in val.warnings)
+    assert any("превышает лимит 2%" in w for w in val.warnings)
+    assert any("Ошибка проверки растра p4_flood.tif" in w for w in val.warnings)

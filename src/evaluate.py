@@ -50,7 +50,7 @@ def load_reference_stats(pairs_df: pd.DataFrame, data_dir: Path) -> pd.DataFrame
         pair_id = str(row["pair_id"])
         ref_json_path = data_dir / str(row["reference_mask"]).replace(".tif", ".json")
         if not ref_json_path.exists():
-            raise FileNotFoundError(f"Reference JSON not found: {ref_json_path}")
+            raise FileNotFoundError(f"Эталонный JSON не найден: {ref_json_path}")
 
         with open(ref_json_path, encoding="utf-8") as fp:
             meta = json.load(fp)
@@ -258,10 +258,10 @@ def run_ablation_study(
     ref_df = load_reference_stats(pairs_df, data_dir)
 
     ablation_descriptions = {
-        1: "Ablation 1: Naive SAR Otsu alone",
-        2: "Ablation 2: SAR Otsu + HAND/Slope filter",
-        3: "Ablation 3: SAR + MSI fusion (where available)",
-        4: "Ablation 4: Full pipeline (+ MMU 25px + GSW permanent)",
+        1: "Аблация 1: только наивный Otsu по SAR",
+        2: "Аблация 2: SAR Otsu + фильтр HAND/уклон",
+        3: "Аблация 3: слияние SAR + MSI (где доступно)",
+        4: "Аблация 4: полный конвейер (+ MMU 25px + постоянные воды GSW)",
     }
 
     ablation_results = {}
@@ -269,7 +269,7 @@ def run_ablation_study(
 
     for mode in [1, 2, 3, 4]:
         name = ablation_descriptions[mode]
-        logger.info(f"\n{'=' * 60}\nRunning {name}\n{'=' * 60}")
+        logger.info(f"\n{'=' * 60}\nЗапуск {name}\n{'=' * 60}")
         pred_dir = tmp_pred_base / f"mode_{mode}"
         sub_csv = tmp_pred_base / f"sub_mode_{mode}.csv"
 
@@ -293,7 +293,7 @@ def run_ablation_study(
         ablation_results[f"ablation_{mode}"] = combined_res
 
         logger.info(
-            f"Result for {name}: Score={score_res['score']} "
+            f"Результат для {name}: метрика={score_res['score']} "
             f"(Q_flood={score_res['Q_flood']}, Q_peak={score_res['Q_water_peak']}, "
             f"Q_pre={score_res['Q_water_pre']}, Spec_base={score_res['Spec_base']}) | "
             f"Mean IoU={raster_res['mean_iou']}, F1={raster_res['mean_f1']}"
@@ -304,7 +304,7 @@ def run_ablation_study(
     with open(output_json_path, "w", encoding="utf-8") as fp:
         json.dump(ablation_results, fp, indent=2, ensure_ascii=False)
 
-    logger.info(f"Ablation study saved to {output_json_path}")
+    logger.info(f"Аблационное исследование сохранено в {output_json_path}")
     return ablation_results
 
 
@@ -381,12 +381,12 @@ def run_holdout_study(
     }
 
     results: dict[str, Any] = {
-        "method": "spatial leave-one-AOI-out (LOAO)",
-        "metric": "src.evaluate.compute_official_score (45/25/15/15 weights, unchanged)",
+        "method": "пространственная отложенная выборка leave-one-AOI-out (LOAO)",
+        "metric": "src.evaluate.compute_official_score (веса 45/25/15/15, без изменений)",
         "note": (
-            "Additional diagnostic only. The official pooled Score in submission.csv and "
-            "data/ablation_results.json is unchanged and is reported here as "
-            "official_pooled_metrics for reference."
+            "Только дополнительная диагностика. Официальная объединенная метрика в submission.csv и "
+            "data/ablation_results.json не меняется и приводится здесь как "
+            "official_pooled_metrics для справки."
         ),
         "official_pooled_metrics": pooled,
         "num_folds": len(aois),
@@ -401,12 +401,14 @@ def run_holdout_study(
         json.dump(results, fp, indent=2, ensure_ascii=False)
 
     print("\n" + "=" * 78)
-    print("SPATIAL HOLD-OUT (LEAVE-ONE-AOI-OUT) - ADDITIONAL DIAGNOSTIC")
+    print("ПРОСТРАНСТВЕННАЯ ОТЛОЖЕННАЯ ВЫБОРКА (LEAVE-ONE-AOI-OUT) - ДОПОЛНИТЕЛЬНАЯ ДИАГНОСТИКА")
     print("=" * 78)
-    print(f"Official pooled Score (all {len(ref)} pairs, UNCHANGED): {pooled['score']:.4f}")
-    print("Thresholds were tuned on these same pairs, so the pooled number is optimistic.")
+    print(f"Официальная объединенная метрика (все {len(ref)} пар, БЕЗ ИЗМЕНЕНИЙ): {pooled['score']:.4f}")
+    print("Пороги настраивались на этих же парах, поэтому объединенное значение оптимистично.")
     print("-" * 78)
-    print(f"{'Held-out AOI':<20}{'pairs':>6}{'base':>6}{'Q_flood':>10}{'Q_peak':>9}{'Q_pre':>8}{'Spec':>8}{'Score':>9}")
+    print(
+        f"{'Отложенная AOI':<20}{'пар':>6}{'база':>6}{'Q_flood':>10}{'Q_peak':>9}{'Q_pre':>8}{'Spec':>8}{'Метрика':>9}"
+    )
     for aoi, fold in folds.items():
         m = fold["official_metrics"]
         print(
@@ -416,37 +418,39 @@ def run_holdout_study(
         )
     print("-" * 78)
     print(
-        f"Held-out fold Score: mean {summary['mean_score']:.4f} | std {summary['std_score']:.4f} | "
-        f"min {summary['min_score']:.4f} | max {summary['max_score']:.4f} ({len(aois)} AOI folds)"
+        f"Метрика отложенной выборки: среднее {summary['mean_score']:.4f} | СКО {summary['std_score']:.4f} | "
+        f"мин {summary['min_score']:.4f} | макс {summary['max_score']:.4f} ({len(aois)} фолдов AOI)"
     )
     print(
-        "Folds without baseline pairs have no false-alarm pairs to penalise and inherit the "
-        "metric's documented Spec_base = 1.0 default (see the 'base' column)."
+        "Фолды без базовых пар не имеют пар для штрафа за ложную тревогу и получают "
+        "задокументированное значение метрики Spec_base = 1.0 по умолчанию (см. столбец 'база')."
     )
-    print(f"Machine-readable summary saved to {output_json_path}")
+    print(f"Машиночитаемая сводка сохранена в {output_json_path}")
     print("=" * 78 + "\n")
 
     return results
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate submissions and run ablations")
+    parser = argparse.ArgumentParser(description="Оценка посылок и запуск аблаций")
     parser.add_argument("--submission", type=Path, default=Path("submission.csv"))
     parser.add_argument("--pairs", type=Path, default=Path("hydrowatch_amur/pairs.csv"))
     parser.add_argument("--data_dir", type=Path, default=Path("hydrowatch_amur"))
     parser.add_argument("--predictions_dir", type=Path, default=Path("predictions"))
-    parser.add_argument("--run_ablations", action="store_true", help="Run full 4-stage ablation study")
+    parser.add_argument(
+        "--run_ablations", action="store_true", help="Запустить полное 4-стадийное аблационное исследование"
+    )
     parser.add_argument(
         "--holdout",
         action="store_true",
-        help="Run the additional spatial leave-one-AOI-out hold-out diagnostic",
+        help="Запустить дополнительную диагностику пространственной отложенной выборки leave-one-AOI-out",
     )
     parser.add_argument("--output_json", type=Path, default=Path("data/ablation_results.json"))
     parser.add_argument(
         "--holdout_json",
         type=Path,
         default=Path("data/holdout_results.json"),
-        help="Where to store the machine-readable hold-out summary",
+        help="Куда сохранить машиночитаемую сводку отложенной выборки",
     )
     args = parser.parse_args()
 
@@ -462,7 +466,7 @@ def main() -> None:
 
     if args.holdout:
         if not args.submission.exists():
-            logger.error(f"Submission file not found: {args.submission}. Run predict.py first.")
+            logger.error(f"Файл посылки не найден: {args.submission}. Сначала запустите predict.py.")
             return
         sub_df = pd.read_csv(args.submission)
         run_holdout_study(
@@ -482,19 +486,19 @@ def main() -> None:
         raster_res = compute_raster_metrics(args.predictions_dir, pairs_df, args.data_dir)
 
         print("\n" + "=" * 50)
-        print("HYDRO-MONITORING EVALUATION RESULTS")
+        print("РЕЗУЛЬТАТЫ ОЦЕНКИ ГИДРОЛОГИЧЕСКОГО МОНИТОРИНГА")
         print("=" * 50)
-        print(f"Composite Score: {score_res['score']:.4f}")
-        print(f"  Q_flood (weight 0.45):       {score_res['Q_flood']:.4f}")
-        print(f"  Q_water_peak (weight 0.25):  {score_res['Q_water_peak']:.4f}")
-        print(f"  Q_water_pre (weight 0.15):   {score_res['Q_water_pre']:.4f}")
-        print(f"  Spec_base (weight 0.15):     {score_res['Spec_base']:.4f}")
+        print(f"Итоговая метрика: {score_res['score']:.4f}")
+        print(f"  Q_flood (вес 0.45):          {score_res['Q_flood']:.4f}")
+        print(f"  Q_water_peak (вес 0.25):     {score_res['Q_water_peak']:.4f}")
+        print(f"  Q_water_pre (вес 0.15):      {score_res['Q_water_pre']:.4f}")
+        print(f"  Spec_base (вес 0.15):        {score_res['Spec_base']:.4f}")
         print("-" * 50)
-        print(f"Raster Mean IoU:               {raster_res['mean_iou']:.4f}")
-        print(f"Raster Mean F1:                {raster_res['mean_f1']:.4f}")
+        print(f"Средний IoU по растрам:        {raster_res['mean_iou']:.4f}")
+        print(f"Средний F1 по растрам:         {raster_res['mean_f1']:.4f}")
         print("=" * 50 + "\n")
     else:
-        logger.error(f"Submission file not found: {args.submission}. Run predict.py first.")
+        logger.error(f"Файл посылки не найден: {args.submission}. Сначала запустите predict.py.")
 
 
 if __name__ == "__main__":

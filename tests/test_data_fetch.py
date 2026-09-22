@@ -25,7 +25,7 @@ def test_safe_extract_blocks_zip_slip(tmp_path):
     with zipfile.ZipFile(archive, "w") as z:
         z.writestr("../../evil.txt", "pwned")
 
-    with pytest.raises(RuntimeError, match="Unsafe path"):
+    with pytest.raises(RuntimeError, match="Небезопасный путь"):
         safe_extract(archive, tmp_path / "out")
     assert not (tmp_path / "evil.txt").exists()
 
@@ -35,7 +35,7 @@ def test_safe_extract_blocks_absolute(tmp_path):
     with zipfile.ZipFile(archive, "w") as z:
         z.writestr("/etc/evil", "pwned")
 
-    with pytest.raises(RuntimeError, match="Unsafe path"):
+    with pytest.raises(RuntimeError, match="Небезопасный путь"):
         safe_extract(archive, tmp_path / "out")
 
 

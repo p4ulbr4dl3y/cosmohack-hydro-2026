@@ -52,17 +52,17 @@ class ManifestVerificationResult:
 
     def summary(self) -> str:
         """Текстовая сводка результатов верификации."""
-        status = "PASSED" if self.is_valid else "FAILED"
+        status = "ПРОЙДЕНО" if self.is_valid else "НЕ ПРОЙДЕНО"
         lines = [
-            f"Integrity check status: {status}",
-            f"Verified files: {self.verified_count}",
-            f"Missing files: {len(self.missing_files)}",
-            f"Corrupted files: {len(self.corrupted_files)}",
-            f"Size mismatches: {len(self.size_mismatches)}",
-            f"Merkle root valid: {self.merkle_valid}",
+            f"Статус проверки целостности: {status}",
+            f"Проверено файлов: {self.verified_count}",
+            f"Отсутствует файлов: {len(self.missing_files)}",
+            f"Повреждено файлов: {len(self.corrupted_files)}",
+            f"Несовпадений размера: {len(self.size_mismatches)}",
+            f"Корень Merkle валиден: {self.merkle_valid}",
         ]
         if self.errors:
-            lines.append("Errors:")
+            lines.append("Ошибки:")
             for err in self.errors:
                 lines.append(f"  - {err}")
         return "\n".join(lines)
@@ -104,7 +104,7 @@ def collect_artifact_files(
         if not t_path.exists():
             # Если целевой файл/каталог из списка по умолчанию отсутствует, пропускаем
             if targets is not None:
-                logger.warning("Target artifact does not exist: %s", t_path)
+                logger.warning("Целевой артефакт не существует: %s", t_path)
             continue
 
         if t_path.is_dir():
@@ -201,7 +201,7 @@ def generate_manifest(
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as fp:
             json.dump(manifest, fp, indent=2, ensure_ascii=False)
-        logger.info("Manifest saved with %d artifacts to %s", len(artifact_entries), out_path)
+        logger.info("Манифест сохранен: %d артефактов в %s", len(artifact_entries), out_path)
 
     return manifest
 
@@ -240,20 +240,22 @@ def verify_manifest(
         f_path = base_path / rel_posix
         if not f_path.exists() or not f_path.is_file():
             missing.append(rel_posix)
-            errors.append(f"Missing file: {rel_posix}")
+            errors.append(f"Отсутствует файл: {rel_posix}")
             continue
 
         actual_size = f_path.stat().st_size
         if expected_size is not None and actual_size != expected_size:
             size_mismatches.append(rel_posix)
-            errors.append(f"Size mismatch for {rel_posix}: expected {expected_size} bytes, got {actual_size} bytes")
+            errors.append(
+                f"Несовпадение размера для {rel_posix}: ожидалось {expected_size} байт, получено {actual_size} байт"
+            )
 
         actual_sha = compute_file_sha256(f_path).lower()
         leaf_hashes.append(actual_sha)
 
         if actual_sha != expected_sha:
             corrupted.append(rel_posix)
-            errors.append(f"SHA-256 mismatch for {rel_posix}: expected {expected_sha}, got {actual_sha}")
+            errors.append(f"Несовпадение SHA-256 для {rel_posix}: ожидалось {expected_sha}, получено {actual_sha}")
         else:
             verified_count += 1
 
@@ -266,7 +268,7 @@ def verify_manifest(
             actual_merkle, _ = build_merkle_tree(leaf_hashes)
             if actual_merkle.lower() != expected_merkle.strip().lower():
                 merkle_valid = False
-                errors.append(f"Merkle root mismatch: expected {expected_merkle}, computed {actual_merkle}")
+                errors.append(f"Несовпадение корня Merkle: ожидалось {expected_merkle}, вычислено {actual_merkle}")
 
     is_valid = len(errors) == 0
     return ManifestVerificationResult(
@@ -283,31 +285,31 @@ def verify_manifest(
 def main() -> None:
     """Точка входа командной строки для управления манифестом."""
     parser = argparse.ArgumentParser(
-        description="Generate or verify SHA-256 integrity manifest for artifacts and MRV verification"
+        description="Сформировать или проверить манифест целостности SHA-256 артефактов для верификации MRV"
     )
     parser.add_argument(
         "--output",
         "-o",
         type=Path,
         default=DEFAULT_MANIFEST_PATH,
-        help="Path to manifest JSON file (default: data/artifacts_manifest.json)",
+        help="Путь к JSON-файлу манифеста (по умолчанию: data/artifacts_manifest.json)",
     )
     parser.add_argument(
         "--verify",
         action="store_true",
-        help="Verify existing manifest against disk artifacts",
+        help="Проверить существующий манифест по артефактам на диске",
     )
     parser.add_argument(
         "--base-dir",
         type=Path,
         default=Path("."),
-        help="Base directory for artifact paths (default: current working directory)",
+        help="Базовая директория для путей артефактов (по умолчанию: текущий рабочий каталог)",
     )
     parser.add_argument(
         "--targets",
         nargs="*",
         default=None,
-        help="Specific files or directories to include (defaults to standard predictions & results)",
+        help="Конкретные файлы или директории для включения (по умолчанию: стандартные predictions и results)",
     )
 
     args = parser.parse_args()
@@ -323,10 +325,10 @@ def main() -> None:
             base_dir=args.base_dir,
             output_path=args.output,
         )
-        print(f"Artifacts manifest generated successfully: {args.output}")
-        print(f"  Total artifacts : {manifest['total_files']}")
-        print(f"  Total size      : {manifest['total_size_bytes'] / (1024 * 1024):.2f} MB")
-        print(f"  Merkle root     : {manifest['merkle_root']}")
+        print(f"Манифест артефактов успешно сформирован: {args.output}")
+        print(f"  Всего артефактов: {manifest['total_files']}")
+        print(f"  Общий размер:    {manifest['total_size_bytes'] / (1024 * 1024):.2f} МБ")
+        print(f"  Корень Merkle:   {manifest['merkle_root']}")
 
 
 if __name__ == "__main__":
