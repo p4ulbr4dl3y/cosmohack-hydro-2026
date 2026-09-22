@@ -68,6 +68,7 @@ optical_ndvi_max: 0.3
 
 # Minimum Mapping Unit (MMU) filtering (pixels)
 mmu_min_pixels: 25
+flood_mmu_min_pixels: 15
 
 # Partial-SAR fallback (Poyarkovo-style track boundary gaps)
 sar_valid_frac_min: 0.1

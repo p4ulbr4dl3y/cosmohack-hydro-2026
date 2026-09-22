@@ -28,7 +28,7 @@ import pandas as pd
 import rasterio
 from rasterio.windows import Window
 
-from src.config import MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M, SAR_READ_BLOCK_ROWS
+from src.config import FLOOD_MMU_MIN_PIXELS, MMU_MIN_PIXELS, PIXEL_SIZE_HA, PIXEL_SIZE_M, SAR_READ_BLOCK_ROWS
 from src.filters import (
     apply_hydrological_connectivity,
     apply_mmu,
@@ -321,7 +321,8 @@ def process_pair(
                     tolerance_m=float(cfg.get("planar_hand_tolerance_m", 1.8)),
                 )
                 flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
-        flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
+        flood_mmu = int(cfg.get("flood_mmu_min_pixels", FLOOD_MMU_MIN_PIXELS))
+        flood_mask = apply_mmu(flood_mask, min_size=flood_mmu).astype(np.uint8)
         flooded_vegetation_mask = apply_mmu(flooded_vegetation_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)
 
     # Пересчёт площадей в гектарах после обрезки, связности и MMU

@@ -51,6 +51,7 @@ OPTICAL_MNDWI_MIN: float = 0.1
 OPTICAL_AWEISH_MIN: float = 0.0
 OPTICAL_NDVI_MAX: float = 0.3
 MMU_MIN_PIXELS: int = 25
+FLOOD_MMU_MIN_PIXELS: int = 15
 PIXEL_SIZE_M: float = 10.0
 PIXEL_SIZE_HA: float = 0.01
 
@@ -96,6 +97,7 @@ class HydroConfig:
     optical_aweish_min: float = OPTICAL_AWEISH_MIN
     optical_ndvi_max: float = OPTICAL_NDVI_MAX
     mmu_min_pixels: int = MMU_MIN_PIXELS
+    flood_mmu_min_pixels: int = FLOOD_MMU_MIN_PIXELS
     pixel_size_m: float = PIXEL_SIZE_M
     pixel_size_ha: float = PIXEL_SIZE_HA
     extra: dict[str, Any] = field(default_factory=dict)
