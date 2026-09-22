@@ -10,18 +10,22 @@
 
 ### Удаленный демонстрационный стенд:
 - интерактивная геоинформационная карта-дашборд: [https://state3407.space/](https://state3407.space/);
+- интерактивный исследовательский блокнот EDA: [https://state3407.space/eda](https://state3407.space/eda);
 - интерактивная спецификация REST API: [https://state3407.space/docs](https://state3407.space/docs);
 - альтернативная документация ReDoc: [https://state3407.space/redoc](https://state3407.space/redoc);
 - проверка работоспособности сервиса: [https://state3407.space/api/v1/health](https://state3407.space/api/v1/health).
 
 ### Локальное окружение (при запуске на машине):
 - локальный дашборд: [http://localhost:8000/](http://localhost:8000/);
+- локальный отчет EDA: [http://localhost:8000/eda](http://localhost:8000/eda);
 - локальный Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs);
 - локальная проверка работоспособности: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health).
 
 ### Научные и презентационные материалы:
 - полный научно-технический отчет: [`REPORT.md`](REPORT.md);
-- презентационные слайды защиты: [`SLIDES.md`](SLIDES.md).
+- презентационные слайды защиты: [`SLIDES.md`](SLIDES.md);
+- исследовательский Jupyter-блокнот: [`notebooks/eda.ipynb`](notebooks/eda.ipynb) (HTML-версия: [`notebooks/eda.html`](notebooks/eda.html)).
+
 
 ---
 
