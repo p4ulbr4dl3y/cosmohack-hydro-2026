@@ -45,6 +45,36 @@ jobs:
       - name: Run Pytest Suite
         run: uv run pytest
 
+  backend-checks-windows:
+    name: Backend Lint & Tests (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'pyproject.toml'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Ruff Linter
+        run: uv run ruff check
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pytest Suite
+        run: uv run pytest
+
   frontend-checks:
     name: Frontend Tests & Build
     runs-on: ubuntu-latest
@@ -73,7 +103,7 @@ jobs:
 
   deploy-vps:
     name: Deploy to VPS
-    needs: [backend-checks, frontend-checks]
+    needs: [backend-checks, backend-checks-windows, frontend-checks]
     # Temporarily disabled. Original condition:
     # if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     if: false
