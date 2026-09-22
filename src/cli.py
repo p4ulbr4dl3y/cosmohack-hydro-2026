@@ -105,6 +105,11 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                         "emissions_equivalent_tCO2e": carb.get("emissions_equivalent_tCO2e", ""),
                         "carbon_credits_Q": cred.get("Q_credits", ""),
                         "competition_q_flood": comp.get("q_flood", ""),
+                        "meteo_precip_interval_mm": r.get("meteo", {}).get("precip_interval_mm", "")
+                        if r.get("meteo")
+                        else "",
+                        "meteo_trigger": r.get("meteo", {}).get("flood_meteo_trigger", "") if r.get("meteo") else "",
+                        "meteo_confirmed": r.get("meteo", {}).get("meteo_confirmation", "") if r.get("meteo") else "",
                     }
                 )
             pd.DataFrame(rows).to_csv(output, index=False)
@@ -144,6 +149,14 @@ def run_report(pair_id: str | None = None, output: Path | None = None) -> None:
                 print(
                     f"  Пост ({gauge.get('station_name', '')} / {gauge.get('river', '')}): "
                     f"{gauge.get('observed_level_cm')} см (НПУ: {gauge.get('npu_cm')} см, ОЯ: {gauge.get('oya_cm')} см) -> стадия: {gauge.get('stage_risk')}"
+                )
+            meteo = r.get("meteo")
+            if meteo and meteo.get("has_meteo_data"):
+                status_str = "ПОДТВЕРЖДЕН" if meteo.get("meteo_confirmation") else "МЕЖЕНЬ / НЕТ ОСАДКОВ"
+                print(
+                    f"  Метеоконтекст ERA5 [{status_str}]: осадки {meteo.get('precip_interval_mm')} мм "
+                    f"(7d до пика: {meteo.get('precip_7d_before_peak_mm')} мм, макс: {meteo.get('max_daily_precip_mm')} мм/сут {meteo.get('max_daily_precip_date')}) | "
+                    f"триггер: {meteo.get('flood_meteo_trigger')}"
                 )
             unc = r.get("uncertainty")
             if unc:

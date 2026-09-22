@@ -165,6 +165,10 @@ def get_report_csv(pair_id: str) -> Response:
             "carbon_credits_Q",
             "competition_q_flood",
             "raster_discrepancy_pct",
+            "meteo_precip_interval_mm",
+            "meteo_precip_7d_peak_mm",
+            "meteo_trigger",
+            "meteo_confirmed",
         ]
     )
     lc = report.get("landcover", {})
@@ -174,6 +178,7 @@ def get_report_csv(pair_id: str) -> Response:
     carb = report.get("carbon_impact", {}) or {}
     cred = carb.get("credit_potential", {}) or {}
     comp = report.get("competition_score", {}) or {}
+    meteo = report.get("meteo", {}) or {}
 
     writer.writerow(
         [
@@ -211,6 +216,10 @@ def get_report_csv(pair_id: str) -> Response:
             cred.get("Q_credits", ""),
             comp.get("q_flood", ""),
             comp.get("discrepancy_pct", ""),
+            meteo.get("precip_interval_mm", ""),
+            meteo.get("precip_7d_before_peak_mm", ""),
+            meteo.get("flood_meteo_trigger", ""),
+            meteo.get("meteo_confirmation", ""),
         ]
     )
 
@@ -953,6 +962,52 @@ def get_carbon_impact(pair_id: str) -> Any:
     res_dict = asdict(impact)
     res_dict["credit_potential"] = asdict(impact.credit_potential)
     return res_dict
+
+
+@app.get(
+    "/api/v1/meteo/{pair_id}",
+    summary="Гидрометеорологический ряд и прекурсоры осадков ERA5",
+)
+async def get_meteo_data(pair_id: str) -> dict[str, Any]:
+    """Возвращает суточные временные ряды ERA5 и прекурсоры осадков для аналитических графиков."""
+    report = data_loader.get_report(pair_id)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Пара '{pair_id}' не найдена")
+
+    summary = data_loader.compute_meteo_summary(pair_id)
+    timeseries = data_loader.get_meteo_timeseries(pair_id)
+    return {
+        "pair_id": pair_id,
+        "summary": summary,
+        "timeseries": timeseries,
+    }
+
+
+class SceneIngestWebhookRequest(BaseModel):
+    """Нагрузка автоматического вебхука приёма новых спутниковых снимков Sentinel."""
+
+    pair_id: str | None = None
+    source: str = "copernicus-dataspace"
+    scene_id: str | None = None
+    sensor: str = "sentinel1"
+    timestamp: str | None = None
+
+
+@app.post(
+    "/api/v1/webhook/scene-ingest",
+    summary="Автоматический вебхук-триггер приёма новых спутниковых сцен",
+)
+async def webhook_scene_ingest(payload: SceneIngestWebhookRequest) -> dict[str, Any]:
+    """Принимает событие публикации нового витка Sentinel-1/2, инвалидирует кэш и запускает инкрементальный расчет."""
+    target_pair = payload.pair_id
+    recompute_req = RecomputeRequest(pair_id=target_pair)
+    result = recompute_observation(recompute_req)
+    return {
+        "status": "accepted",
+        "message": f"Сцена {payload.scene_id or 'unknown'} принята в обработку",
+        "ingest_source": payload.source,
+        "recompute_result": result,
+    }
 
 
 # Подключение статических ресурсов

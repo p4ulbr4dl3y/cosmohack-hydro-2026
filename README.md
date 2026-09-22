@@ -84,7 +84,7 @@ uv run python -m src.cli evaluate --holdout
 # 3. Генерация аналитического отчета по паре AOI
 uv run python -m src.cli report --pair-id flood_2019_07_amur__blagoveshchensk
 
-# 4. Запуск полного набора автотестов (236 серверных + 119 клиентских тестов)
+# 4. Запуск полного набора автотестов (310 серверных + 119 клиентских тестов)
 uv run pytest
 npm test --prefix frontend -- --run
 ```
@@ -158,11 +158,12 @@ cosmohack-hydro-2026/
 │   ├── evaluate.py                    # Расчет официальной метрики и 4-стадийных абляций
 │   ├── competition_metrics.py         # Метрики КосмоХакатона и валидация посылки
 │   ├── sar_analytics.py               # Поляриметрия SAR (VV/VH, ветровая рябь, тени)
+│   ├── meteo.py                       # Анализ гидрометеорологии ERA5 (осадки, снеготаяние, триггеры)
 │   └── service/                       # Продуктовый микросервис FastAPI
 │       ├── app.py                     # Точки входа REST API, CORS, OpenAPI Swagger
 │       ├── data_loader.py             # Векторизация в GeoJSON, кэш, фильтрация шума
 │       └── static/                    # Готовая сборка интерактивного Web GIS дашборда
-└── tests/                             # 236 серверных + 119 клиентских тестов (100% пройдено)
+└── tests/                             # 310 серверных + 119 клиентских тестов (100% пройдено)
 ```
 
 ---
@@ -177,6 +178,8 @@ cosmohack-hydro-2026/
 | `GET` | `/api/v1/pairs` | Реестр 11 пар с датами съемок, орбитами и площадями районов |
 | `GET` | `/api/v1/report/{pair_id}` | Сводка площадей и распределение затопления по угодьям (WorldCover) |
 | `GET` | `/api/v1/report/{pair_id}/csv` | Экспорт аналитической гидрологической справки в CSV |
+| `GET` | `/api/v1/meteo/{pair_id}` | Суточные ряды осадков/температуры ERA5 и гидрометео-прекурсоры |
+| `POST` | `/api/v1/webhook/scene-ingest` | Автоматический триггер приёма новых спутниковых снимков Sentinel |
 | `GET` | `/api/v1/geojson/{pair_id}` | Векторные контуры слоев (`flood`, `water_pre`, `water_peak`) в EPSG:4326 |
 | `POST` | `/api/v1/predict` | Расчет зон затопления по полигону или ограничивающему прямоугольнику |
 | `GET` | `/api/v1/geotiff/{pair_id}` | Скачивание растровых GeoTIFF масок |

@@ -1014,3 +1014,35 @@ def test_artifact_cache_header_absent_on_errors():
     resp = client.get("/api/v1/geojson/non_existent_pair?layer=flood")
     assert resp.status_code == 404
     assert resp.headers.get("cache-control") != "public, max-age=86400"
+
+
+def test_meteo_endpoint():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.get(f"/api/v1/meteo/{pair_id}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["pair_id"] == pair_id
+    assert "summary" in data
+    assert "timeseries" in data
+    assert data["summary"]["has_meteo_data"] is True
+    assert len(data["timeseries"]) > 0
+
+    # 404 для несуществующей пары
+    resp_404 = client.get("/api/v1/meteo/non_existent_pair")
+    assert resp_404.status_code == 404
+
+
+def test_webhook_scene_ingest():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    payload = {
+        "pair_id": pair_id,
+        "source": "copernicus-dataspace",
+        "scene_id": "S1A_IW_GRDH_1SDV_20190725T212629_028278_0331A4_E180",
+        "sensor": "sentinel1",
+    }
+    resp = client.post("/api/v1/webhook/scene-ingest", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "accepted"
+    assert "recompute_result" in data
+    assert data["recompute_result"]["status"] == "success"

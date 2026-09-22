@@ -160,6 +160,9 @@ class ReportResponse(BaseModel):
     sar_analytics: SARAnalyticsResponse | None = Field(
         default=None, description="Радиолокационная поляриметрическая аналитика Sentinel-1"
     )
+    meteo: dict[str, Any] | None = Field(
+        default=None, description="Гидрометеорологический контекст и прекурсоры осадков ERA5"
+    )
     carbon_impact: FloodCarbonImpactResponse | None = Field(
         default=None, description="Углеродные и биомассовые потери по IPCC"
     )

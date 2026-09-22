@@ -30,6 +30,7 @@ from src.carbon_metrics import compute_flood_carbon_impact
 from src.competition_metrics import FLOOD_THRESHOLD_HA, calculate_q_score
 from src.config import HydroConfig
 from src.depth import classify_depth_risk, estimate_water_depth
+from src.meteo import analyze_meteo_precursors, find_era5_file, load_era5_timeseries
 from src.sar_analytics import analyze_sar_hydrology
 from src.service.mchs_report import build_mchs_dispatch
 from src.temporal import compute_receded_ha
@@ -296,6 +297,40 @@ class DataLoader:
         self._sar_analytics_cache[pair_id] = fallback_dict
         return dict(fallback_dict)
 
+    def get_meteo_timeseries(self, pair_id: str) -> list[dict[str, Any]]:
+        """Возвращает суточные временные ряды ERA5 (date, precip_mm, temp_c, snowmelt_mm) для пары."""
+        pair_meta = self.get_pair_meta(pair_id) or {}
+        rasters_dir = str(pair_meta.get("rasters_dir", ""))
+        era5_file = find_era5_file(self.data_dir, rasters_dir, pair_id)
+        if not era5_file or not era5_file.exists():
+            return []
+        try:
+            df = load_era5_timeseries(era5_file)
+            df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+            return df.to_dict(orient="records")
+        except Exception as exc:
+            logger.warning("Ошибка чтения рядов ERA5 для пары %s: %s", pair_id, exc)
+            return []
+
+    def compute_meteo_summary(self, pair_id: str) -> dict[str, Any]:
+        """Рассчитывает гидрометеорологические прекурсоры паводка ERA5."""
+        pair_meta = self.get_pair_meta(pair_id) or {}
+        rasters_dir = str(pair_meta.get("rasters_dir", ""))
+        date_pre = str(pair_meta.get("date_pre_sar", ""))
+        date_peak = str(pair_meta.get("date_peak_sar", ""))
+
+        era5_file = find_era5_file(self.data_dir, rasters_dir, pair_id)
+        if not era5_file or not era5_file.exists():
+            return analyze_meteo_precursors(pd.DataFrame(), pair_id).to_dict()
+
+        try:
+            df = load_era5_timeseries(era5_file)
+            summary = analyze_meteo_precursors(df, pair_id, date_pre=date_pre, date_peak=date_peak)
+            return summary.to_dict()
+        except Exception as exc:
+            logger.warning("Ошибка расчета метео-прекурсоров ERA5 для %s: %s", pair_id, exc)
+            return analyze_meteo_precursors(pd.DataFrame(), pair_id).to_dict()
+
     def _enrich_report_analytics(self, data: dict[str, Any], pair_id: str) -> None:
         """Дополняет отчет динамической неопределенностью, Merkle-аудитом, SAR-поляриметрией, углеродными метриками и соревновательной метрикой."""
         pair_meta = self.get_pair_meta(pair_id) or {}
@@ -388,7 +423,11 @@ class DataLoader:
             res_impact["credit_potential"] = asdict(impact.credit_potential)
             data["carbon_impact"] = res_impact
 
-        # 5. Сходимость официальных метрик соревнования
+        # 5. Гидрометеорологический контекст осадков ERA5
+        if "meteo" not in data or data["meteo"] is None:
+            data["meteo"] = self.compute_meteo_summary(pair_id)
+
+        # 6. Сходимость официальных метрик соревнования
         if "competition_score" not in data or data["competition_score"] is None:
             sub_flood_ha = flood_ha
             pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
