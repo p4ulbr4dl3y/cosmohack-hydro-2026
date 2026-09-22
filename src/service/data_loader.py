@@ -381,6 +381,12 @@ class DataLoader:
     def _enrich_report_analytics(self, data: dict[str, Any], pair_id: str) -> None:
         """Дополняет отчет динамической неопределенностью, Merkle-аудитом, SAR-поляриметрией, углеродными метриками и соревновательной метрикой."""
         pair_meta = self.get_pair_meta(pair_id) or {}
+        ref_path = pair_meta.get("reference_mask")
+        if not ref_path and self.pairs_df is not None and "reference_mask" in self.pairs_df.columns:
+            matched_rows = self.pairs_df[self.pairs_df["pair_id"] == pair_id]
+            if not matched_rows.empty and pd.notna(matched_rows.iloc[0]["reference_mask"]):
+                ref_path = str(matched_rows.iloc[0]["reference_mask"])
+
         flood_ha = float(data.get("flood_ha", 0.0))
         aoi_ha = float(data.get("aoi_ha", pair_meta.get("aoi_ha", 1000.0)))
         has_optical = bool(data.get("date_pre_opt") and data.get("date_peak_opt"))
@@ -521,15 +527,33 @@ class DataLoader:
 
         # 6. Анатомия аномалии (Константиновка 2021)
         if pair_id == "flood_2021_06_amur__konstantinovka":
+            ref_flood = None
+            ref_peak = None
+            ref_perm = None
+            if ref_path:
+                ref_tif_path = Path(ref_path) if Path(ref_path).is_absolute() else (self.data_dir / ref_path)
+                if ref_tif_path.exists():
+                    try:
+                        with rasterio.open(ref_tif_path) as r_src:
+                            px_h = (abs(r_src.res[0]) * abs(r_src.res[1])) / 10000.0
+                            if r_src.count >= 1:
+                                ref_flood = round(float((r_src.read(1) == 1).sum() * px_h), 2)
+                            if r_src.count >= 3:
+                                ref_peak = round(float((r_src.read(3) == 1).sum() * px_h), 2)
+                            if r_src.count >= 4:
+                                ref_perm = round(float((r_src.read(4) == 1).sum() * px_h), 2)
+                    except Exception:
+                        pass
+
             data["anomaly_note"] = {
-                "title": "Анатомия аномалии: Константиновка 2021 (FP 8572 га vs эталон 107 га)",
+                "title": "Анатомия аномалии: Константиновка 2021 (FP ~8572 га vs эталон)",
                 "radar_flood_ha": flood_ha,
-                "reference_flood_ha": 107.28,
-                "reference_water_peak_ha": 172.92,
-                "permanent_water_ha": 5435.74,
+                "reference_flood_ha": ref_flood,
+                "reference_water_peak_ha": ref_peak,
+                "permanent_water_ha": ref_perm,
                 "divergence_reason": (
-                    "Топологическая аномалия автоматической разметки эталона: water_peak_ref (172.92 га) "
-                    "меньше многолетней постоянной воды (5435.74 га), русло и паводок выпали из маски."
+                    f"Топологическая аномалия автоматической разметки эталона: water_peak_ref ({ref_peak} га) "
+                    f"меньше многолетней постоянной воды ({ref_perm} га), русло и паводок выпали из маски."
                 ),
                 "mchs_danger": (
                     "Искусственное подавление реального паводка опасно для МЧС России. Топологические "
