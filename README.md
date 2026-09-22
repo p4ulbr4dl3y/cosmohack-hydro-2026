@@ -50,15 +50,23 @@ docker compose down
 
 ---
 
-### Вариант 2. Локальный запуск через `uv`
+### Вариант 2. Локальный запуск через `uv` или `Makefile`
 
 ```bash
-# 1. Синхронизация окружения (Python >= 3.13)
-uv sync
+# Если uv еще не установлен (ставится за 5 секунд):
+curl -LsSf https://astral.sh/uv/install.sh | sh   # Mac / Linux
+# или: pip install uv
 
-# 2. Запуск асинхронного сервиса
+# Запуск в 1 команду через Makefile:
+make run          # сервис на http://localhost:8000
+make eval         # соревновательный скор + 4 абляции
+
+# Либо напрямую через uv:
+uv sync
 uv run uvicorn src.service.app:app --host 0.0.0.0 --port 8000
 ```
+
+> **Для классического pip**: в репозитории подготовлен [`requirements.txt`](requirements.txt) (`pip install -r requirements.txt`). Рекомендуется Python >= 3.13.
 
 ---
 
