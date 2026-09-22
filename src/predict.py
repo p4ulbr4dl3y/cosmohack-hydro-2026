@@ -277,7 +277,7 @@ def process_pair(
         )
         flooded_vegetation_mask = fv.astype(np.uint8)
         if ablation_mode >= 2 and tree_arr is not None and hand_arr is not None and occ_arr is not None:
-            riparian_corridor = (hand_arr <= 1.2) & (occ_arr >= 10.0)
+            riparian_corridor = (hand_arr <= 2.0) & (occ_arr >= 5.0)
             riparian_flooded_forest = (flooded_vegetation_mask == 1) & tree_arr & riparian_corridor
             flood_mask = flood_mask | riparian_flooded_forest.astype(np.uint8)
             water_peak_mask = water_peak_mask | riparian_flooded_forest.astype(np.uint8)
