@@ -139,7 +139,7 @@ def apply_hydrological_connectivity(
     if num_features == 0:
         return flood_mask.copy()
 
-    # Расширение опорной маски на 1 пиксель (3x3), чтобы соседние компоненты затопления касались опоры
+    # Расширение опорной маски на 1 пиксель структурой 3x3, чтобы соседние компоненты затопления касались опоры
     from scipy.ndimage import binary_dilation
 
     seed_dilated = binary_dilation(seed_mask > 0, structure=structure)

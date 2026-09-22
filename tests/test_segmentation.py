@@ -759,3 +759,81 @@ def test_apply_planar_hand_filter():
     assert np.all(filtered[3:8, 3:8] == 1)
     assert np.all(filtered[0, :] == 0)
     assert np.all(filtered[:, 0] == 0)
+
+
+def test_aspect_planar_flats_and_cardinal_directions(tmp_path):
+    """Проверка численной корректности расчета аспекта: плоские участки и 4 стороны света."""
+    transform = from_origin(127.0, 50.0, 10.0, 10.0)
+    crs = "EPSG:32652"
+
+    # 1. Абсолютно плоский HAND (planar flat, dy=0, dx=0)
+    aux_flat = tmp_path / "aux_flat.tif"
+    data = np.zeros((6, 12, 12), dtype=np.float32)
+    data[0, :, :] = 0.0  # slope 0 deg (плоский)
+    data[1, :, :] = 15.0  # hand константа 15 м
+    with rasterio.open(
+        aux_flat, "w", driver="GTiff", height=12, width=12, count=6, dtype=np.float32, crs=crs, transform=transform
+    ) as dst:
+        dst.write(data)
+    res_flat = load_aux_priors(aux_flat, target_shape=(12, 12), target_transform=transform, target_crs=crs)
+    aspect_flat = res_flat["aspect"]
+    assert np.all(aspect_flat == 0.0), "Плоский рельеф должен давать нейтральный аспект 0.0 без артефактов -0.0"
+    assert np.all(np.isfinite(aspect_flat))
+
+    # 2. Проверка направления наискорейшего спуска (downslope):
+    # HAND растёт на запад (col 0 больше col 11) -> наискорейший спуск на восток -> аспект ~ 90 град
+    aux_east = tmp_path / "aux_east.tif"
+    data_east = np.zeros((6, 12, 12), dtype=np.float32)
+    data_east[0, :, :] = 20.0
+    data_east[1, :, :] = np.linspace(50.0, 10.0, 12, dtype=np.float32)[None, :]
+    with rasterio.open(
+        aux_east, "w", driver="GTiff", height=12, width=12, count=6, dtype=np.float32, crs=crs, transform=transform
+    ) as dst:
+        dst.write(data_east)
+    res_east = load_aux_priors(aux_east, target_shape=(12, 12), target_transform=transform, target_crs=crs)
+    # Внутренние пиксели (без краевых эффектов)
+    assert np.allclose(res_east["aspect"][2:10, 2:10], 90.0, atol=1.0)
+
+    # HAND растёт на север (row 0 больше row 11) -> наискорейший спуск на юг -> аспект ~ 180 град
+    aux_south = tmp_path / "aux_south.tif"
+    data_south = np.zeros((6, 12, 12), dtype=np.float32)
+    data_south[0, :, :] = 20.0
+    data_south[1, :, :] = np.linspace(50.0, 10.0, 12, dtype=np.float32)[:, None]
+    with rasterio.open(
+        aux_south, "w", driver="GTiff", height=12, width=12, count=6, dtype=np.float32, crs=crs, transform=transform
+    ) as dst:
+        dst.write(data_south)
+    res_south = load_aux_priors(aux_south, target_shape=(12, 12), target_transform=transform, target_crs=crs)
+    assert np.allclose(res_south["aspect"][2:10, 2:10], 180.0, atol=1.0)
+
+
+def test_radar_shadow_mask_slope_gating_and_negative_values():
+    """Критерий уклона slope > 52 deg строго отсекает тени, отрицательный уклон не вызывает теней."""
+    shape = (8, 8)
+    # 8 направлений аспекта по 45 градусов
+    aspects = np.array([0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0], dtype=np.float32)
+    aspect_grid = np.tile(aspects, (8, 1))
+
+    # 1. Плоский рельеф (slope = 0 deg): ни один аспект не должен создать тень
+    flat_slope = np.zeros(shape, dtype=np.float32)
+    mask_flat = radar_shadow_mask(flat_slope, aspect_grid, orbit_pass="DESCENDING")
+    assert mask_flat is not None and not np.any(mask_flat)
+
+    # 2. Уклон 50 deg (ниже порога 90 - 38 = 52 deg): даже склон, строго обратный направлению
+    # обзора нисходящего прохода (aspect = 90 deg), не может быть в тени (50 + 38 = 88 < 90 deg)
+    slope_50 = np.full(shape, 50.0, dtype=np.float32)
+    mask_50 = radar_shadow_mask(slope_50, aspect_grid, orbit_pass="DESCENDING")
+    assert mask_50 is not None and not np.any(mask_50)
+
+    # 3. Уклон 53 deg (выше порога 52 deg): при aspect = 90 deg (колонка 2) тень возникает,
+    # а при aspect = 270 deg (колонка 6, обращен к радару) тени нет
+    slope_53 = np.full(shape, 53.0, dtype=np.float32)
+    mask_53 = radar_shadow_mask(slope_53, aspect_grid, orbit_pass="DESCENDING")
+    assert mask_53 is not None
+    assert np.all(mask_53[:, 2]), "Склон 53 deg с азимутом 90 deg должен быть в тени при DESCENDING (обзор на 270)"
+    assert not np.any(mask_53[:, 6]), "Склон 53 deg с азимутом 270 deg освещен при DESCENDING"
+
+    # 4. Отрицательный уклон (nodata, например -9999 или -1) гарантированно исключается
+    slope_neg = np.full(shape, -9999.0, dtype=np.float32)
+    mask_neg = radar_shadow_mask(slope_neg, aspect_grid, orbit_pass="DESCENDING")
+    assert mask_neg is not None and not np.any(mask_neg)

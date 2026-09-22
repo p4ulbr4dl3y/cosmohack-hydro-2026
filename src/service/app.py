@@ -310,7 +310,7 @@ async def get_geotiff(
 async def predict_flood(request: PredictRequest) -> Any:
     """Эндпоинт пространственно-временного вывода, принимающий bounds / polygon / pair_id."""
     try:
-        # Сразу проверяем формат даты (YYYY-MM-DD); правдоподобность диапазона проверяется
+        # Сразу проверяем формат даты YYYY-MM-DD; правдоподобность диапазона проверяется
         # относительно фактически выбранной пары (которая может зависеть от дат).
         requested_dates: dict[str, date | None] = {"date_pre": None, "date_peak": None}
         for name in ("date_pre", "date_peak"):
@@ -522,6 +522,8 @@ def _invalidate_pair_caches(pair_ids: list[str]) -> None:
     """Сбрасывает записи отчётов из памяти и кэши отчёта/GeoJSON на диске."""
     for pair_id in pair_ids:
         data_loader._reports_cache.pop(pair_id, None)
+        if hasattr(data_loader, "_sar_analytics_cache"):
+            data_loader._sar_analytics_cache.pop(pair_id, None)
         for name in (f"report_{pair_id}.json", *(f"{pair_id}_{layer}.geojson" for layer in RECOMPUTE_LAYERS)):
             with contextlib.suppress(OSError):
                 (data_loader.cache_dir / name).unlink()
@@ -749,21 +751,18 @@ async def get_sar_analytics(pair_id: str) -> Any:
     if not report:
         raise HTTPException(status_code=404, detail=f"Pair '{pair_id}' not found")
 
-    water_ha = float(report.get("water_peak_ha", report.get("flood_ha", 0.0)))
-    aoi_ha = float(report.get("aoi_ha", 1000.0))
-    frac = round(water_ha / max(aoi_ha, 1.0), 4)
+    sar = report.get("sar_analytics")
+    is_hardcoded = isinstance(sar, dict) and sar.get("mean_vv_db") == -16.2 and sar.get("mean_vh_db") == -22.8
+    if not sar or is_hardcoded:
+        sar = data_loader.compute_sar_analytics(
+            pair_id=pair_id,
+            aoi_ha=float(report.get("aoi_ha", 1000.0)),
+            water_ha=float(report.get("water_peak_ha", report.get("flood_ha", 0.0))),
+            force_recompute=True,
+        )
+        report["sar_analytics"] = sar
 
-    return SARAnalyticsResponse(
-        pair_id=pair_id,
-        water_fraction=frac,
-        water_area_ha=water_ha,
-        mean_vv_db=-16.2,
-        mean_vh_db=-22.8,
-        mean_vh_vv_ratio=-6.6,
-        radar_contrast_db=9.4,
-        cloud_penetration_verified=True,
-        double_bounce_fraction=0.038,
-    )
+    return SARAnalyticsResponse(**sar)
 
 
 @app.get(

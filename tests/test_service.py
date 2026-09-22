@@ -597,3 +597,52 @@ def test_recompute_missing_data_returns_real_500(monkeypatch):
     resp = client.post("/api/v1/recompute", json={"pair_id": "flood_2019_07_amur__belogorsk"})
     assert resp.status_code == 500
     assert "raster missing on disk" in resp.json()["detail"]
+
+
+def test_dynamic_sar_analytics_not_hardcoded():
+    pair_id = "flood_2019_07_amur__blagoveshchensk"
+    resp = client.get(f"/api/v1/sar-analytics/{pair_id}")
+    assert resp.status_code == 200
+    sar = resp.json()
+
+    # Verify that constants are no longer hardcoded
+    assert sar["mean_vv_db"] != -16.2
+    assert sar["mean_vh_db"] != -22.8
+    assert sar["radar_contrast_db"] != 9.4
+    assert sar["double_bounce_fraction"] != 0.038
+
+    # Verify physical validity
+    assert -30.0 < sar["mean_vv_db"] < 0.0
+    assert -40.0 < sar["mean_vh_db"] < 0.0
+    assert sar["water_fraction"] > 0.0
+    assert sar["water_area_ha"] > 0.0
+    assert sar["cloud_penetration_verified"] is True
+
+    # Verify report endpoint also contains dynamic SAR analytics
+    rep_resp = client.get(f"/api/v1/report/{pair_id}")
+    assert rep_resp.status_code == 200
+    rep_sar = rep_resp.json().get("sar_analytics")
+    assert rep_sar is not None
+    assert rep_sar["mean_vv_db"] == sar["mean_vv_db"]
+    assert rep_sar["mean_vh_db"] == sar["mean_vh_db"]
+
+
+def test_sar_analytics_missing_raster_fallback(caplog):
+    from src.service.app import data_loader
+
+    with caplog.at_level("WARNING"):
+        res = data_loader.compute_sar_analytics(
+            pair_id="missing_pair_test",
+            aoi_ha=500.0,
+            water_ha=25.0,
+            force_recompute=True,
+        )
+    assert res["mean_vv_db"] == 0.0
+    assert res["mean_vh_db"] == 0.0
+    assert res["mean_vh_vv_ratio"] == 0.0
+    assert res["radar_contrast_db"] == 0.0
+    assert res["double_bounce_fraction"] == 0.0
+    assert res["water_fraction"] == 0.05
+    assert res["water_area_ha"] == 25.0
+    assert res["cloud_penetration_verified"] is True
+    assert any("S1 raster missing" in record.message for record in caplog.records)

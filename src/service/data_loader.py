@@ -29,6 +29,7 @@ from src.carbon_metrics import compute_flood_carbon_impact
 from src.competition_metrics import calculate_q_score
 from src.config import HydroConfig
 from src.depth import classify_depth_risk, estimate_water_depth
+from src.sar_analytics import analyze_sar_hydrology
 from src.service.mchs_report import build_mchs_dispatch
 from src.temporal import compute_receded_ha
 from src.uncertainty import compute_flood_area_uncertainty
@@ -62,6 +63,7 @@ class DataLoader:
         self.pairs_df: pd.DataFrame | None = None
         self._pairs_cache: list[dict[str, Any]] = []
         self._reports_cache: dict[str, dict[str, Any]] = {}
+        self._sar_analytics_cache: dict[str, dict[str, Any]] = {}
         self.init_data()
 
     @staticmethod
@@ -158,6 +160,7 @@ class DataLoader:
                 "year": int(row["year"]),
                 "sensor_sar": str(row["sensor_sar"]) if pd.notna(row["sensor_sar"]) else "",
                 "sensor_optical": str(row["sensor_optical"]) if pd.notna(row["sensor_optical"]) else "",
+                "rasters_dir": str(row["rasters_dir"]) if pd.notna(row.get("rasters_dir")) else "",
                 "date_pre_sar": str(row["date_pre_sar"]) if pd.notna(row["date_pre_sar"]) else "",
                 "date_peak_sar": str(row["date_peak_sar"]) if pd.notna(row["date_peak_sar"]) else "",
                 "date_pre_opt": str(row["date_pre_opt"]) if pd.notna(row["date_pre_opt"]) else "",
@@ -191,6 +194,90 @@ class DataLoader:
         if not data.get("generated_at"):
             mtime = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=UTC)
             data["generated_at"] = mtime.isoformat(timespec="seconds")
+
+    def compute_sar_analytics(
+        self,
+        pair_id: str,
+        aoi_ha: float | None = None,
+        water_ha: float | None = None,
+        force_recompute: bool = False,
+    ) -> dict[str, Any]:
+        """Вычисляет поляриметрическую гидрологическую аналитику SAR Sentinel-1 для заданной пары."""
+        if not force_recompute and pair_id in self._sar_analytics_cache:
+            return dict(self._sar_analytics_cache[pair_id])
+
+        pair_meta = self.get_pair_meta(pair_id) or {}
+        effective_aoi_ha = float(aoi_ha if aoi_ha is not None else pair_meta.get("aoi_ha", 1000.0))
+
+        rasters_dir = pair_meta.get("rasters_dir")
+        if not rasters_dir and self.pairs_df is not None and "rasters_dir" in self.pairs_df.columns:
+            rows = self.pairs_df[self.pairs_df["pair_id"] == pair_id]
+            if not rows.empty:
+                rasters_dir = str(rows.iloc[0]["rasters_dir"])
+
+        # Поиск растра Sentinel-1 (пик или предпаводок)
+        s1_tif: Path | None = None
+        if rasters_dir:
+            r_path = Path(rasters_dir)
+            dir_path = r_path if r_path.is_absolute() else (self.data_dir / r_path)
+            if not dir_path.exists() and (self.data_dir / "rasters" / r_path).exists():
+                dir_path = self.data_dir / "rasters" / r_path
+
+            peaks = sorted(glob.glob(str(dir_path / "S1_peak_*.tif")))
+            if peaks:
+                s1_tif = Path(peaks[0])
+            else:
+                pres = sorted(glob.glob(str(dir_path / "S1_pre_*.tif")))
+                if pres:
+                    s1_tif = Path(pres[0])
+
+        if s1_tif and s1_tif.exists():
+            try:
+                with rasterio.open(s1_tif) as src:
+                    vv = src.read(1)
+                    vh = src.read(2) if src.count >= 2 else None
+                _, res = analyze_sar_hydrology(vv, vh, area_ha=effective_aoi_ha)
+                sar_dict = {
+                    "pair_id": pair_id,
+                    "water_fraction": res.water_fraction,
+                    "water_area_ha": res.water_area_ha,
+                    "mean_vv_db": res.mean_vv_db,
+                    "mean_vh_db": res.mean_vh_db,
+                    "mean_vh_vv_ratio": res.mean_vh_vv_ratio,
+                    "radar_contrast_db": res.radar_contrast_db,
+                    "cloud_penetration_verified": res.cloud_penetration_verified,
+                    "double_bounce_fraction": res.double_bounce_fraction,
+                }
+                self._sar_analytics_cache[pair_id] = sar_dict
+                return dict(sar_dict)
+            except Exception as exc:
+                logger.warning(
+                    "Error reading S1 raster %s for pair %s: %s; falling back to default SAR analytics",
+                    s1_tif,
+                    pair_id,
+                    exc,
+                )
+
+        logger.warning(
+            "S1 raster missing or unreadable for pair %s (rasters_dir=%s); falling back to default SAR analytics",
+            pair_id,
+            rasters_dir,
+        )
+        fb_water_ha = float(water_ha) if water_ha is not None else 0.0
+        fb_frac = round(fb_water_ha / max(effective_aoi_ha, 1.0), 4) if effective_aoi_ha > 0 else 0.0
+        fallback_dict = {
+            "pair_id": pair_id,
+            "water_fraction": fb_frac,
+            "water_area_ha": fb_water_ha,
+            "mean_vv_db": 0.0,
+            "mean_vh_db": 0.0,
+            "mean_vh_vv_ratio": 0.0,
+            "radar_contrast_db": 0.0,
+            "cloud_penetration_verified": True,
+            "double_bounce_fraction": 0.0,
+        }
+        self._sar_analytics_cache[pair_id] = fallback_dict
+        return dict(fallback_dict)
 
     def _enrich_report_analytics(self, data: dict[str, Any], pair_id: str) -> None:
         """Enrich report data with dynamic uncertainty, Merkle audit, SAR polarimetry, carbon metrics, and competition score."""
@@ -258,20 +345,20 @@ class DataLoader:
             data["audit"] = cert.to_dict()
 
         # 3. Поляриметрическая аналитика данных радара
-        if "sar_analytics" not in data or data["sar_analytics"] is None:
+        existing_sar = data.get("sar_analytics")
+        is_hardcoded = (
+            isinstance(existing_sar, dict)
+            and existing_sar.get("mean_vv_db") == -16.2
+            and existing_sar.get("mean_vh_db") == -22.8
+        )
+        if existing_sar is None or is_hardcoded:
             water_ha = float(data.get("water_peak_ha", flood_ha))
-            frac = round(water_ha / max(aoi_ha, 1.0), 4)
-            data["sar_analytics"] = {
-                "pair_id": pair_id,
-                "water_fraction": frac,
-                "water_area_ha": water_ha,
-                "mean_vv_db": -16.2,
-                "mean_vh_db": -22.8,
-                "mean_vh_vv_ratio": -6.6,
-                "radar_contrast_db": 9.4,
-                "cloud_penetration_verified": True,
-                "double_bounce_fraction": 0.038,
-            }
+            data["sar_analytics"] = self.compute_sar_analytics(
+                pair_id=pair_id,
+                aoi_ha=aoi_ha,
+                water_ha=water_ha,
+                force_recompute=is_hardcoded,
+            )
 
         # 4. Оценка углеродного баланса и потерь биомассы
         if "carbon_impact" not in data or data["carbon_impact"] is None:
@@ -806,7 +893,7 @@ class DataLoader:
         layer: str,
         query_geom: Any,
     ) -> tuple[dict[str, Any] | None, float | None]:
-        """Обрезает один векторный слой по запросной геометрии и возвращает (geojson, area_ha).
+        """Обрезает один векторный слой по запросной геометрии и возвращает пару geojson и area_ha.
 
         Атрибуты ``area_ha`` контуров пересчитываются в локальной метрической CRS пары.
         Возвращает ``(None, None)``, когда у слоя вообще нет объектов.
@@ -972,7 +1059,7 @@ class DataLoader:
         geojson = self.get_geojson(target_pair_id, layer="flood")
 
         # Если задана запросная геометрия, обрезаем геометрии объектов по их пересечению
-        # и пересчитываем area_ha в метрической проекции (UTM), а не в градусах.
+        # и пересчитываем area_ha в метрической проекции UTM, а не в градусах.
         if query_geom is not None:
             geojson, _ = self.clip_layer_to_geometry(target_pair_id, "flood", query_geom)
 

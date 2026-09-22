@@ -1,8 +1,8 @@
 """Сквозной конвейер предсказания и инференса для HydroWatch Amur.
 
 Обрабатывает все 11 пар в hydrowatch_amur/pairs.csv, формирует:
-  - submission.csv со столбцами [pair_id, flood_ha, water_pre_ha, water_peak_ha]
-  - predictions/<pair_id>_flood.tif (GeoTIFF, uint8, 0/1, EPSG:32652)
+  - submission.csv со столбцами pair_id, flood_ha, water_pre_ha, water_peak_ha;
+  - predictions/<pair_id>_flood.tif (GeoTIFF, uint8, 0/1, EPSG:32652).
 Проверяет, что площади в CSV совпадают с числом растровых пикселей в пределах 2%.
 """
 

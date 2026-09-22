@@ -44,7 +44,7 @@ PLANAR_HAND_TOLERANCE_M: float = 1.8
 # вместе с направлением орбиты; грани на пределе тени и выше геометрически тёмные.
 SAR_NOMINAL_INCIDENCE_DEG: float = 38.0
 RADAR_SHADOW_MIN_INCIDENCE_DEG: float = 90.0
-# Размер блока строк для оконного чтения (rasterio.windows.Window) полных сцен S1.
+# Размер блока строк для оконного чтения через rasterio.windows.Window полных сцен S1.
 SAR_READ_BLOCK_ROWS: int = 1024
 GSW_OCCURRENCE_MIN_PCT: float = 80.0
 OPTICAL_MNDWI_MIN: float = 0.1
