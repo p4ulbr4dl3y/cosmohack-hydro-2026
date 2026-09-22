@@ -1,21 +1,96 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Play, ArrowRight, Menu, X, Map, BookOpen, Terminal } from 'lucide-react';
+import {
+  Play,
+  ArrowRight,
+  Menu,
+  X,
+  Map,
+  BookOpen,
+  Terminal,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+} from 'lucide-react';
 import { MapContainer } from '../components/map/MapContainer';
 import { apiClient } from '../api/client';
 import type { Pair } from '../types/domain';
 
+const PAIR_NAMES: Record<string, { city: string; title: string; event: string }> = {
+  'baseline_2018_09_low__blagoveshchensk': { city: 'Благовещенск', title: 'Благовещенск, р. Амур', event: 'Базовый межень' },
+  'baseline_2018_09_low__konstantinovka': { city: 'Константиновка', title: 'Константиновка, р. Амур', event: 'Базовый межень' },
+  'baseline_2018_09_low__svobodny': { city: 'Свободный', title: 'Свободный, р. Зея', event: 'Базовый межень' },
+  'flood_2019_07_amur__belogorsk': { city: 'Белогорск', title: 'Белогорск, р. Томь', event: 'Локальный паводок' },
+  'flood_2019_07_amur__blagoveshchensk': { city: 'Благовещенск', title: 'Благовещенск, р. Амур', event: 'Паводок 2019' },
+  'flood_2019_07_amur__konstantinovka': { city: 'Константиновка', title: 'Константиновка, р. Амур', event: 'Паводок 2019' },
+  'flood_2019_07_amur__svobodny': { city: 'Свободный', title: 'Свободный, р. Зея', event: 'Паводок 2019' },
+  'flood_2021_06_amur__blagoveshchensk': { city: 'Благовещенск', title: 'Благовещенск, р. Амур', event: 'Паводок 2021 (пик)' },
+  'flood_2021_06_amur__konstantinovka': { city: 'Константиновка', title: 'Константиновка, р. Амур', event: 'Паводок 2021' },
+  'flood_2021_06_amur__poyarkovo': { city: 'Поярково', title: 'Поярково, р. Амур', event: 'Паводок 2021' },
+  'flood_2021_08_zeya__svobodny': { city: 'Свободный', title: 'Свободный, р. Зея', event: 'Паводок 2021 (Зея)' },
+};
+
+const PAIR_FLOOD_STATS: Record<string, { flood_ha: number; water_peak_ha: number }> = {
+  'baseline_2018_09_low__blagoveshchensk': { flood_ha: 328.4, water_peak_ha: 8524.8 },
+  'baseline_2018_09_low__konstantinovka': { flood_ha: 332.2, water_peak_ha: 6425.5 },
+  'baseline_2018_09_low__svobodny': { flood_ha: 175.5, water_peak_ha: 4540.9 },
+  'flood_2019_07_amur__belogorsk': { flood_ha: 69.6, water_peak_ha: 767.0 },
+  'flood_2019_07_amur__blagoveshchensk': { flood_ha: 996.4, water_peak_ha: 9189.0 },
+  'flood_2019_07_amur__konstantinovka': { flood_ha: 722.3, water_peak_ha: 7052.8 },
+  'flood_2019_07_amur__svobodny': { flood_ha: 556.0, water_peak_ha: 4999.7 },
+  'flood_2021_06_amur__blagoveshchensk': { flood_ha: 3745.0, water_peak_ha: 11824.0 },
+  'flood_2021_06_amur__konstantinovka': { flood_ha: 4863.4, water_peak_ha: 10746.2 },
+  'flood_2021_06_amur__poyarkovo': { flood_ha: 2046.2, water_peak_ha: 6883.8 },
+  'flood_2021_08_zeya__svobodny': { flood_ha: 7496.9, water_peak_ha: 12292.9 },
+};
+
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
-  const [previewPair, setPreviewPair] = useState<Pair | null>(null);
+  const [pairs, setPairs] = useState<Pair[]>([]);
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    apiClient.fetchPairs().then((pairs) => {
-      const defaultPair = pairs.find((p) => p.pair_id === 'flood_2019_07_amur__blagoveshchensk') || pairs[0];
-      if (defaultPair) setPreviewPair(defaultPair);
+    apiClient.fetchPairs().then((loadedPairs) => {
+      if (loadedPairs && loadedPairs.length > 0) {
+        setPairs(loadedPairs);
+        const idx = loadedPairs.findIndex((p) => p.pair_id === 'flood_2019_07_amur__blagoveshchensk');
+        if (idx !== -1) setSlideIndex(idx);
+      }
     }).catch(console.error);
   }, []);
+
+  // Auto-advance slideshow every 4.5 seconds unless user hovers
+  useEffect(() => {
+    if (isPaused || pairs.length <= 1) return;
+    const timer = setInterval(() => {
+      setSlideIndex((prev) => (prev + 1) % pairs.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [isPaused, pairs.length]);
+
+  const currentPair = pairs[slideIndex] || null;
+  const currentInfo = currentPair
+    ? PAIR_NAMES[currentPair.pair_id] || {
+        city: currentPair.aoi_name || 'Амурская обл.',
+        title: currentPair.pair_id,
+        event: currentPair.event_name || 'Наблюдение',
+      }
+    : null;
+  const currentStats = currentPair
+    ? PAIR_FLOOD_STATS[currentPair.pair_id] || {
+        flood_ha: (currentPair as any).flood_ha || 996.4,
+        water_peak_ha: 2847.3,
+      }
+    : { flood_ha: 996.4, water_peak_ha: 2847.3 };
+
+  const prevSlide = () => {
+    setSlideIndex((prev) => (prev - 1 + pairs.length) % pairs.length);
+  };
+  const nextSlide = () => {
+    setSlideIndex((prev) => (prev + 1) % pairs.length);
+  };
 
   return (
     <div className="min-h-screen bg-[#FAFBFC] text-text-primary flex flex-col font-sans">
@@ -172,59 +247,120 @@ export const Landing: React.FC = () => {
             </div>
           </div>
 
-          {/* Hero Right Column: Inactive Real Map Card */}
+          {/* Hero Right Column: Interactive Location Slideshow Card */}
           <div className="lg:col-span-6">
-            <div className="bg-white border border-[#EAECF0] rounded-2xl shadow-floating overflow-hidden h-[320px] sm:h-[440px] relative select-none">
-              {/* Real Leaflet Map with all real layers, completely non-interactive */}
+            <div
+              className="group bg-white border border-[#EAECF0] rounded-2xl shadow-floating overflow-hidden h-[340px] sm:h-[460px] relative select-none transition-all"
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+            >
+              {/* Real Leaflet Map with all real layers */}
               <div className="w-full h-full pointer-events-none select-none">
                 <MapContainer
-                  currentPair={previewPair}
+                  currentPair={currentPair}
                   interactive={false}
                   showControls={false}
                   className="w-full h-full"
                 />
               </div>
 
-              {/* Floating Real KPI Badge */}
-              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 bg-white/95 backdrop-blur-sm rounded-xl p-2.5 sm:p-3 shadow-floating border border-[#EAECF0] text-left pointer-events-none">
+              {/* Location Badge (Top Left) */}
+              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-col gap-1 pointer-events-none">
+                <div className="bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-full px-3 py-1 shadow-sm text-xs font-semibold text-text-primary flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{currentInfo?.city || 'Благовещенск'}</span>
+                  <span className="text-[11px] font-mono font-normal text-text-muted">
+                    {slideIndex + 1}/{pairs.length || 11}
+                  </span>
+                </div>
+                <div className="bg-white/90 backdrop-blur-sm border border-[#EAECF0] rounded-md px-2 py-0.5 shadow-2xs text-[10px] font-mono text-text-secondary">
+                  {currentInfo?.event || 'Паводок 2019'} · {currentPair?.sensor_sar || 'Sentinel-1'}
+                </div>
+              </div>
+
+              {/* Floating Real KPI Badge (Top Right) */}
+              <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 bg-white/95 backdrop-blur-sm rounded-xl p-2.5 sm:p-3 shadow-floating border border-[#EAECF0] text-left pointer-events-none">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 sm:w-2.5 h-2 sm:h-2.5 rounded-full bg-[#F97316]" />
-                  <span className="font-mono font-bold text-xs sm:text-sm text-text-primary">
-                    2 847,3 га
+                  <span className="font-mono font-bold text-xs sm:text-sm md:text-base text-text-primary">
+                    {currentStats.flood_ha.toLocaleString('ru-RU')} га
                   </span>
                 </div>
                 <div className="text-[10px] sm:text-[11px] text-text-secondary mt-0.5 font-medium">
-                  нового затопления
+                  {currentPair?.event_kind === 'baseline' ? 'водное зеркало межени' : 'нового затопления'}
                 </div>
                 <div className="text-[9px] sm:text-[10px] text-text-muted mt-0.5 font-mono">
-                  {previewPair ? `${previewPair.date_pre_sar || '12.07'} → ${previewPair.date_peak_sar || '14.07.2019'}` : '14.07.2019'}
+                  {currentPair ? `${currentPair.date_pre_sar || '12.07'} → ${currentPair.date_peak_sar || '14.07.2019'}` : '14.07.2019'}
                 </div>
               </div>
 
-              {/* Water Classes Legend Strip at Bottom Left */}
-              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 bg-white/90 backdrop-blur-xs border border-[#EAECF0] rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm text-[10px] sm:text-[11px] flex items-center gap-2 sm:gap-3 pointer-events-none">
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#F97316]" />
-                  <span className="text-text-secondary">Затопление</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
-                  <span className="text-text-secondary">Пик</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#60A5FA]" />
-                  <span className="text-text-secondary">До</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
-                  <span className="text-text-secondary">Постоянная</span>
-                </div>
-              </div>
+              {/* Slideshow Arrow Controls */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevSlide();
+                }}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md border border-[#EAECF0] flex items-center justify-center transition-all opacity-80 hover:opacity-100 hover:scale-105 cursor-pointer"
+                title="Предыдущая местность"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextSlide();
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-text-primary shadow-md border border-[#EAECF0] flex items-center justify-center transition-all opacity-80 hover:opacity-100 hover:scale-105 cursor-pointer"
+                title="Следующая местность"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
 
-              {/* Sensor indicator pill (Top Left) */}
-              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-white/95 backdrop-blur-sm border border-[#EAECF0] rounded-full px-2.5 py-0.5 sm:py-1 shadow-sm text-[10px] sm:text-[11px] font-mono font-medium text-text-secondary pointer-events-none flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Sentinel-1 GIS</span>
+              {/* Quick Jump to Dashboard (Hover Button) */}
+              {currentPair && (
+                <button
+                  onClick={() => navigate(`/dashboard/${currentPair.pair_id}`)}
+                  className="absolute bottom-12 sm:bottom-14 right-3 sm:right-4 z-10 opacity-0 group-hover:opacity-100 transition-all bg-[#0EA5E9] hover:bg-[#0284C7] text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Исследовать район</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {/* Bottom Bar: Water Classes Legend Strip + Interactive Slide Indicator Dots */}
+              <div className="absolute bottom-3 inset-x-3 sm:bottom-4 sm:inset-x-4 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-auto">
+                <div className="bg-white/90 backdrop-blur-xs border border-[#EAECF0] rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 shadow-sm text-[10px] sm:text-[11px] flex items-center gap-2 sm:gap-3 pointer-events-none">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#F97316]" />
+                    <span className="text-text-secondary">Затопление</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
+                    <span className="text-text-secondary">Пик</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#60A5FA]" />
+                    <span className="text-text-secondary">До</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-[#3B82F6]" />
+                    <span className="text-text-secondary">Постоянная</span>
+                  </div>
+                </div>
+
+                {/* Slideshow Pill Dots */}
+                <div className="bg-white/90 backdrop-blur-xs border border-[#EAECF0] rounded-lg px-2 py-1.5 shadow-sm flex items-center gap-1.5">
+                  {pairs.map((p, idx) => (
+                    <button
+                      key={p.pair_id}
+                      onClick={() => setSlideIndex(idx)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        idx === slideIndex ? 'w-5 bg-[#0EA5E9]' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                      }`}
+                      title={`${PAIR_NAMES[p.pair_id]?.city || p.aoi_name} (${PAIR_NAMES[p.pair_id]?.event || p.event_name})`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>

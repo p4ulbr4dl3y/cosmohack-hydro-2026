@@ -61,7 +61,7 @@ export const Legend: React.FC<LegendProps> = ({ aoiKm2 = 1245 }) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Eye className="w-3.5 h-3.5 text-[#0EA5E9]" />
-          <span className="font-semibold text-text-primary text-[12px]">Легенда карты</span>
+          <span className="font-semibold text-text-primary text-[12px]">Легенда</span>
         </div>
         <button
           onClick={() => setShowLegend(false)}

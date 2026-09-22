@@ -102,11 +102,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     const canvasRenderer = L.canvas({ padding: 0.5 });
     canvasRendererRef.current = canvasRenderer;
 
+    const initialCenter: [number, number] = currentPair?.center_4326 || [50.2899, 127.5378];
+    const initialZoom = !interactive ? 11 : 10;
+
     const map = L.map(mapRef.current, {
       preferCanvas: true,
       renderer: canvasRenderer,
-      center: [50.2899, 127.5378],
-      zoom: 10,
+      center: initialCenter,
+      zoom: initialZoom,
       zoomControl: false,
       attributionControl: false,
       dragging: interactive,
@@ -116,6 +119,17 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       boxZoom: interactive,
       keyboard: interactive,
     });
+
+    if (currentPair?.bounds_4326) {
+      const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
+      map.fitBounds(
+        [
+          [minY, minX],
+          [maxY, maxX],
+        ],
+        { padding: !interactive ? [10, 10] : [20, 20], maxZoom: 14, animate: false }
+      );
+    }
 
     if (interactive) {
       L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -224,8 +238,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     aoiLayerGroup.current = layer;
 
-    // Fit bounds only when pair actually changes to prevent jittering
+    // Fit bounds tightly on pair change
     const currentPairId = currentPair?.pair_id;
+    const pad: [number, number] = !interactive ? [10, 10] : [20, 20];
+
     if (currentPairId && lastFittedPairIdRef.current !== currentPairId) {
       lastFittedPairIdRef.current = currentPairId;
       if (currentPair?.aoi_id) {
@@ -238,7 +254,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           } as any);
           const b = tempLayer.getBounds();
           if (b.isValid()) {
-            map.fitBounds(b, { padding: [40, 40], maxZoom: 12, animate: false });
+            map.fitBounds(b, { padding: pad, maxZoom: 14, animate: false });
           }
         } else if (currentPair.bounds_4326) {
           const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
@@ -247,12 +263,54 @@ export const MapContainer: React.FC<MapContainerProps> = ({
               [minY, minX],
               [maxY, maxX],
             ],
-            { padding: [40, 40], maxZoom: 12, animate: false }
+            { padding: pad, maxZoom: 14, animate: false }
           );
         }
       }
     }
-  }, [aoiFeatures, currentPair?.pair_id, layers.aoi_boundary]);
+  }, [aoiFeatures, currentPair?.pair_id, currentPair?.aoi_id, currentPair?.bounds_4326, layers.aoi_boundary, interactive]);
+
+  // Keep map properly sized and centered when container size changes (PDF export, window resize, print)
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const container = mapRef.current;
+
+    const handleResize = () => {
+      const map = leafletMap.current;
+      if (!map) return;
+      map.invalidateSize({ pan: false });
+      const pad: [number, number] = !interactive ? [10, 10] : [20, 20];
+      if (currentPair?.bounds_4326) {
+        const [minX, minY, maxX, maxY] = currentPair.bounds_4326;
+        map.fitBounds(
+          [
+            [minY, minX],
+            [maxY, maxX],
+          ],
+          { padding: pad, maxZoom: 14, animate: false }
+        );
+      } else if (currentPair?.center_4326) {
+        map.panTo(currentPair.center_4326, { animate: false });
+      }
+    };
+
+    let ro: any = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        handleResize();
+      });
+      ro.observe(container);
+    }
+
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('beforeprint', handleResize);
+
+    return () => {
+      if (ro) ro.disconnect();
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('beforeprint', handleResize);
+    };
+  }, [currentPair?.bounds_4326, currentPair?.center_4326, interactive]);
 
   // Load and render OSM Hydrography
   useEffect(() => {

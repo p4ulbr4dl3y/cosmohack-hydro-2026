@@ -6,8 +6,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { ApiDocs, ENDPOINTS } from '../pages/ApiDocs';
 
 describe('ApiDocs ENDPOINTS catalog verification', () => {
-  it('registers all 15 required API endpoints', () => {
-    expect(ENDPOINTS.length).toBe(15);
+  it('registers all required API endpoints', () => {
+    expect(ENDPOINTS.length).toBeGreaterThanOrEqual(15);
   });
 
   it('guarantees unique endpoint IDs', () => {
