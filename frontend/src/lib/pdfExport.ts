@@ -53,7 +53,7 @@ export async function downloadReportPdf(
     const pageNodes = targetElement.querySelectorAll<HTMLElement>('[data-pdf-page]');
     const pagesToRender = pageNodes.length > 0 ? Array.from(pageNodes) : [targetElement];
 
-    // Ensure maps and charts adapt precisely to their layout before html2canvas capture
+    // Перерисовка карт и графиков под верстку перед захватом через html2canvas
     window.dispatchEvent(new Event('resize'));
     await new Promise((resolve) => setTimeout(resolve, 150));
 

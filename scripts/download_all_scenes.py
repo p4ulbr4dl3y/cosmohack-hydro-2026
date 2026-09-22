@@ -117,7 +117,7 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
                     dst_nodata=np.nan,
                 )
                 mask = (~np.isnan(data)) & (data > 0)
-                bands_data[b_name][mask] = data[mask] / 10000.0  # Surface reflectance [0, 1]
+                bands_data[b_name][mask] = data[mask] / 10000.0  # Коэффициент поверхностного отражения [0, 1]
 
         # SCL: Scene Classification Layer (отбор облаков и теней), перепроецирован методом ближайшего соседа
         if "SCL" in item.assets:
@@ -160,7 +160,7 @@ def download_s2_raster(catalog, items, target_bounds, target_shape, target_trans
     denom_ndvi = np.maximum(b8 + b4, 1e-6)
     ndvi = np.where(_valid(b8, b4), (b8 - b4) / denom_ndvi, -999.0).astype(np.float32)
 
-    # AWEIsh (Feyisa et al. 2014): Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2.
+    # AWEIsh: Blue + 2.5*Green - 1.5*(NIR + SWIR1) - 0.25*SWIR2.
     # Требует B02 и B12; без них индекс невычислим и остаётся nodata.
     aweish = np.where(_valid(b2, b3, b8, b11, b12), b2 + 2.5 * b3 - 1.5 * (b8 + b11) - 0.25 * b12, -999.0).astype(
         np.float32

@@ -739,21 +739,21 @@ def test_segment_water_partial_sar_fallback_is_config_driven():
 def test_apply_planar_hand_filter():
     from src.segmentation import apply_planar_hand_filter
 
-    # Seed is a 3x3 block in the center (rows 4..6, cols 4..6)
+    # Затравка: центральный блок 3x3 (строки 4..6, столбцы 4..6)
     seed = np.zeros((10, 10), dtype=bool)
     seed[4:7, 4:7] = True
 
-    # HAND: seed has 0.0, boundary has 1.0, distant points have varying HAND
+    # Гидротопография HAND: затравка = 0.0, граница = 1.0, удаленные пиксели с переменными значениями
     hand = np.full((10, 10), 5.0, dtype=np.float32)
     hand[4:7, 4:7] = 0.0
-    hand[3:8, 3:8] = 1.0  # boundary has HAND = 1.0
+    hand[3:8, 3:8] = 1.0  # граница имеет HAND = 1.0
     hand[4:7, 4:7] = 0.0
 
-    # Flood candidate: entire 10x10 array
+    # Кандидаты затопления: весь массив 10x10
     flood = np.ones((10, 10), dtype=np.uint8)
 
-    # With p90 on boundary = 1.0 and tolerance = 1.5 -> limit = 2.5m
-    # Pixels with hand = 1.0 stay (<= 2.5m), pixels with hand = 5.0 are filtered out (> 2.5m)
+    # При 90-м процентиле границы = 1.0 и допуске = 1.5 предел равен 2.5 м
+    # Пиксели с hand = 1.0 сохраняются (<= 2.5 м), пиксели с hand = 5.0 отсекаются (> 2.5 м)
     filtered = apply_planar_hand_filter(flood, seed, hand, percentile=90.0, tolerance_m=1.5)
 
     assert np.all(filtered[3:8, 3:8] == 1)

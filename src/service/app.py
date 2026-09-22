@@ -316,7 +316,7 @@ async def predict_flood(request: PredictRequest) -> Any:
         for name in ("date_pre", "date_peak"):
             val = getattr(request, name)
             if val is None or val == "":
-                continue  # dates omitted: behave exactly as before
+                continue  # даты не переданы: сохранение стандартного поведения
             try:
                 requested_dates[name] = datetime.strptime(val, "%Y-%m-%d").date()
             except ValueError:

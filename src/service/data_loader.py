@@ -199,7 +199,7 @@ class DataLoader:
         aoi_ha = float(data.get("aoi_ha", pair_meta.get("aoi_ha", 1000.0)))
         has_optical = bool(data.get("date_pre_opt") and data.get("date_peak_opt"))
 
-        # 1. Dynamic Spatial Uncertainty
+        # 1. Оценка пространственной динамической неопределенности
         if "uncertainty" not in data or data["uncertainty"] is None:
             pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
             if pred_tif.exists():
@@ -229,7 +229,7 @@ class DataLoader:
                 "spatial_correlation": unc_res.spatial_correlation,
             }
 
-        # 2. Cryptographic Merkle Audit
+        # 2. Криптографический аудит дерева Меркла
         if "audit" not in data or data["audit"] is None:
             inputs_info = {
                 "pair_id": pair_id,
@@ -257,7 +257,7 @@ class DataLoader:
             )
             data["audit"] = cert.to_dict()
 
-        # 3. SAR Polarimetry Analytics
+        # 3. Поляриметрическая аналитика данных радара
         if "sar_analytics" not in data or data["sar_analytics"] is None:
             water_ha = float(data.get("water_peak_ha", flood_ha))
             frac = round(water_ha / max(aoi_ha, 1.0), 4)
@@ -273,7 +273,7 @@ class DataLoader:
                 "double_bounce_fraction": 0.038,
             }
 
-        # 4. IPCC Carbon and Biomass Impact
+        # 4. Оценка углеродного баланса и потерь биомассы
         if "carbon_impact" not in data or data["carbon_impact"] is None:
             impact = compute_flood_carbon_impact(
                 pair_id=pair_id,
@@ -284,7 +284,7 @@ class DataLoader:
             res_impact["credit_potential"] = asdict(impact.credit_potential)
             data["carbon_impact"] = res_impact
 
-        # 5. Competition Convergence
+        # 5. Сходимость официальных метрик соревнования
         if "competition_score" not in data or data["competition_score"] is None:
             sub_flood_ha = flood_ha
             pred_tif = self.predictions_dir / f"{pair_id}_flood.tif"
