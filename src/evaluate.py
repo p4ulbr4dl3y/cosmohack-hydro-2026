@@ -473,17 +473,19 @@ def main() -> None:
             data_dir=args.data_dir,
             output_json_path=args.output_json,
         )
-        print("\n" + "=" * 60)
-        print("РЕЗУЛЬТАТЫ 4-СТАДИЙНОГО АБЛАЦИОННОГО ИССЛЕДОВАНИЯ")
-        print("=" * 60)
-        for k, v in sorted(abl_res.items()):
-            desc = v.get("description", k)
-            sc = v.get("official_metrics", {}).get("score", 0.0)
-            qf = v.get("official_metrics", {}).get("Q_flood", 0.0)
-            spec = v.get("official_metrics", {}).get("Spec_base", 0.0)
-            iou = v.get("raster_metrics", {}).get("mean_iou", 0.0)
-            print(f"{desc}: Score={sc:.4f} | Q_flood={qf:.4f} | Spec_base={spec:.4f} | IoU={iou:.4f}")
-        print("=" * 60 + "\n")
+        if isinstance(abl_res, dict):
+            print("\n" + "=" * 60)
+            print("РЕЗУЛЬТАТЫ 4-СТАДИЙНОГО АБЛАЦИОННОГО ИССЛЕДОВАНИЯ")
+            print("=" * 60)
+            for k, v in sorted(abl_res.items()):
+                if isinstance(v, dict):
+                    desc = v.get("description", k)
+                    sc = v.get("official_metrics", {}).get("score", 0.0)
+                    qf = v.get("official_metrics", {}).get("Q_flood", 0.0)
+                    spec = v.get("official_metrics", {}).get("Spec_base", 0.0)
+                    iou = v.get("raster_metrics", {}).get("mean_iou", 0.0)
+                    print(f"{desc}: Score={sc:.4f} | Q_flood={qf:.4f} | Spec_base={spec:.4f} | IoU={iou:.4f}")
+            print("=" * 60 + "\n")
 
     if args.holdout:
         if not args.submission.exists():
