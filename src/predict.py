@@ -300,6 +300,7 @@ def process_pair(
 
     # 6c. Фильтр гидрологической связности с несколькими опорами и MMU в режиме полного конвейера (режим 4)
     if ablation_mode == 4:
+        cfg = load_config()
         # Опорная сеть: постоянная речная вода (GSW >= 80%) плюс сезонные русла (GSW occurrence >= 70%)
         seed_mask = None
         if perm_mask is not None and np.any(perm_mask):
@@ -311,7 +312,6 @@ def process_pair(
 
         if seed_mask is not None and np.any(seed_mask):
             flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
-            cfg = load_config()
             if hand_arr is not None and bool(cfg.get("planar_hand_filter_enabled", True)):
                 flood_mask = apply_planar_hand_filter(
                     flood_mask=flood_mask,
