@@ -26,7 +26,9 @@ class LandcoverDistribution(BaseModel):
         default=0.0, description="Площадь затопления за пределами исторического максимума воды (аномальный паводок), га"
     )
     new_flood_extent_pct: float = Field(default=0.0, description="Доля аномальной площади затопления, %")
-    mean_hand_m: float = Field(default=0.0, description="Средняя высота над ближайшим водотоком (HAND) в зоне затопления, м")
+    mean_hand_m: float = Field(
+        default=0.0, description="Средняя высота над ближайшим водотоком (HAND) в зоне затопления, м"
+    )
     source: str = Field(
         default="ESA WorldCover v200 Built-up/Cropland & JRC GSW v1.4",
         description="Источники данных по типам поверхности и базовой воде",
@@ -43,7 +45,8 @@ class DepthStatistics(BaseModel):
     )
     low_risk_pct: float = Field(default=0.0, description="Доля площади затопления в классе низкого риска, %")
     medium_risk_ha: float = Field(
-        default=0.0, description="Площадь затопления с глубиной 0.5 - 1.5 м (только гусеничные плавающие транспортеры ПТС-М)"
+        default=0.0,
+        description="Площадь затопления с глубиной 0.5 - 1.5 м (только гусеничные плавающие транспортеры ПТС-М)",
     )
     medium_risk_pct: float = Field(default=0.0, description="Доля площади затопления в классе среднего риска, %")
     high_risk_ha: float = Field(
@@ -94,7 +97,9 @@ class PairInfo(BaseModel):
     date_peak_opt: str = Field(default="", description="Оптическая дата пика, если доступна")
     aoi_km2: float = Field(description="Размер зоны интереса, км2")
     aoi_ha: float = Field(description="Размер зоны интереса, га")
-    bounds_4326: list[float] = Field(description="Ограничивающий прямоугольник [min_lon, min_lat, max_lon, max_lat] в EPSG:4326")
+    bounds_4326: list[float] = Field(
+        description="Ограничивающий прямоугольник [min_lon, min_lat, max_lon, max_lat] в EPSG:4326"
+    )
     center_4326: list[float] = Field(description="Координата центра [lat, lon] в EPSG:4326")
 
 
@@ -146,7 +151,9 @@ class ReportResponse(BaseModel):
     gauge_status: GaugeStatus | None = Field(
         default=None, description="Отметки уровня воды гидрологического поста и стадия опасности"
     )
-    uncertainty: FloodUncertaintyResponse | None = Field(default=None, description="Оценка пространственной неопределенности")
+    uncertainty: FloodUncertaintyResponse | None = Field(
+        default=None, description="Оценка пространственной неопределенности"
+    )
     audit: HydroAuditCertificateResponse | None = Field(
         default=None, description="Криптографический аудиторский сертификат Merkle"
     )
@@ -156,7 +163,9 @@ class ReportResponse(BaseModel):
     carbon_impact: FloodCarbonImpactResponse | None = Field(
         default=None, description="Углеродные и биомассовые потери по IPCC"
     )
-    competition_score: dict[str, Any] | None = Field(default=None, description="Сходимость официальной соревновательной метрики")
+    competition_score: dict[str, Any] | None = Field(
+        default=None, description="Сходимость официальной соревновательной метрики"
+    )
     anomaly_note: dict[str, Any] | None = Field(
         default=None,
         description="Детальный анализ расхождения физической наземной истины и эталона для известных аномалий",
@@ -214,7 +223,9 @@ class PredictResponse(BaseModel):
     query_bounds: list[float] | None = Field(default=None, description="Запрошенные пользователем границы")
     query_polygon: dict[str, Any] | None = Field(default=None, description="Запрошенный пользователем полигон GeoJSON")
     query_dates: dict[str, str | None] | None = Field(default=None, description="Запрошенные пользователем даты")
-    scene_dates: dict[str, str | None] | None = Field(default=None, description="Фактические использованные даты радиолокационных сцен")
+    scene_dates: dict[str, str | None] | None = Field(
+        default=None, description="Фактические использованные даты радиолокационных сцен"
+    )
     requested_dates: dict[str, str | None] | None = Field(default=None, description="Проверенные запрошенные даты")
     summary: PredictSummary = Field(description="Гидрологические расчеты площадей")
     metadata: PredictMetadata = Field(description="Паспортные метаданные AOI")
@@ -232,7 +243,9 @@ class PredictionTaskResponse(BaseModel):
         description="Статус жизненного цикла задачи прогноза: 'pending', 'processing', 'completed', 'failed'",
     )
     progress: float = Field(default=1.0, ge=0.0, le=1.0, description="Доля выполнения от 0.0 до 1.0")
-    result: PredictResponse | None = Field(default=None, description="Полезная нагрузка результата прогноза по завершении задачи")
+    result: PredictResponse | None = Field(
+        default=None, description="Полезная нагрузка результата прогноза по завершении задачи"
+    )
     error: str | None = Field(default=None, description="Описание ошибки, если задача завершилась сбоем")
 
 
@@ -241,14 +254,18 @@ class PredictRequest(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    pair_id: str | None = Field(default=None, description="Идентификатор пары, напр. flood_2019_07_amur__blagoveshchensk")
+    pair_id: str | None = Field(
+        default=None, description="Идентификатор пары, напр. flood_2019_07_amur__blagoveshchensk"
+    )
     bounds: list[float] | None = Field(default=None, description="[min_lon, min_lat, max_lon, max_lat] в EPSG:4326")
     polygon: dict[str, Any] | None = Field(
         default=None, description="Геометрия GeoJSON (Polygon) в EPSG:4326; имеет приоритет над границами"
     )
     date_pre: str | None = Field(default=None, description="Опорная дата до паводка (ГГГГ-ММ-ДД)")
     date_peak: str | None = Field(default=None, description="Дата пика паводка (ГГГГ-ММ-ДД)")
-    task_id: str | None = Field(default=None, description="Необязательный идентификатор задачи асинхронного отслеживания")
+    task_id: str | None = Field(
+        default=None, description="Необязательный идентификатор задачи асинхронного отслеживания"
+    )
 
 
 class DepthRiskZone(BaseModel):
@@ -302,7 +319,9 @@ class MchsDispatchResponse(BaseModel):
     aoi_name: str = Field(description="Название зоны интереса")
     date_peak: str = Field(description="Дата пикового наблюдения (ГГГГ-ММ-ДД)")
     date_pre: str = Field(description="Дата базового наблюдения до события (ГГГГ-ММ-ДД)")
-    affected_municipalities: list[str] = Field(description="Список пострадавших муниципальных районов / городских округов")
+    affected_municipalities: list[str] = Field(
+        description="Список пострадавших муниципальных районов / городских округов"
+    )
     flooded_total_ha: float = Field(description="Общая площадь затопления, га")
     flooded_total_km2: float = Field(description="Общая площадь затопления, км2")
     flooded_builtup_area_ha: float = Field(description="Затопленная застроенная / жилая территория, га")
@@ -311,7 +330,9 @@ class MchsDispatchResponse(BaseModel):
     flooded_cropland_ha: float = Field(description="Синоним затопленной пахотной территории, га")
     flooded_natural_ha: float = Field(description="Затопленные естественные / пойменные земли, га")
     estimated_cutoff_transport_segments: int = Field(description="Оценка числа отрезанных транспортных участков")
-    transport_infrastructure: TransportInfrastructureRisk = Field(description="Детализация риска транспортной инфраструктуры")
+    transport_infrastructure: TransportInfrastructureRisk = Field(
+        description="Детализация риска транспортной инфраструктуры"
+    )
     depth_risk_breakdown: DepthRiskBreakdown = Field(description="Разбивка риска по глубине воды")
     operational_summary: str = Field(description="Операционная сводка для руководства")
     recommended_actions: list[str] = Field(description="Список приоритетных действий по реагированию")
@@ -418,7 +439,9 @@ class SubmissionValidationResponse(BaseModel):
     passed_checks: list[str] = Field(description="Список проверенных правил")
     errors: list[str] = Field(description="Критические ошибки, дисквалифицирующие посылку")
     warnings: list[str] = Field(description="Предупреждения или некритические замечания")
-    discrepancies: list[dict[str, Any]] = Field(description="Анализ расхождения растра и CSV по каждой паре (правило 2%)")
+    discrepancies: list[dict[str, Any]] = Field(
+        description="Анализ расхождения растра и CSV по каждой паре (правило 2%)"
+    )
 
 
 class FloodCarbonImpactResponse(BaseModel):
