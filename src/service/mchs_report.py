@@ -524,7 +524,6 @@ def render_mchs_html(dispatch: dict[str, Any]) -> str:
     </table>
 
     <div class="section-title">5. Дифференциация по глубинам затопления</div>
-    <!-- Depth Risk Breakdown -->
     <table>
       <thead>
         <tr>

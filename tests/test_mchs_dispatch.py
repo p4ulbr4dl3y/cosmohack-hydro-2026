@@ -90,7 +90,7 @@ def test_mchs_dispatch_html_view() -> None:
     assert "ОПЕРАТИВНОЕ ДОНЕСЕНИЕ" in html_text
     assert FLOOD_PAIR in html_text
     assert "Затронутые муниципальные образования" in html_text
-    assert "Depth Risk Breakdown" in html_text
+    assert "5. Дифференциация по глубинам затопления" in html_text
     assert "window.print()" in html_text
 
 
