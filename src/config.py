@@ -36,7 +36,7 @@ SLOPE_MAX_DEG: float = 3.0
 HAND_MAX_M: float = 10.0
 PLANAR_HAND_FILTER_ENABLED: bool = True
 PLANAR_HAND_PERCENTILE: float = 90.0
-PLANAR_HAND_TOLERANCE_M: float = 1.5
+PLANAR_HAND_TOLERANCE_M: float = 1.8
 
 
 # Геометрия радиолокационной тени (защита с учётом орбиты и экспозиции). Sentinel-1 IW не несёт попиксельной

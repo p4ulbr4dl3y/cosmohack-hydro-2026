@@ -318,7 +318,7 @@ def process_pair(
                     seed_mask=seed_mask,
                     hand=hand_arr,
                     percentile=float(cfg.get("planar_hand_percentile", 90.0)),
-                    tolerance_m=float(cfg.get("planar_hand_tolerance_m", 1.5)),
+                    tolerance_m=float(cfg.get("planar_hand_tolerance_m", 1.8)),
                 )
                 flood_mask = apply_hydrological_connectivity(flood_mask, seed_mask)
         flood_mask = apply_mmu(flood_mask, min_size=MMU_MIN_PIXELS).astype(np.uint8)

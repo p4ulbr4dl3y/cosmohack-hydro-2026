@@ -43,7 +43,7 @@ hand_max_m: 10.0
 # Planar river level HAND elevation filter (Hypothesis 18)
 planar_hand_filter_enabled: true
 planar_hand_percentile: 90.0
-planar_hand_tolerance_m: 1.5
+planar_hand_tolerance_m: 1.8
 
 
 # Orbit-aware radar-shadow guard (D3). Sentinel-1 is right-looking: descending passes
